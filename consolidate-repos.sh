@@ -47,6 +47,7 @@ done
 rm "$CURDIR"/unknown.txt
 mkdir "$TMPDIR"/spkg
 mkdir "$TMPDIR"/spkg-git
+mkdir "$CURDIR"/dist
 for SPKG in $(find "$SAGEDIR"/spkg/standard -regex '.*/[^/]*\.spkg' -type f)
 do
     # figure out what the spkg is
@@ -67,7 +68,7 @@ do
 
     # tarball the src/ directory and put it into our dist/ directory
     mv -T "$TMPDIR"/spkg/$PKGNAME-$PKGVER/src "$TMPDIR"/spkg/$PKGNAME-$PKGVER/$PKGNAME-$PKGVER
-    tar c -jf "$CURDIR"/$PKGNAME-$PKGVER.tar.bz2 -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER
+    tar c -jf "$CURDIR"/dist/$PKGNAME-$PKGVER.tar.bz2 -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER
 
     # convert the SPKG's hg repo to git
     git init --bare "$TMPDIR"/spkg-git/$PKGNAME
