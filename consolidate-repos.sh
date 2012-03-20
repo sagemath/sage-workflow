@@ -53,8 +53,8 @@ mkdir -p "$TMPDIR" && cd "$TMPDIR" && rm -rf *
 git init --bare sagebase && hg -R "$SAGEDIR" push sagebase
 git init --bare sageext  && hg -R "$SAGEDIR"/data/extcode push sageext
 # this takes too long for testing - uncomment later
-#git init --bare sagelib  && hg -R "$SAGEDIR"/devel/sage-main push sagelib
-#git init --bare sagebin  && hg -R "$SAGEDIR"/local/bin push sagebin
+git init --bare sagelib  && hg -R "$SAGEDIR"/devel/sage-main push sagelib
+git init --bare sagebin  && hg -R "$SAGEDIR"/local/bin push sagebin
 git init "$CURDIR"/sage-repo && cd "$CURDIR"/sage-repo
 for REPO in sagebase sageext sagelib sagebin
 do
