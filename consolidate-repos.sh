@@ -48,18 +48,8 @@ fi
 
 mkdir -p "$TMPDIR" && cd "$TMPDIR" && rm -rf *
 
-# get the four main repos converted to git and pull them into the consolidated repo
-git init --bare sagebase && hg -R "$SAGEDIR" push sagebase
-git init --bare sageext  && hg -R "$SAGEDIR"/data/extcode push sageext
-# this takes too long for testing - uncomment later
-git init --bare sagelib  && hg -R "$SAGEDIR"/devel/sage-main push sagelib
-git init --bare sagebin  && hg -R "$SAGEDIR"/local/bin push sagebin
+# initiate repo
 git init "$TMPDIR"/sage-repo && cd "$TMPDIR"/sage-repo
-for REPO in sagebase sageext sagelib sagebin
-do
-    git fetch -n "$TMPDIR"/$REPO master:$REPO
-    rm -rf "$TMPDIR"/$REPO
-done
 
 # move the base tarballs into dist
 mkdir -p "$OUTDIR"/dist
@@ -82,20 +72,18 @@ do
     PKGVER=$(sed -e 's/.*\/\([^/-]*\)-\([^/]*\)\.spkg$/\2/' <<<"$SPKG")
     echo Found SPKG: $PKGNAME version $PKGVER
     tar x -p -C "$TMPDIR"/spkg -f $SPKG
-    if [ ! -d "$TMPDIR"/spkg/$PKGNAME-$PKGVER/src ]; then
-        echo
-        echo "Warning: $PKGNAME-$PKGVER/ has no src/ directory and might not be an extracted SPKG"
-        echo "Please inspect $TMPDIR/spkg/$PKGNAME-$PKGVER/ manually"
-        echo "'$SPKG' will be added to unknown.txt in the current directory"
-        echo
-
-        echo $PKGNAME >> "$OUTDIR"/unknown.txt
-        continue
-    fi
-
-    # tarball the src/ directory and put it into our dist/ directory
-    mv -T "$TMPDIR"/spkg/$PKGNAME-$PKGVER/src "$TMPDIR"/spkg/$PKGNAME-$PKGVER/$PKGNAME-$PKGVER
-    tar c -f "$OUTDIR"/dist/$PKGNAME-$PKGVER.tar -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER
+    case $PKGNAME in
+        extcode) REPO=sageext ;;
+        sage) REPO=sagelib ;;
+        sage_root) REPO=sagebin ;;
+        sage_scripts) REPO=sagebase ;;
+        *)
+            # tarball the src/ directory and put it into our dist/ directory
+            mv -T "$TMPDIR"/spkg/$PKGNAME-$PKGVER/src "$TMPDIR"/spkg/$PKGNAME-$PKGVER/$PKGNAME-$PKGVER
+            tar c -f "$OUTDIR"/dist/$PKGNAME-$PKGVER.tar -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER
+            REPO=spkg/$PKGNAME
+        ;;
+    esac
 
     # convert the SPKG's hg repo to git
     git init --bare "$TMPDIR"/spkg-git/$PKGNAME
@@ -104,7 +92,7 @@ do
     rm -rf "$TMPDIR"/spkg/$PKGNAME-$PKGVER
 
     # pull it into the consolidated repo
-    git fetch -n "$TMPDIR"/spkg-git/$PKGNAME master:spkg/$PKGNAME &&
+    git fetch -n "$TMPDIR"/spkg-git/$PKGNAME master:$REPO &&
         rm -rf "$TMPDIR"/spkg-git/$PKGNAME
 done
 rmdir "$TMPDIR"/spkg "$TMPDIR"/spkg-git
