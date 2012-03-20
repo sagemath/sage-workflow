@@ -54,7 +54,7 @@ git init --bare sageext  && hg -R "$SAGEDIR"/data/extcode push sageext
 # this takes too long for testing - uncomment later
 git init --bare sagelib  && hg -R "$SAGEDIR"/devel/sage-main push sagelib
 git init --bare sagebin  && hg -R "$SAGEDIR"/local/bin push sagebin
-git init "$OUTDIR"/sage-repo && cd "$OUTDIR"/sage-repo
+git init "$TMPDIR"/sage-repo && cd "$TMPDIR"/sage-repo
 for REPO in sagebase sageext sagelib sagebin
 do
     git fetch -n "$TMPDIR"/$REPO master:$REPO
@@ -112,3 +112,11 @@ done
 git reset --hard sagebase # lose the last old pre- path-rewriting branch
 
 # humongous octomerge (TODO)
+for BRANCH in $BRANCHES;
+do
+    git merge "$BRANCH" || { echo "There was an error merging in $BRANCH, please inspect"; exit 1; }
+    git branch -d "$BRANCH"
+done
+
+cp -r sagebase/* "$OUTDIR"/
+cd .. && mv sage_repo sage && tar c -f "$OUTDIR"/devel/sage.tar sage
