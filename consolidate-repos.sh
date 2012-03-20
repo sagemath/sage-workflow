@@ -9,23 +9,47 @@
 #
 # Usage:
 #
-#   consolidate-repos.sh /path/to/sage/install/
+#   consolidate-repos.sh -i sagedir -o outdir -t tmpdir
 #
 # Output:
 #
-# - A consolidated repo in ./sage-repo/
-# - tarballs for the source files in ./dist/
+# - A consolidated repo in outdir
+# - tarballs for the source files in outdir/dist/
 
-TMPDIR="$HOME"/tmp/consolidate-repos
-CURDIR="$(pwd)"
+CMD="$0"
 
-#SAGEDIR="$1"
-SAGEDIR=/opt/sage
+usage() {
+  echo "$CMD -i sagedir -o outdir -t tmpdir"
+}
 
-if [ ! -d "$SAGEDIR" ]
-    then echo "Please supply the location of a Sage installation as an argument."
-    exit 1
+while getopts i:o:t: opt; do
+  case $opt in
+    i) SAGEDIR="$OPTARG";;
+    o) OUTDIR="$OPTARG";;
+    t) TMPDIR="$OPTARG";;
+  esac
+done
+shift $((OPTLIND-1))
+
+if [ -z "$SAGEDIR" ]; then
+  [ $# -geq 1 ] || { usage; exit 1 }
+  SAGEDIR="$1"
+  shift
 fi
+if [ -z "$OUTDIR" ]; then
+  [ $# -geq 1 ] || { usage; exit 1 }
+  OUTDIR="$1"
+  shift
+fi
+if [ -z "$TMPDIR" ]; then
+  if [ $# -eq 0 ]; then
+    TMPDIR="/tmp/consolidate-repos"
+  else
+    TMPDIR="$1"
+  shift
+fi
+
+CURDIR="$(pwd)"
 
 mkdir -p "$TMPDIR" && cd "$TMPDIR" && rm -rf *
 
