@@ -114,5 +114,12 @@ do
     git branch -d "$BRANCH"
 done
 
+# remove mercurial remnants
+for BRANCH in $BRANCHES;
+do
+    git rm "$BRANCH"/.hgtags
+done
+git commit -a -m "remove hgtags"
+
 cp -r sagebase/* "$OUTDIR"/
 cd .. && mv sage_repo sage && tar c -f "$OUTDIR"/devel/sage.tar sage
