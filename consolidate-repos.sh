@@ -22,6 +22,7 @@ usage() {
   echo "$CMD -i sagedir -o outdir -t tmpdir"
 }
 
+# parse command line options
 while getopts i:o:t: opt; do
   case $opt in
     i) SAGEDIR="$OPTARG";;
@@ -31,6 +32,7 @@ while getopts i:o:t: opt; do
 done
 shift $((OPTLIND-1))
 
+# read options if not explicitly specified
 if [ -z "$SAGEDIR" ]; then
   [ $# -geq 1 ] || { usage; exit 1 }
   SAGEDIR="$1"
@@ -41,13 +43,7 @@ if [ -z "$OUTDIR" ]; then
   OUTDIR="$1"
   shift
 fi
-if [ -z "$TMPDIR" ]; then
-  if [ $# -eq 0 ]; then
-    TMPDIR="/tmp/consolidate-repos"
-  else
-    TMPDIR="$1"
-  shift
-fi
+[ -z "$TMPDIR" ] && TMPDIR="/tmp/consolidate-repos"
 
 CURDIR="$(pwd)"
 
