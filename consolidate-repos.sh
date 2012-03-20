@@ -45,8 +45,6 @@ if [ -z "$OUTDIR" ]; then
 fi
 [ -z "$TMPDIR" ] && TMPDIR="/tmp/consolidate-repos"
 
-CURDIR="$(pwd)"
-
 mkdir -p "$TMPDIR" && cd "$TMPDIR" && rm -rf *
 
 # get the four main repos converted to git and pull them into the consolidated repo
@@ -55,7 +53,7 @@ git init --bare sageext  && hg -R "$SAGEDIR"/data/extcode push sageext
 # this takes too long for testing - uncomment later
 git init --bare sagelib  && hg -R "$SAGEDIR"/devel/sage-main push sagelib
 git init --bare sagebin  && hg -R "$SAGEDIR"/local/bin push sagebin
-git init "$CURDIR"/sage-repo && cd "$CURDIR"/sage-repo
+git init "$OUTDIR"/sage-repo && cd "$OUTDIR"/sage-repo
 for REPO in sagebase sageext sagelib sagebin
 do
     git fetch -n "$TMPDIR"/$REPO master:$REPO
@@ -64,10 +62,10 @@ done
 
 # get the SPKG repos converted to git and pull them into the consolidated repo
 # also tarball the src/ directories of the SPKGs and put them into a dist/ directory
-rm "$CURDIR"/unknown.txt
+rm "$OUTDIR"/unknown.txt
 mkdir "$TMPDIR"/spkg
 mkdir "$TMPDIR"/spkg-git
-mkdir "$CURDIR"/dist
+mkdir "$OUTDIR"/dist
 for SPKG in $(find "$SAGEDIR"/spkg/standard -regex '.*/[^/]*\.spkg' -type f)
 do
     # figure out what the spkg is
@@ -82,13 +80,13 @@ do
         echo "'$SPKG' will be added to unknown.txt in the current directory"
         echo
 
-        echo $PKGNAME >> "$CURDIR"/unknown.txt
+        echo $PKGNAME >> "$OUTDIR"/unknown.txt
         continue
     fi
 
     # tarball the src/ directory and put it into our dist/ directory
     mv -T "$TMPDIR"/spkg/$PKGNAME-$PKGVER/src "$TMPDIR"/spkg/$PKGNAME-$PKGVER/$PKGNAME-$PKGVER
-    tar c -jf "$CURDIR"/dist/$PKGNAME-$PKGVER.tar.bz2 -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER
+    tar c -jf "$OUTDIR"/dist/$PKGNAME-$PKGVER.tar.bz2 -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER
 
     # convert the SPKG's hg repo to git
     git init --bare "$TMPDIR"/spkg-git/$PKGNAME
