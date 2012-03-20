@@ -122,4 +122,4 @@ done
 git commit -a -m "remove hgtags"
 
 cp -r sagebase/* "$OUTDIR"/
-cd .. && mv sage_repo sage && tar c -f "$OUTDIR"/devel/sage.tar sage
+cd .. && mv sage-repo sage && tar c -f "$OUTDIR"/devel/sage.tar sage
