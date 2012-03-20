@@ -19,7 +19,7 @@
 CMD="$0"
 
 usage() {
-  echo "$CMD -i sagedir -o outdir -t tmpdir"
+  echo "usage: $CMD -i sagedir -o outdir -t tmpdir"
 }
 
 # parse command line options
@@ -35,12 +35,12 @@ shift $((OPTIND-1))
 
 # read options if not explicitly specified
 if [ -z "$SAGEDIR" ]; then
-    [ $# -geq 1 ] || { usage; exit 1; }
+    [ $# -ge 1 ] || { usage; exit 1; }
     SAGEDIR="$1"
     shift
 fi
 if [ -z "$OUTDIR" ]; then
-    [ $# -geq 1 ] || { usage; exit 1; }
+    [ $# -ge 1 ] || { usage; exit 1; }
     OUTDIR="$1"
     shift
 fi
