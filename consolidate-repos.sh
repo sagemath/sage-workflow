@@ -78,8 +78,8 @@ do
     case $PKGNAME in
         extcode) REPO=sageext ;;
         sage) REPO=sagelib ;;
-        sage_root) REPO=sagebin ;;
-        sage_scripts) REPO=sagebase ;;
+        sage_root) REPO=sagebase ;;
+        sage_scripts) REPO=sagebin ;;
         *)
             mv -T "$TMPDIR"/spkg/$PKGNAME-$PKGVER/src "$TMPDIR"/spkg/$PKGNAME-$PKGVER/$PKGNAME-$PKGVER
             tar c -f "$OUTDIR"/dist/$PKGNAME-$PKGVER.tar -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER
