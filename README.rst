@@ -15,7 +15,22 @@ library, the Sage scripts, the Sage root scripts (i.e. the stuff other
 than SPKGs which you usually see when you extract a source tarball), the
 Sage external system code (i.e. what is currently in ``data/extcode``).
 
-Also, the Sage build system will be modified to work with the changes in
-paths which this necessitates, or most likely to just copy the files
-from the new consolidated repository into their old locations whenever
-you run `sage -b`.
+There will also be no SPKGs in the new tarball. The script will have
+disassembled each SPKG ``foo-x.y.z.spkg``, repacking the src/ directory
+into a new tarball ``dist/foo-x.y.z.tar.bz2`` and merging the internal
+Mercurial repository into the single consolidated git repo in
+``devel/sage/``, specifically so that its files appear in
+``devel/sage/spkg/foo/``.
+
+Thus, in this variant of Sage, when installing a package, instead of
+extracting an SPKG file into a build directory for building, the
+spkg-install script / patches / etc. and the source tarball will be
+separately copied (resp. extracted) into the build directory.
+Installation of actual SPKG files will be emulated - when you run ``sage
+-i foo.spkg``, the script will disassemble the SPKG as described above,
+and then install it in its new way.
+
+Besides this, Sage will be generally modified to work with the new paths
+which all the above necessitate, or, in simple cases, to just copy the
+files from the new consolidated repository into their old locations
+whenever you run `sage -b`.
