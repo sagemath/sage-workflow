@@ -26,9 +26,9 @@ usage() {
 while getopts "i:o:t:" opt;
 do
     case $opt in
-        i) SAGEDIR="$OPTARG";;
-        o) OUTDIR="$OPTARG";;
-        t) TMPDIR="$OPTARG";;
+        i) SAGEDIR=$(readlink -f "$OPTARG");;
+        o) OUTDIR=$(readlink -f "$OPTARG");;
+        t) TMPDIR=$(readlink -f "$OPTARG");;
     esac
 done
 shift $((OPTIND-1))
