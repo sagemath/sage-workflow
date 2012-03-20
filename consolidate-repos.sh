@@ -62,7 +62,7 @@ done
 
 # get the SPKG repos converted to git and pull them into the consolidated repo
 # also tarball the src/ directories of the SPKGs and put them into a dist/ directory
-rm "$OUTDIR"/unknown.txt
+rm -f "$OUTDIR"/unknown.txt
 mkdir "$TMPDIR"/spkg
 mkdir "$TMPDIR"/spkg-git
 mkdir "$OUTDIR"/dist
