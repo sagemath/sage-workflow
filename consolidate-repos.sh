@@ -121,7 +121,11 @@ for BRANCH in $BRANCHES;
 do
     git rm "$BRANCH"/.hgtags
 done
-git commit -a -m "remove hgtags"
+git commit -am "remove .hgtags files from old Mercurial repos"
 
+# unpack the root layout of the new consolidated-repo-based Sage installation
 cp -r sagebase/* "$OUTDIR"/
-cd "$TMPDIR" && mv sage-repo sage && tar c -f "$OUTDIR"/devel/sage.tar sage
+# install the consolidated repo therein
+cd "$TMPDIR"
+mv sage-repo sage
+mkdir -p "$OUTDIR"/devel && tar c -f "$OUTDIR"/devel/sage.tar sage
