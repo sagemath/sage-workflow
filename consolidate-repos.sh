@@ -72,13 +72,15 @@ do
     PKGVER=$(sed -e 's/.*\/\([^/-]*\)-\([^/]*\)\.spkg$/\2/' <<<"$SPKG")
     echo Found SPKG: $PKGNAME version $PKGVER
     tar x -p -C "$TMPDIR"/spkg -f $SPKG
+
+    # determine eventual subtree of the spkg's repo
+    # tarball the src/ directory and put it into our dist/ directory
     case $PKGNAME in
         extcode) REPO=sageext ;;
         sage) REPO=sagelib ;;
         sage_root) REPO=sagebin ;;
         sage_scripts) REPO=sagebase ;;
         *)
-            # tarball the src/ directory and put it into our dist/ directory
             mv -T "$TMPDIR"/spkg/$PKGNAME-$PKGVER/src "$TMPDIR"/spkg/$PKGNAME-$PKGVER/$PKGNAME-$PKGVER
             tar c -f "$OUTDIR"/dist/$PKGNAME-$PKGVER.tar -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER
             REPO=spkg/$PKGNAME
@@ -122,4 +124,4 @@ done
 git commit -a -m "remove hgtags"
 
 cp -r sagebase/* "$OUTDIR"/
-cd .. && mv sage-repo sage && tar c -f "$OUTDIR"/devel/sage.tar sage
+cd "$TMPDIR" && mv sage-repo sage && tar c -f "$OUTDIR"/devel/sage.tar sage
