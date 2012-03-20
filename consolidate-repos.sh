@@ -23,25 +23,26 @@ usage() {
 }
 
 # parse command line options
-while getopts "i:o:t:" opt; do
-  case $opt in
-    i) SAGEDIR="$OPTARG";;
-    o) OUTDIR="$OPTARG";;
-    t) TMPDIR="$OPTARG";;
-  esac
+while getopts "i:o:t:" opt;
+do
+    case $opt in
+        i) SAGEDIR="$OPTARG";;
+        o) OUTDIR="$OPTARG";;
+        t) TMPDIR="$OPTARG";;
+    esac
 done
 shift $((OPTIND-1))
 
 # read options if not explicitly specified
 if [ -z "$SAGEDIR" ]; then
-  [ $# -geq 1 ] || { usage; exit 1; }
-  SAGEDIR="$1"
-  shift
+    [ $# -geq 1 ] || { usage; exit 1; }
+    SAGEDIR="$1"
+    shift
 fi
 if [ -z "$OUTDIR" ]; then
-  [ $# -geq 1 ] || { usage; exit 1; }
-  OUTDIR="$1"
-  shift
+    [ $# -geq 1 ] || { usage; exit 1; }
+    OUTDIR="$1"
+    shift
 fi
 [ -z "$TMPDIR" ] && TMPDIR="/tmp/consolidate-repos"
 
