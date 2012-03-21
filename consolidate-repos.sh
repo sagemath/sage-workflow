@@ -113,11 +113,10 @@ do
     git filter-branch -f -d "$TMPDIR"/filter-branch --index-filter "git ls-files -s | sed \"s+\t\\\"*+&$BRANCH/+\" | GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info && mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\"" $BRANCH
 done
 
-# humongous octomerge (TODO)
+# humongous octomerge -- needs to be fixed into one merge
 for BRANCH in $BRANCHES;
 do
-    git merge "$BRANCH" || { echo "There was an error merging in $BRANCH, please inspect"; exit 1; }
-    git branch -d "$BRANCH"
+    git merge "$BRANCH" || die "There was an error merging in $BRANCH, please inspect"
 done
 
 # cleanup stuff related to each original repository, delete their respective branches
