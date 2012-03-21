@@ -101,13 +101,12 @@ rmdir "$TMPDIR"/spkg "$TMPDIR"/spkg-git
 
 # rewrite paths
 BRANCHES=$(git branch)
-git checkout sagebase -b master # filter-branch fails without a checked out branch for some reason
+git checkout sagebase # filter-branch fails without a checked out branch for some reason
 for BRANCH in $BRANCHES
 do
     # taken from `man git-filter-branch` and modified a bit
-    git filter-branch -f -d /tmp/filter-branch --index-filter "git ls-files -s | sed \"s+\t\\\"*+&$BRANCH/+\" | GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info && mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\"" $BRANCH
+    git filter-branch -f -d "$TMPDIR"/filter-branch --index-filter "git ls-files -s | sed \"s+\t\\\"*+&$BRANCH/+\" | GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info && mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\"" $BRANCH
 done
-git reset --hard sagebase # lose the last old pre- path-rewriting branch
 
 # humongous octomerge (TODO)
 for BRANCH in $BRANCHES;
