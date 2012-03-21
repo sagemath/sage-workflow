@@ -117,18 +117,18 @@ done
 MERGEBLOBS=$(   # dump all filenames/IDs from the various heads
     for BRANCH in $BRANCHES
     do
-	git ls-tree $BRANCH
+        git ls-tree $BRANCH
     done
 )
 MERGETREE=$(git mktree --missing <<<"$MERGEBLOBS")   # stitch them together into a single tree
 MERGECOMMIT=$(   # create a single commit which is a snapshot of the consolidated tree
     {
-	for BRANCH in $BRANCHES
-	do
-	    echo '-p '$(git show-ref -s --heads $BRANCH)
-	done
-	echo '-m "ePiC oCtOmErGe"'
-	echo $MERGETREE
+        for BRANCH in $BRANCHES
+        do
+            echo '-p '$(git show-ref -s --heads $BRANCH)
+        done
+        echo '-m "ePiC oCtOmErGe"'
+        echo $MERGETREE
 #    } | xargs git commit-tree
     } | cat > "$CURDIR"/args
 )
