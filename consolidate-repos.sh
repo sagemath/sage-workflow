@@ -40,16 +40,17 @@ shift $((OPTIND-1))
 
 # read options if not explicitly specified
 if [ -z "$SAGEDIR" ]; then
-    [ $# -ge 1 ] || die $(usage)
+    [ -d "$1" ] || die $(usage)
     SAGEDIR="$1"
     shift
 fi
 if [ -z "$OUTDIR" ]; then
-    [ $# -ge 1 ] || die $(usage)
+    [ -d "$1" ] || die $(usage)
     OUTDIR="$1"
     shift
 fi
-[ -z "$TMPDIR" ] && TMPDIR="/tmp/consolidate-repos"
+[ -z "$TMPDIR" ] && TMPDIR="$(mktemp -d /tmp/consolidate-repos.XXXX)" &&
+        echo "Created directory $TMPDIR"
 
 mkdir -p "$TMPDIR" && cd "$TMPDIR" && rm -rf *
 
@@ -60,8 +61,8 @@ git init "$TMPDIR"/sage-repo && cd "$TMPDIR"/sage-repo
 mkdir -p "$OUTDIR"/dist
 mkdir "$TMPDIR"/spkg
 for TARBALL in "$SAGEDIR"/spkg/base/*.tar*; do
-    PKGNAME=$(sed -e 's/.*\/\([^/-]*\)-\([^/]*\)\.tar.*$/\1/' <<<"$TARBALL")
-    PKGVER=$(sed -e 's/.*\/\([^/-]*\)-\([^/]*\)\.tar.*$/\2/' <<<"$TARBALL")
+    PKGNAME=$(sed -e 's/.*\/\([^/]*\)-[0-9]\{1,\}.*$/\1/' <<<"$TARBALL")
+    PKGVER=$(sed -e 's/^-\(.*\)\.tar.*$/\1/' <<<"${TARBALL#*${PKGNAME}}")
     tar x -p -C "$TMPDIR"/spkg -f $TARBALL
     tar c -f "$OUTDIR"/dist/$PKGNAME-$PKGVER.tar -C "$TMPDIR"/spkg/ $PKGNAME-$PKGVER
 done
@@ -70,21 +71,20 @@ done
 # also tarball the src/ directories of the SPKGs and put them into a dist/ directory
 rm -f "$OUTDIR"/unknown.txt
 mkdir "$TMPDIR"/spkg-git
-for SPKG in $(find "$SAGEDIR"/spkg/standard -regex '.*/[^/]*\.spkg' -type f)
-do
+for SPKG in "$SAGEDIR"/spkg/standard/*.spkg; do
     # figure out what the spkg is
-    PKGNAME=$(sed -e 's/.*\/\([^/-]*\)-\([^/]*\)\.spkg$/\1/' <<<"$SPKG")
-    PKGVER=$(sed -e 's/.*\/\([^/-]*\)-\([^/]*\)\.spkg$/\2/' <<<"$SPKG")
-    echo Found SPKG: $PKGNAME version $PKGVER
+    PKGNAME=$(sed -e 's/.*\/\([^/]*\)-[0-9]\{1,\}.*$/\1/' <<<"$SPKG")
+    PKGVER=$(sed -e 's/^-\(.*\)\.spkg$/\1/' <<<"${SPKG#*${PKGNAME}}")
+    echo "Found SPKG: $PKGNAME version $PKGVER"
     tar x -p -C "$TMPDIR"/spkg -f $SPKG
 
     # determine eventual subtree of the spkg's repo
     # tarball the src/ directory and put it into our dist/ directory
     case $PKGNAME in
-        extcode) REPO=sageext ;;
-        sage) REPO=sagelib ;;
-        sage_root) REPO=sagebase ;;
-        sage_scripts) REPO=sagebin ;;
+        extcode) REPO=ext ;;
+        sage) REPO=lib ;;
+        sage_root) REPO=base ;;
+        sage_scripts) REPO=bin ;;
         *)
             mv -T "$TMPDIR"/spkg/$PKGNAME-$PKGVER/src "$TMPDIR"/spkg/$PKGNAME-$PKGVER/$PKGNAME-$PKGVER
             tar c -f "$OUTDIR"/dist/$PKGNAME-$PKGVER.tar -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER
@@ -106,7 +106,7 @@ rmdir "$TMPDIR"/spkg "$TMPDIR"/spkg-git
 
 # rewrite paths
 BRANCHES=$(git branch)
-git checkout -b dummy sagebase # filter-branch fails without a checked out branch for some reason
+git checkout -b dummy base # filter-branch fails without a checked out branch for some reason
 for BRANCH in $BRANCHES
 do
     # taken from `man git-filter-branch` and modified a bit
@@ -140,14 +140,19 @@ for BRANCH in $BRANCHES;
 do
     # cleanup stuff related to this repository
     git rm --ignore-unmatch "$BRANCH"/.hgtags
+    if [ -f "$BRANCH"/.hgignore ]; then
+        sed "s+^[^#]+$BRANCH/+" "$BRANCH"/.hgignore >> .gitignore
+        git rm "$BRANCH"/.hgignore
+    fi
 
     # get rid of this repository's old branch
     git branch -d $BRANCH || die "The octomerge failed; $BRANCH is still unmerged!"
 done
+git add .gitignore
 git commit -am "Post-consolidation cleanup"
 
 # unpack the root layout of the new consolidated-repo-based Sage installation
-cp -r sagebase/* "$OUTDIR"/
+cp -r base/* "$OUTDIR"/
 # install the consolidated repo therein
 cd "$TMPDIR"
 mv sage-repo sage
