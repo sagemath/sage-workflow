@@ -61,8 +61,8 @@ git init "$TMPDIR"/sage-repo && cd "$TMPDIR"/sage-repo
 mkdir -p "$OUTDIR"/dist
 mkdir "$TMPDIR"/spkg
 for TARBALL in "$SAGEDIR"/spkg/base/*.tar*; do
-    PKGNAME=$(sed -e 's/.*\/\([^/-]*\)-\([^/]*\)\.tar.*$/\1/' <<<"$TARBALL")
-    PKGVER=$(sed -e 's/.*\/\([^/-]*\)-\([^/]*\)\.tar.*$/\2/' <<<"$TARBALL")
+    PKGNAME=$(sed -e 's/.*\/\([^/]*\)-[0-9]\{1,\}.*$/\1/' <<<"$TARBALL")
+    PKGVER=$(sed -e 's/^-\(.*\)\.tar.*$/\1/' <<<"${TARBALL#*${PKGNAME}}")
     tar x -p -C "$TMPDIR"/spkg -f $TARBALL
     tar c -f "$OUTDIR"/dist/$PKGNAME-$PKGVER.tar -C "$TMPDIR"/spkg/ $PKGNAME-$PKGVER
 done
@@ -73,8 +73,8 @@ rm -f "$OUTDIR"/unknown.txt
 mkdir "$TMPDIR"/spkg-git
 for SPKG in "$SAGEDIR"/spkg/standard/*.spkg; do
     # figure out what the spkg is
-    PKGNAME=$(sed -e 's/.*\/\([^/-]*\)-\([^/]*\)\.spkg$/\1/' <<<"$SPKG")
-    PKGVER=$(sed -e 's/.*\/\([^/-]*\)-\([^/]*\)\.spkg$/\2/' <<<"$SPKG")
+    PKGNAME=$(sed -e 's@.*/\([^/]*\)-[0-9]\{1,\}.*$@\1@' <<<"$SPKG")
+    PKGVER=$(sed -e 's/^-\(.*\)\.spkg$/\1/' <<<"${SPKG#*${PKGNAME}}")
     echo "Found SPKG: $PKGNAME version $PKGVER"
     tar x -p -C "$TMPDIR"/spkg -f $SPKG
 
