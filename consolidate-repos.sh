@@ -73,7 +73,7 @@ rm -f "$OUTDIR"/unknown.txt
 mkdir "$TMPDIR"/spkg-git
 for SPKG in "$SAGEDIR"/spkg/standard/*.spkg; do
     # figure out what the spkg is
-    PKGNAME=$(sed -e 's@.*/\([^/]*\)-[0-9]\{1,\}.*$@\1@' <<<"$SPKG")
+    PKGNAME=$(sed -e 's/.*\/\([^/]*\)-[0-9]\{1,\}.*$/\1/' <<<"$SPKG")
     PKGVER=$(sed -e 's/^-\(.*\)\.spkg$/\1/' <<<"${SPKG#*${PKGNAME}}")
     echo "Found SPKG: $PKGNAME version $PKGVER"
     tar x -p -C "$TMPDIR"/spkg -f $SPKG
