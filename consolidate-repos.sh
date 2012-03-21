@@ -119,7 +119,7 @@ done
 # remove mercurial remnants
 for BRANCH in $BRANCHES;
 do
-    git rm "$BRANCH"/.hgtags
+    git rm --ignore-unmatch "$BRANCH"/.hgtags
 done
 git commit -am "remove .hgtags files from old Mercurial repos"
 
