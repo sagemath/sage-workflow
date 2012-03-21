@@ -23,8 +23,8 @@ die () {
     exit 1
 }
 
-usage() {
-  echo "usage: $CMD -i sagedir -o outdir -t tmpdir"
+usage () {
+    echo "usage: $CMD -i sagedir -o outdir -t tmpdir"
 }
 
 # parse command line options
