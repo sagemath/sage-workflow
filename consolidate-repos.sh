@@ -116,7 +116,7 @@ done
 # humongous octomerge (TODO)
 for BRANCH in $BRANCHES;
 do
-    git merge "$BRANCH" || { echo "There was an error merging in $BRANCH, please inspect"; exit 1; }
+    git merge "$BRANCH" || die "There was an error merging in $BRANCH, please inspect"
     git branch -d "$BRANCH"
 done
 
