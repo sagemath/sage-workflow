@@ -81,10 +81,10 @@ do
     # determine eventual subtree of the spkg's repo
     # tarball the src/ directory and put it into our dist/ directory
     case $PKGNAME in
-        extcode) REPO=sageext ;;
-        sage) REPO=sagelib ;;
-        sage_root) REPO=sagebase ;;
-        sage_scripts) REPO=sagebin ;;
+        extcode) REPO=ext ;;
+        sage) REPO=lib ;;
+        sage_root) REPO=base ;;
+        sage_scripts) REPO=bin ;;
         *)
             mv -T "$TMPDIR"/spkg/$PKGNAME-$PKGVER/src "$TMPDIR"/spkg/$PKGNAME-$PKGVER/$PKGNAME-$PKGVER
             tar c -f "$OUTDIR"/dist/$PKGNAME-$PKGVER.tar -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER
@@ -106,7 +106,7 @@ rmdir "$TMPDIR"/spkg "$TMPDIR"/spkg-git
 
 # rewrite paths
 BRANCHES=$(git branch)
-git checkout -b dummy sagebase # filter-branch fails without a checked out branch for some reason
+git checkout -b dummy base # filter-branch fails without a checked out branch for some reason
 for BRANCH in $BRANCHES
 do
     # taken from `man git-filter-branch` and modified a bit
@@ -136,7 +136,7 @@ git add .gitignore
 git commit -am "Post-consolidation cleanup"
 
 # unpack the root layout of the new consolidated-repo-based Sage installation
-cp -r sagebase/* "$OUTDIR"/
+cp -r base/* "$OUTDIR"/
 # install the consolidated repo therein
 cd "$TMPDIR"
 mv sage-repo sage
