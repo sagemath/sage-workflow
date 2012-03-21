@@ -113,15 +113,41 @@ do
     git filter-branch -f -d "$TMPDIR"/filter-branch --index-filter "git ls-files -s | sed \"s+\t\\\"*+&$BRANCH/+\" | GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info && mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\"" $BRANCH
 done
 
-# humongous octomerge
-MERGEBLOBS=$(   # dump all filenames/IDs from the various heads
+
+# Humongous octomerge
+
+# Put together a directory listing for the repo to commit in the merge
+MERGEOBJS=$(
     for BRANCH in $BRANCHES
     do
-        git ls-tree $BRANCH
+        ENTRY=$(git ls-tree $BRANCH) # an object-filename association
+        if [ $(cut -f2 <<<"$ENTRY") == "spkg" ]; then
+            # In this case, $BRANCH associates a subdirectory listing
+            # to spkg containing a single dir. We ignore this
+            # association and instead collect all the dirs that the
+            # various branches insist are sole occupants of spkg/ ,
+            # and produce a combined listing for spkg/ .
+            PKGDIR_ENTRY=$(git ls-tree $(git ls-tree $BRANCH spkg | cut -d' ' -f3 | cut -f1))
+            PKGOBJS="${PKGOBJS}${PKGDIR_ENTRY}\n"
+        else
+            # At the same time, we continue producing a listing of the
+            # root dir on stdout. (This case should only happen four
+            # times, when $BRANCH is one of the four special cases.)
+            echo "$ENTRY"
+        fi
     done
+
+    # Produce a new directory listing object for spkg/ from the
+    # information gathered above, then dump that object into the
+    # listing of the root directory which we are building on
+    # stdout.
+    PKGTREE=$(git mktree --missing <<<"$PKGOBJS")
+    echo -e "040000 tree $PKGTREE\tspkg"
 )
-MERGETREE=$(git mktree --missing <<<"$MERGEBLOBS")   # stitch them together into a single tree
-MERGECOMMIT=$(   # create a single commit which is a snapshot of the consolidated tree
+# Actually make the directory listing into a git object
+MERGETREE=$(git mktree --missing <<<"$MERGEOBJS")
+# Commit the new fully consolidated file tree
+MERGECOMMIT=$(
     {
         for BRANCH in $BRANCHES
         do
@@ -129,11 +155,10 @@ MERGECOMMIT=$(   # create a single commit which is a snapshot of the consolidate
         done
         echo '-m "ePiC oCtOmErGe"'
         echo $MERGETREE
-#    } | xargs git commit-tree
-    } | cat > "$CURDIR"/args
+    } | tee "$TMPDIR"/args | xargs git commit-tree
 )
-git update-ref master $MERGECOMMIT   # create a master branch at the new commit
-git checkout master && git branch -D dummy
+git checkout -b master $MERGECOMMIT   # create a master branch at the new commit
+git branch -D dummy
 
 # cleanup stuff related to each original repository, delete their respective branches
 for BRANCH in $BRANCHES;
