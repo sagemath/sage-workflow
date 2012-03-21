@@ -49,7 +49,8 @@ if [ -z "$OUTDIR" ]; then
     OUTDIR="$1"
     shift
 fi
-[ -z "$TMPDIR" ] && TMPDIR="/tmp/consolidate-repos"
+[ -z "$TMPDIR" ] && TMPDIR="$(mktemp -d /tmp/consolidate-repos.XXXX)" \
+                 && echo "Created directory $TMPDIR"
 
 mkdir -p "$TMPDIR" && cd "$TMPDIR" && rm -rf *
 
