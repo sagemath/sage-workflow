@@ -18,6 +18,11 @@
 
 CMD="${0##*/}"
 
+die () {
+    echo $@ 1>&2
+    exit 1
+}
+
 usage() {
   echo "usage: $CMD -i sagedir -o outdir -t tmpdir"
 }
@@ -35,12 +40,12 @@ shift $((OPTIND-1))
 
 # read options if not explicitly specified
 if [ -z "$SAGEDIR" ]; then
-    [ $# -ge 1 ] || { usage; exit 1; }
+    [ $# -ge 1 ] || die $(usage)
     SAGEDIR="$1"
     shift
 fi
 if [ -z "$OUTDIR" ]; then
-    [ $# -ge 1 ] || { usage; exit 1; }
+    [ $# -ge 1 ] || die $(usage)
     OUTDIR="$1"
     shift
 fi
@@ -115,12 +120,16 @@ do
     git branch -d "$BRANCH"
 done
 
-# remove mercurial remnants
+# cleanup stuff related to each original repository, delete their respective branches
 for BRANCH in $BRANCHES;
 do
+    # cleanup stuff related to this repository
     git rm --ignore-unmatch "$BRANCH"/.hgtags
+
+    # get rid of this repository's old branch
+    git branch -d $BRANCH || die "The octomerge failed; $BRANCH is still unmerged!"
 done
-git commit -am "remove .hgtags files from old Mercurial repos"
+git commit -am "Post-consolidation cleanup"
 
 # unpack the root layout of the new consolidated-repo-based Sage installation
 cp -r sagebase/* "$OUTDIR"/
