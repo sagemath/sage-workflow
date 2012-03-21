@@ -40,12 +40,12 @@ shift $((OPTIND-1))
 
 # read options if not explicitly specified
 if [ -z "$SAGEDIR" ]; then
-    [ $# -ge 1 ] || die $(usage)
+    [ -d "$1" ] || die $(usage)
     SAGEDIR="$1"
     shift
 fi
 if [ -z "$OUTDIR" ]; then
-    [ $# -ge 1 ] || die $(usage)
+    [ -d "$1" ] || die $(usage)
     OUTDIR="$1"
     shift
 fi
