@@ -16,7 +16,7 @@
 # - A consolidated repo in outdir
 # - tarballs for the source files in outdir/dist/
 
-CMD="$0"
+CMD="${0##*/}"
 
 usage() {
   echo "usage: $CMD -i sagedir -o outdir -t tmpdir"
