@@ -87,7 +87,7 @@ do
         sage_scripts) REPO=bin ;;
         *)
             mv -T "$TMPDIR"/spkg/$PKGNAME-$PKGVER/src "$TMPDIR"/spkg/$PKGNAME-$PKGVER/$PKGNAME-$PKGVER
-            tar c -f "$OUTDIR"/dist/$PKGNAME-$PKGVER.tar -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER
+            tar c -jf "$OUTDIR"/dist/$PKGNAME-$PKGVER.tar.bz2 -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER
             REPO=spkg/$PKGNAME
         ;;
     esac
@@ -140,4 +140,4 @@ cp -r base/* "$OUTDIR"/
 # install the consolidated repo therein
 cd "$TMPDIR"
 mv sage-repo sage
-mkdir -p "$OUTDIR"/devel && tar c -f "$OUTDIR"/devel/sage.tar sage
+mkdir -p "$OUTDIR"/devel && tar c -jf "$OUTDIR"/devel/sage.tar.bz2 sage
