@@ -106,7 +106,7 @@ rmdir "$TMPDIR"/spkg "$TMPDIR"/spkg-git
 
 # rewrite paths
 BRANCHES=$(git branch)
-git checkout sagebase # filter-branch fails without a checked out branch for some reason
+git checkout -b dummy sagebase # filter-branch fails without a checked out branch for some reason
 for BRANCH in $BRANCHES
 do
     # taken from `man git-filter-branch` and modified a bit
