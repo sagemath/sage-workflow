@@ -113,12 +113,27 @@ do
     git filter-branch -f -d "$TMPDIR"/filter-branch --index-filter "git ls-files -s | sed \"s+\t\\\"*+&$BRANCH/+\" | GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info && mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\"" $BRANCH
 done
 
-# humongous octomerge (TODO)
-for BRANCH in $BRANCHES;
-do
-    git merge "$BRANCH" || { echo "There was an error merging in $BRANCH, please inspect"; exit 1; }
-    git branch -d "$BRANCH"
-done
+# humongous octomerge
+MERGEBLOBS=$(   # dump all filenames/IDs from the various heads
+    for BRANCH in $BRANCHES
+    do
+	git ls-tree $BRANCH
+    done
+)
+MERGETREE=$(git mktree --missing <<<"$MERGEBLOBS")   # stitch them together into a single tree
+MERGECOMMIT=$(   # create a single commit which is a snapshot of the consolidated tree
+    {
+	for BRANCH in $BRANCHES
+	do
+	    echo '-p '$(git show-ref -s --heads $BRANCH)
+	done
+	echo '-m "ePiC oCtOmErGe"'
+	echo $MERGETREE
+#    } | xargs git commit-tree
+    } | cat > "$CURDIR"/args
+)
+git update-ref master $MERGECOMMIT   # create a master branch at the new commit
+git checkout master && git branch -D dummy
 
 # cleanup stuff related to each original repository, delete their respective branches
 for BRANCH in $BRANCHES;
