@@ -81,10 +81,10 @@ for SPKG in "$SAGEDIR"/spkg/standard/*.spkg; do
     # determine eventual subtree of the spkg's repo
     # tarball the src/ directory and put it into our dist/ directory
     case $PKGNAME in
-        extcode) REPO=sageext ;;
-        sage) REPO=sagelib ;;
-        sage_root) REPO=sagebase ;;
-        sage_scripts) REPO=sagebin ;;
+        extcode) REPO=ext ;;
+        sage) REPO=lib ;;
+        sage_root) REPO=base ;;
+        sage_scripts) REPO=bin ;;
         *)
             mv -T "$TMPDIR"/spkg/$PKGNAME-$PKGVER/src "$TMPDIR"/spkg/$PKGNAME-$PKGVER/$PKGNAME-$PKGVER
             tar c -f "$OUTDIR"/dist/$PKGNAME-$PKGVER.tar -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER
@@ -106,18 +106,17 @@ rmdir "$TMPDIR"/spkg "$TMPDIR"/spkg-git
 
 # rewrite paths
 BRANCHES=$(git branch)
-git checkout -b dummy sagebase # filter-branch fails without a checked out branch for some reason
+git checkout -b dummy base # filter-branch fails without a checked out branch for some reason
 for BRANCH in $BRANCHES
 do
     # taken from `man git-filter-branch` and modified a bit
     git filter-branch -f -d "$TMPDIR"/filter-branch --index-filter "git ls-files -s | sed \"s+\t\\\"*+&$BRANCH/+\" | GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info && mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\"" $BRANCH
 done
 
-# humongous octomerge (TODO)
+# humongous octomerge -- needs to be fixed into one merge
 for BRANCH in $BRANCHES;
 do
     git merge "$BRANCH" || die "There was an error merging in $BRANCH, please inspect"
-    git branch -d "$BRANCH"
 done
 
 # cleanup stuff related to each original repository, delete their respective branches
@@ -125,14 +124,19 @@ for BRANCH in $BRANCHES;
 do
     # cleanup stuff related to this repository
     git rm --ignore-unmatch "$BRANCH"/.hgtags
+    if [ -f "$BRANCH"/.hgignore ]; then
+        sed "s+^[^#]+$BRANCH/+" "$BRANCH"/.hgignore >> .gitignore
+        git rm "$BRANCH"/.hgignore
+    fi
 
     # get rid of this repository's old branch
     git branch -d $BRANCH || die "The octomerge failed; $BRANCH is still unmerged!"
 done
+git add .gitignore
 git commit -am "Post-consolidation cleanup"
 
 # unpack the root layout of the new consolidated-repo-based Sage installation
-cp -r sagebase/* "$OUTDIR"/
+cp -r base/* "$OUTDIR"/
 # install the consolidated repo therein
 cd "$TMPDIR"
 mv sage-repo sage
