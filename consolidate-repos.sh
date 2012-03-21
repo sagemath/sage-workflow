@@ -71,12 +71,11 @@ done
 # also tarball the src/ directories of the SPKGs and put them into a dist/ directory
 rm -f "$OUTDIR"/unknown.txt
 mkdir "$TMPDIR"/spkg-git
-for SPKG in $(find "$SAGEDIR"/spkg/standard -regex '.*/[^/]*\.spkg' -type f)
-do
+for SPKG in "$SAGEDIR"/spkg/standard/*.spkg; do
     # figure out what the spkg is
     PKGNAME=$(sed -e 's/.*\/\([^/-]*\)-\([^/]*\)\.spkg$/\1/' <<<"$SPKG")
     PKGVER=$(sed -e 's/.*\/\([^/-]*\)-\([^/]*\)\.spkg$/\2/' <<<"$SPKG")
-    echo Found SPKG: $PKGNAME version $PKGVER
+    echo "Found SPKG: $PKGNAME version $PKGVER"
     tar x -p -C "$TMPDIR"/spkg -f $SPKG
 
     # determine eventual subtree of the spkg's repo
