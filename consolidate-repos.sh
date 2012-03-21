@@ -124,10 +124,15 @@ for BRANCH in $BRANCHES;
 do
     # cleanup stuff related to this repository
     git rm --ignore-unmatch "$BRANCH"/.hgtags
+    if [ -f "$BRANCH"/.hgignore ]; then
+        sed "s+^[^#]+$BRANCH/+" "$BRANCH"/.hgignore >> .gitignore
+        git rm "$BRANCH"/.hgignore
+    fi
 
     # get rid of this repository's old branch
     git branch -d $BRANCH || die "The octomerge failed; $BRANCH is still unmerged!"
 done
+git add .gitignore
 git commit -am "Post-consolidation cleanup"
 
 # unpack the root layout of the new consolidated-repo-based Sage installation
