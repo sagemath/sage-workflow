@@ -1,5 +1,12 @@
-consolidate-sage-repos
-======================
+sage-workflow
+=============
+
+This is a repository for various stuff we're working on for the
+Workflow SEP (Sage Enhancement Proposal).
+
+
+consolidate-repos.sh
+--------------------
 
 This is a script which will ultimately take a (sufficiently recent) Sage
 release source tarball and convert it into another tarball. The new
