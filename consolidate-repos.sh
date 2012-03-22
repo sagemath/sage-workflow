@@ -50,7 +50,7 @@ if [ -z "$OUTDIR" ]; then
     shift
 fi
 [ -z "$TMPDIR" ] && TMPDIR="$(mktemp -d /tmp/consolidate-repos.XXXX)" &&
-        echo "Created directory $TMPDIR"
+        MADETMP=yes && echo "Created directory $TMPDIR"
 
 mkdir -p "$TMPDIR" && cd "$TMPDIR" && rm -rf *
 
@@ -185,3 +185,5 @@ cp -r base/* "$OUTDIR"/
 cd "$TMPDIR"
 mv sage-repo sage
 mkdir -p "$OUTDIR"/devel && tar c -jf "$OUTDIR"/devel/sage.tar.bz2 sage
+cd "$OUTDIR"
+[[ -z $MADETMP ]] || rm -rf "$TMPDIR"
