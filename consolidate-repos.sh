@@ -179,11 +179,15 @@ git add .gitignore
 git commit -am "Post-consolidation cleanup"
 git gc --aggressive
 
-# unpack the root layout of the new consolidated-repo-based Sage installation
+# Unpack the root layout of the consolidated Sage installation
 cp -r base/* "$OUTDIR"/
-# install the consolidated repo therein
-cd "$TMPDIR"
-mv sage-repo sage
-mkdir -p "$OUTDIR"/devel && tar c -jf "$OUTDIR"/devel/sage.tar.bz2 sage
+
+# Move the consolidated repo into place, and check out the package
+# installation scripts so that Sage can start building
+mkdir -p "$OUTDIR"/devel/sage && mv "$TMPDIR"/sage-repo/.git "$OUTDIR"/devel/sage/
+cd "$OUTDIR"/devel/sage
+git checkout master -- spkg/
+
+# Clean up $TMPDIR
 cd "$OUTDIR"
 [[ -z $MADETMP ]] || rm -rf "$TMPDIR"
