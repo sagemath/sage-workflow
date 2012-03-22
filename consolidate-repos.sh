@@ -140,25 +140,29 @@ MERGEOBJS=$(
     # Produce a new directory listing object for spkg/ from the
     # information gathered above, then dump that object into the
     # listing of the root directory which we are building on
-    # stdout.
-    PKGTREE=$(git mktree --missing <<<"$PKGOBJS")
+    # stdout. --batch is used because there's an extra newline at the
+    # end of $PKGOBJS.
+    PKGTREE=$(echo -e "$PKGOBJS" | git mktree --missing --batch)
     echo -e "040000 tree $PKGTREE\tspkg"
 )
 # Actually make the directory listing into a git object
-MERGETREE=$(git mktree --missing <<<"$MERGEOBJS")
+MERGETREE=$(echo -e "$MERGEOBJS" | git mktree --missing)
 # Commit the new fully consolidated file tree
 MERGECOMMIT=$(
     {
+        echo $MERGETREE
+        echo '-m "ePiC oCtOmErGe"'
         for BRANCH in $BRANCHES
         do
             echo '-p '$(git show-ref -s --heads $BRANCH)
         done
-        echo '-m "ePiC oCtOmErGe"'
-        echo $MERGETREE
     } | tee "$TMPDIR"/args | xargs git commit-tree
 )
-git checkout -b master $MERGECOMMIT   # create a master branch at the new commit
+# Set up a new master branch and delete the dummy branch, and we're
+# done!
+git checkout -b master $MERGECOMMIT
 git branch -D dummy
+
 
 # cleanup stuff related to each original repository, delete their respective branches
 for BRANCH in $BRANCHES;
