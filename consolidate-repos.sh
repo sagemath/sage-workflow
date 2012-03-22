@@ -156,13 +156,16 @@ MERGECOMMIT=$(
         done
     } | xargs git commit-tree $MERGETREE -m "ePiC oCtOmErGe"
 )
-# Set up a new master branch and delete the dummy branch, and we're
+# Set up a new master branch and delete the other branches, and we're
 # done!
 git checkout -b master $MERGECOMMIT
 git branch -D dummy
+for BRANCH in $BRANCHES;
+do
+    git branch -d $BRANCH || die "The octomerge failed; $BRANCH is still unmerged!"
+done
 
-
-# cleanup stuff related to each original repository, delete their respective branches
+# Clean up or adapt .hg* files (Mercurial-related data)
 for BRANCH in $BRANCHES;
 do
     # cleanup stuff related to this repository
@@ -171,12 +174,11 @@ do
         sed "s+^[^#]+$BRANCH/+" "$BRANCH"/.hgignore >> .gitignore
         git rm "$BRANCH"/.hgignore
     fi
-
-    # get rid of this repository's old branch
-    git branch -d $BRANCH || die "The octomerge failed; $BRANCH is still unmerged!"
 done
 git add .gitignore
-git commit -am "Post-consolidation cleanup"
+git commit -am "[CLEANUP] Mercurial-related data"
+
+# Optimize the repo
 git gc --aggressive
 
 # Unpack the root layout of the consolidated Sage installation
