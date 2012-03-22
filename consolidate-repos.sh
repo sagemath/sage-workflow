@@ -150,13 +150,11 @@ MERGETREE=$(echo -e "$MERGEOBJS" | git mktree --missing)
 # Commit the new fully consolidated file tree
 MERGECOMMIT=$(
     {
-        echo $MERGETREE
-        echo '-m "ePiC oCtOmErGe"'
         for BRANCH in $BRANCHES
         do
             echo '-p '$(git show-ref -s --heads $BRANCH)
         done
-    } | tee "$TMPDIR"/args | xargs git commit-tree
+    } | xargs git commit-tree $MERGETREE -m "ePiC oCtOmErGe"
 )
 # Set up a new master branch and delete the dummy branch, and we're
 # done!
