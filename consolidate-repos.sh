@@ -113,11 +113,56 @@ do
     git filter-branch -f -d "$TMPDIR"/filter-branch --index-filter "git ls-files -s | sed \"s+\t\\\"*+&$BRANCH/+\" | GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info && mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\"" $BRANCH
 done
 
-# humongous octomerge -- needs to be fixed into one merge
-for BRANCH in $BRANCHES;
-do
-    git merge "$BRANCH" || die "There was an error merging in $BRANCH, please inspect"
-done
+
+# Humongous octomerge
+
+# Put together a directory listing for the repo to commit in the merge
+MERGEOBJS=$(
+    for BRANCH in $BRANCHES
+    do
+        ENTRY=$(git ls-tree $BRANCH) # an object-filename association
+        if [ $(cut -f2 <<<"$ENTRY") == "spkg" ]; then
+            # In this case, $BRANCH associates a subdirectory listing
+            # to spkg containing a single dir. We ignore this
+            # association and instead collect all the dirs that the
+            # various branches insist are sole occupants of spkg/ ,
+            # and produce a combined listing for spkg/ .
+            PKGDIR_ENTRY=$(git ls-tree $(git ls-tree $BRANCH spkg | cut -d' ' -f3 | cut -f1))
+            PKGOBJS="${PKGOBJS}${PKGDIR_ENTRY}\n"
+        else
+            # At the same time, we continue producing a listing of the
+            # root dir on stdout. (This case should only happen four
+            # times, when $BRANCH is one of the four special cases.)
+            echo "$ENTRY"
+        fi
+    done
+
+    # Produce a new directory listing object for spkg/ from the
+    # information gathered above, then dump that object into the
+    # listing of the root directory which we are building on
+    # stdout. --batch is used because there's an extra newline at the
+    # end of $PKGOBJS.
+    PKGTREE=$(echo -e "$PKGOBJS" | git mktree --missing --batch)
+    echo -e "040000 tree $PKGTREE\tspkg"
+)
+# Actually make the directory listing into a git object
+MERGETREE=$(echo -e "$MERGEOBJS" | git mktree --missing)
+# Commit the new fully consolidated file tree
+MERGECOMMIT=$(
+    {
+        echo $MERGETREE
+        echo '-m "ePiC oCtOmErGe"'
+        for BRANCH in $BRANCHES
+        do
+            echo '-p '$(git show-ref -s --heads $BRANCH)
+        done
+    } | tee "$TMPDIR"/args | xargs git commit-tree
+)
+# Set up a new master branch and delete the dummy branch, and we're
+# done!
+git checkout -b master $MERGECOMMIT
+git branch -D dummy
+
 
 # cleanup stuff related to each original repository, delete their respective branches
 for BRANCH in $BRANCHES;
