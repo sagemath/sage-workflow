@@ -177,6 +177,7 @@ do
 done
 git add .gitignore
 git commit -am "Post-consolidation cleanup"
+git gc --aggressive
 
 # unpack the root layout of the new consolidated-repo-based Sage installation
 cp -r base/* "$OUTDIR"/
