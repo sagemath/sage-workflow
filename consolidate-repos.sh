@@ -100,9 +100,11 @@ for SPKG in "$SAGEDIR"/spkg/standard/*.spkg; do
 
     # pull it into the consolidated repo
     git fetch -n "$TMPDIR"/spkg-git/$PKGNAME master:$REPO &&
-        rm -rf "$TMPDIR"/spkg-git/$PKGNAME
+        rm -rf "$TMPDIR"/spkg-git/$PKGNAME/.git
+
+    # save the package version for later
+    echo "$PKGVER" > "$TMPDIR"/spkg-git/$PKGNAME/spkg-version.txt
 done
-rmdir "$TMPDIR"/spkg "$TMPDIR"/spkg-git
 
 # rewrite paths
 BRANCHES=$(git branch)
@@ -168,7 +170,6 @@ done
 # Clean up or adapt .hg* files (Mercurial-related data)
 for BRANCH in $BRANCHES;
 do
-    # cleanup stuff related to this repository
     git rm --ignore-unmatch "$BRANCH"/.hgtags
     if [ -f "$BRANCH"/.hgignore ]; then
         sed "s+^[^#]+$BRANCH/+" "$BRANCH"/.hgignore >> .gitignore
@@ -176,7 +177,19 @@ do
     fi
 done
 git add .gitignore
-git commit -am "[CLEANUP] Mercurial-related data"
+git commit -m "[CLEANUP] Mercurial-related data"
+
+# Commit spkg-version.txt files to track package \.p[0-9]+ versions
+# (i.e. local revisions)
+for BRANCH in $BRANCHES
+do
+    if [[ $BRANCH =~ '^spkg/' ]]; then
+        PKGNAME=${BRANCH#spkg/}
+        mv "$TMPDIR"/spkg-git/$PKGNAME/spkg-version.txt spkg/$PKGNAME/
+        git add spkg/$PKGNAME/spkg-version.txt
+    fi
+done
+git commit -m "[CLEANUP] Add spkg-version.txt files"
 
 # Optimize the repo
 git gc --aggressive
