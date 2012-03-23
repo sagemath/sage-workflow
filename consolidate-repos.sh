@@ -87,8 +87,8 @@ for SPKG in "$SAGEDIR"/spkg/standard/*.spkg; do
         sage_root) REPO=base ;;
         sage_scripts) REPO=bin ;;
         *)
-            mv -T "$TMPDIR"/spkg/$PKGNAME-$PKGVER/src "$TMPDIR"/spkg/$PKGNAME-$PKGVER/$PKGNAME-$PKGVER
-            tar c -jf "$OUTDIR"/dist/$PKGNAME-$PKGVER_UPSTREAM.tar.bz2 -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER
+            mv -T "$TMPDIR"/spkg/$PKGNAME-$PKGVER/src "$TMPDIR"/spkg/$PKGNAME-$PKGVER/$PKGNAME-$PKGVER_UPSTREAM
+            tar c -jf "$OUTDIR"/dist/$PKGNAME-$PKGVER_UPSTREAM.tar.bz2 -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER_UPSTREAM
             REPO=spkg/$PKGNAME
         ;;
     esac
