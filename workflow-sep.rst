@@ -25,7 +25,7 @@ Primary goals:
 
   - Switch to git for version control
 
-  - Use ccache and implement something similar for Cython, so that
+  - Implement and use something similar to ccache for Cython, so that
     building will be faster when switching branches
 
 * Implement a better review system on Trac
