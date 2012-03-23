@@ -75,6 +75,7 @@ for SPKG in "$SAGEDIR"/spkg/standard/*.spkg; do
     # figure out what the spkg is
     PKGNAME=$(sed -e 's/.*\/\([^/]*\)-[0-9]\{1,\}.*$/\1/' <<<"$SPKG")
     PKGVER=$(sed -e 's/^-\(.*\)\.spkg$/\1/' <<<"${SPKG#*${PKGNAME}}")
+    PKGVER_UPSTREAM=$(sed -e 's/\.p[0-9][0-9]*$//' <<<"$PKGVER")
     echo "Found SPKG: $PKGNAME version $PKGVER"
     tar x -p -C "$TMPDIR"/spkg -f $SPKG
 
@@ -87,7 +88,7 @@ for SPKG in "$SAGEDIR"/spkg/standard/*.spkg; do
         sage_scripts) REPO=bin ;;
         *)
             mv -T "$TMPDIR"/spkg/$PKGNAME-$PKGVER/src "$TMPDIR"/spkg/$PKGNAME-$PKGVER/$PKGNAME-$PKGVER
-            tar c -jf "$OUTDIR"/dist/$PKGNAME-$PKGVER.tar.bz2 -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER
+            tar c -jf "$OUTDIR"/dist/$PKGNAME-$PKGVER_UPSTREAM.tar.bz2 -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER
             REPO=spkg/$PKGNAME
         ;;
     esac
