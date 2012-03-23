@@ -83,7 +83,7 @@ for SPKG in "$SAGEDIR"/spkg/standard/*.spkg; do
     # tarball the src/ directory and put it into our dist/ directory
     case $PKGNAME in
         extcode) REPO=ext ;;
-        sage) REPO=lib ;;
+        sage) REPO=library ;;
         sage_root) REPO=base ;;
         sage_scripts) REPO=bin ;;
         *)
