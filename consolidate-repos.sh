@@ -173,7 +173,8 @@ for BRANCH in $BRANCHES;
 do
     git rm --ignore-unmatch "$BRANCH"/.hgtags
     if [ -f "$BRANCH"/.hgignore ]; then
-        sed "s+^[^#]+$BRANCH/+" "$BRANCH"/.hgignore >> .gitignore
+        sed "s+^[^#]+$BRANCH/&+" "$BRANCH"/.hgignore >> .gitignore
+        echo >> .gitignore
         git rm "$BRANCH"/.hgignore
     fi
 done
