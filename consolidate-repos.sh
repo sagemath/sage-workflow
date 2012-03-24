@@ -107,7 +107,7 @@ for SPKGPATH in "$SAGEDIR"/spkg/standard/*.spkg; do
     # save the package version for later
     echo "$PKGVER" > "$TMPDIR"/spkg-git/$PKGNAME/spkg-version.txt
 done
-exit 0
+
 # rewrite paths
 BRANCHES=$(git branch)
 git checkout -b dummy base # filter-branch fails without a checked out branch for some reason
