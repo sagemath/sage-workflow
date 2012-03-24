@@ -82,7 +82,6 @@ for SPKGPATH in "$SAGEDIR"/spkg/standard/*.spkg; do
 
     # determine eventual subtree of the spkg's repo
     # tarball the src/ directory and put it into our dist/ directory
-    echo $PKGNAME
     case $PKGNAME in
         extcode) REPO=ext ;;
         sage) REPO=library ;;
