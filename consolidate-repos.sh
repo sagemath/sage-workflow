@@ -71,16 +71,18 @@ done
 # also tarball the src/ directories of the SPKGs and put them into a dist/ directory
 rm -f "$OUTDIR"/unknown.txt
 mkdir "$TMPDIR"/spkg-git
-for SPKG in "$SAGEDIR"/spkg/standard/*.spkg; do
+for SPKGPATH in "$SAGEDIR"/spkg/standard/*.spkg; do
     # figure out what the spkg is
-    PKGNAME=$(sed -e 's/.*\/\([^/]*\)-[0-9]\{1,\}.*$/\1/' <<<"$SPKG")
-    PKGVER=$(sed -e 's/^-\(.*\)\.spkg$/\1/' <<<"${SPKG#*${PKGNAME}}")
+    SPKG="${SPKGPATH#"$SAGEDIR"/spkg/standard/}"
+    PKGNAME=$(sed -e 's/\(.*\)-.*.spkg$/\1/' <<< "$SPKG")
+    PKGVER=$(sed -e 's/^-\(.*\)\.spkg$/\1/' <<< "${SPKG#"$PKGNAME"}")
     PKGVER_UPSTREAM=$(sed -e 's/\.p[0-9][0-9]*$//' <<<"$PKGVER")
     echo "Found SPKG: $PKGNAME version $PKGVER"
-    tar x -p -C "$TMPDIR"/spkg -f $SPKG
+    tar x -p -C "$TMPDIR"/spkg -f "$SPKGPATH"
 
     # determine eventual subtree of the spkg's repo
     # tarball the src/ directory and put it into our dist/ directory
+    echo $PKGNAME
     case $PKGNAME in
         extcode) REPO=ext ;;
         sage) REPO=library ;;
@@ -106,7 +108,7 @@ for SPKG in "$SAGEDIR"/spkg/standard/*.spkg; do
     # save the package version for later
     echo "$PKGVER" > "$TMPDIR"/spkg-git/$PKGNAME/spkg-version.txt
 done
-
+exit 0
 # rewrite paths
 BRANCHES=$(git branch)
 git checkout -b dummy base # filter-branch fails without a checked out branch for some reason
