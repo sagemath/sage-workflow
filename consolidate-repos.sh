@@ -186,8 +186,8 @@ git commit -m "[CLEANUP] Mercurial-related data"
 # (i.e. local revisions)
 for BRANCH in $BRANCHES
 do
-    if [[ $BRANCH == '*spkg/*' ]]; then
-        PKGNAME=${BRANCH#spkg/}
+    PKGNAME=${BRANCH#spkg/}
+    if [ "$BRANCH" != "$PKGNAME" ]; then
         mv "$TMPDIR"/spkg-git/$PKGNAME/spkg-version.txt spkg/$PKGNAME/
         git add spkg/$PKGNAME/spkg-version.txt
     fi
