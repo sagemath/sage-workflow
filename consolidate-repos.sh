@@ -195,7 +195,7 @@ done
 git commit -m "[CLEANUP] Add spkg-version.txt files"
 
 # Optimize the repo
-git gc --aggressive
+git gc --aggressive --prune=0
 
 # Unpack the root layout of the consolidated Sage installation
 cp -r base/* "$OUTDIR"/
