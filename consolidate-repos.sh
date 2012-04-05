@@ -105,9 +105,10 @@ process-spkg () {
 
     # rewrite paths
     # (taken from `man git-filter-branch` and modified a bit)
-    git filter-branch -f -d "$TMPDIR"/filter-branch --index-filter "
+    git filter-branch -f -d "$TMPDIR"/filter-branch --prune-empty --index-filter "
         git ls-files -s | sed \"s+\t\\\"*+&$REPO/+\" | GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info &&
-        mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\"
+        mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\" &&
+        git rm -rf --cached --ignore-unmatch $REPO/src/
     " master
     popd
 
