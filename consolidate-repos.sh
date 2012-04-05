@@ -52,9 +52,11 @@ fi
 [ -z "$TMPDIR" ] && TMPDIR="$(mktemp -d /tmp/consolidate-repos.XXXX)" &&
         MADETMP=yes && echo "Created directory $TMPDIR"
 
+export SAGEDIR OUTDIR TMPDIR
+
 mkdir -p "$TMPDIR" && cd "$TMPDIR" && rm -rf *
 
-# initiate repo
+# initialize output repo
 git init "$TMPDIR"/sage-repo && cd "$TMPDIR"/sage-repo
 
 # move the base tarballs into dist
@@ -71,9 +73,10 @@ done
 # also tarball the src/ directories of the SPKGs and put them into a dist/ directory
 rm -f "$OUTDIR"/unknown.txt
 mkdir "$TMPDIR"/spkg-git
-for SPKGPATH in "$SAGEDIR"/spkg/standard/*.spkg; do
+
+process-spkg () {
     # figure out what the spkg is
-    SPKG="${SPKGPATH#"$SAGEDIR"/spkg/standard/}"
+    SPKG=$1
     PKGNAME=$(sed -e 's/\([^-]*\)-[0-9].*.spkg$/\1/' <<< "$SPKG")
     PKGVER=$(sed -e 's/^-\(.*\)\.spkg$/\1/' <<< "${SPKG#"$PKGNAME"}")
     PKGVER_UPSTREAM=$(sed -e 's/\.p[0-9][0-9]*$//' <<<"$PKGVER")
@@ -106,6 +109,10 @@ for SPKGPATH in "$SAGEDIR"/spkg/standard/*.spkg; do
 
     # save the package version for later
     echo "$PKGVER" > "$TMPDIR"/spkg-git/$PKGNAME/spkg-version.txt
+}
+
+for SPKGPATH in "$SAGEDIR"/spkg/standard/*.spkg; do
+    process-spkg "${SPKGPATH#"$SAGEDIR"/spkg/standard/}"
 done
 
 # rewrite paths
