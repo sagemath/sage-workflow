@@ -128,6 +128,7 @@ done
 # Humongous octomerge
 
 # Put together a directory listing for the repo to commit in the merge
+BRANCHES=$(git branch)
 MERGEOBJS=$(
     for BRANCH in $BRANCHES
     do
@@ -170,7 +171,6 @@ MERGECOMMIT=$(
 # Set up a new master branch and delete the other branches, and we're
 # done!
 git checkout -b master $MERGECOMMIT
-git branch -D dummy
 for BRANCH in $BRANCHES;
 do
     git branch -d $BRANCH || die "The octomerge failed; $BRANCH is still unmerged!"
