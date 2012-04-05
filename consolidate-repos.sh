@@ -99,9 +99,17 @@ process-spkg () {
 
     # convert the SPKG's hg repo to git
     git init --bare "$TMPDIR"/spkg-git/$PKGNAME
-    hg -R "$TMPDIR"/spkg/$PKGNAME-$PKGVER push "$TMPDIR"/spkg-git/$PKGNAME ; # hg-git returns non-zero exit code upon warnings (!?)
+    pushd "$TMPDIR"/spkg-git/$PKGNAME
+    hg -R "$TMPDIR"/spkg/$PKGNAME-$PKGVER push . ; # hg-git returns non-zero exit code upon warnings (!?)
         rm -rf "$TMPDIR"/spkg/$PKGNAME-$PKGVER
-    rm -rf "$TMPDIR"/spkg/$PKGNAME-$PKGVER
+
+    # rewrite paths
+    # (taken from `man git-filter-branch` and modified a bit)
+    git filter-branch -f -d "$TMPDIR"/filter-branch --index-filter "
+        git ls-files -s | sed \"s+\t\\\"*+&$REPO/+\" | GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info &&
+        mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\"
+    " master
+    popd
 
     # pull it into the consolidated repo
     git fetch -n "$TMPDIR"/spkg-git/$PKGNAME master:$REPO &&
@@ -113,18 +121,6 @@ process-spkg () {
 
 for SPKGPATH in "$SAGEDIR"/spkg/standard/*.spkg; do
     process-spkg "${SPKGPATH#"$SAGEDIR"/spkg/standard/}"
-done
-
-# rewrite paths
-BRANCHES=$(git branch)
-git checkout -b dummy base # filter-branch fails without a checked out branch for some reason
-for BRANCH in $BRANCHES
-do
-    # taken from `man git-filter-branch` and modified a bit
-    git filter-branch -f -d "$TMPDIR"/filter-branch --index-filter "
-        git ls-files -s | sed \"s+\t\\\"*+&$BRANCH/+\" | GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info &&
-        mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\"
-    " $BRANCH
 done
 
 
