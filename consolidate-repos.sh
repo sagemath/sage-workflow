@@ -121,7 +121,10 @@ git checkout -b dummy base # filter-branch fails without a checked out branch fo
 for BRANCH in $BRANCHES
 do
     # taken from `man git-filter-branch` and modified a bit
-    git filter-branch -f -d "$TMPDIR"/filter-branch --index-filter "git ls-files -s | sed \"s+\t\\\"*+&$BRANCH/+\" | GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info && mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\"" $BRANCH
+    git filter-branch -f -d "$TMPDIR"/filter-branch --index-filter "
+        git ls-files -s | sed \"s+\t\\\"*+&$BRANCH/+\" | GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info &&
+        mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\"
+    " $BRANCH
 done
 
 
