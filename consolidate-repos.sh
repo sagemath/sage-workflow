@@ -73,7 +73,7 @@ done
 
 # get the SPKG repos converted to git and pull them into the consolidated repo
 # also tarball the src/ directories of the SPKGs and put them into a dist/ directory
-rm -f "$OUTDIR"/unknown.txt
+rm -f "$OUTDIR"/detracked-files.txt
 mkdir "$TMPDIR"/spkg-git
 
 process-spkg () {
@@ -111,7 +111,7 @@ process-spkg () {
     git filter-branch -f -d "$TMPDIR/filter-branch/$SPKG" --prune-empty --index-filter "
         git ls-files -s | sed \"s+\t\\\"*+&$REPO/+\" | GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info &&
         mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\" &&
-        git rm -rf --cached --ignore-unmatch $REPO/src/
+        git rm -rf --cached --ignore-unmatch $REPO/src/ >> $OUTDIR/detracked-files.txt
     " master
     popd
 
