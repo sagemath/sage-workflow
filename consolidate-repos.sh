@@ -133,6 +133,10 @@ else
     done
 fi
 
+if [[ $(command -v notify-send) ]]; then
+    notify-send "$CMD: finished parsing SPKGs"
+fi
+
 
 # Humongous octomerge
 
