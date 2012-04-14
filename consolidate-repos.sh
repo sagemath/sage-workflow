@@ -83,7 +83,8 @@ process-spkg () {
     PKGNAME=$(sed -e 's/\([^-]*\)-[0-9].*.spkg$/\1/' <<< "$SPKG")
     PKGVER=$(sed -e 's/^-\(.*\)\.spkg$/\1/' <<< "${SPKG#"$PKGNAME"}")
     PKGVER_UPSTREAM=$(sed -e 's/\.p[0-9][0-9]*$//' <<<"$PKGVER")
-    echo "Found SPKG: $PKGNAME version $PKGVER"
+    echo
+    echo "*** Found SPKG: $PKGNAME version $PKGVER"
     tar x -p -C "$TMPDIR"/spkg -f "$SPKGPATH"
 
     # determine eventual subtree of the spkg's repo
@@ -102,7 +103,7 @@ process-spkg () {
 
     # convert the SPKG's hg repo to git
     git init --bare "$TMPDIR"/spkg-git/$PKGNAME
-    pushd "$TMPDIR"/spkg-git/$PKGNAME
+    pushd "$TMPDIR"/spkg-git/$PKGNAME > /dev/null
     hg -R "$TMPDIR"/spkg/$PKGNAME-$PKGVER push . ; # hg-git returns non-zero exit code upon warnings (!?)
         rm -rf "$TMPDIR"/spkg/$PKGNAME-$PKGVER
 
@@ -113,7 +114,7 @@ process-spkg () {
         mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\" &&
         git rm -rf --cached --ignore-unmatch $REPO/src/ >> $OUTDIR/detracked-files.txt
     " master
-    popd
+    popd > /dev/null
 
     # pull it into the consolidated repo
     git fetch -n "$TMPDIR"/spkg-git/$PKGNAME master:$REPO &&
