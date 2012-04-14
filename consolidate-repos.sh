@@ -7,6 +7,8 @@
 # As of 2012-03-19 this means it needs to be directly pulled from the
 # repo at http://bitbucket.org/durin42/hg-git/ .
 #
+# If GNU parallel is present, certain operations will be parallelized.
+#
 # Usage:
 #
 #   consolidate-repos.sh -i sagedir -o outdir -t tmpdir
@@ -76,7 +78,8 @@ mkdir "$TMPDIR"/spkg-git
 
 process-spkg () {
     # figure out what the spkg is
-    SPKG=$1
+    SPKGPATH=$1
+    SPKG="${SPKGPATH#$SAGEDIR/spkg/standard/}"
     PKGNAME=$(sed -e 's/\([^-]*\)-[0-9].*.spkg$/\1/' <<< "$SPKG")
     PKGVER=$(sed -e 's/^-\(.*\)\.spkg$/\1/' <<< "${SPKG#"$PKGNAME"}")
     PKGVER_UPSTREAM=$(sed -e 's/\.p[0-9][0-9]*$//' <<<"$PKGVER")
@@ -105,7 +108,7 @@ process-spkg () {
 
     # rewrite paths
     # (taken from `man git-filter-branch` and modified a bit)
-    git filter-branch -f -d "$TMPDIR"/filter-branch --prune-empty --index-filter "
+    git filter-branch -f -d "$TMPDIR/filter-branch/$SPKG" --prune-empty --index-filter "
         git ls-files -s | sed \"s+\t\\\"*+&$REPO/+\" | GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info &&
         mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\" &&
         git rm -rf --cached --ignore-unmatch $REPO/src/
@@ -119,10 +122,16 @@ process-spkg () {
     # save the package version for later
     echo "$PKGVER" > "$TMPDIR"/spkg-git/$PKGNAME/spkg-version.txt
 }
+export -f process-spkg
 
-for SPKGPATH in "$SAGEDIR"/spkg/standard/*.spkg; do
-    process-spkg "${SPKGPATH#"$SAGEDIR"/spkg/standard/}"
-done
+if [[ $(command -v parallel) ]]; then
+    find "$SAGEDIR/spkg/standard" -name '*.spkg' |
+        parallel 'process-spkg {}'
+else
+    for SPKGPATH in "$SAGEDIR"/spkg/standard/*.spkg; do
+        process-spkg "$SPKGPATH"
+    done
+fi
 
 
 # Humongous octomerge
