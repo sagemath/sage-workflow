@@ -128,8 +128,8 @@ process-spkg () {
 export -f process-spkg
 
 if [[ $(command -v parallel) ]]; then
-    find "$SAGEDIR/spkg/standard" -name '*.spkg' |
-        parallel 'process-spkg {}'
+    find "$SAGEDIR/spkg/standard" -print0 -name '*.spkg' |
+        parallel -0 'process-spkg {}'
 else
     for SPKGPATH in "$SAGEDIR"/spkg/standard/*.spkg; do
         process-spkg "$SPKGPATH"
