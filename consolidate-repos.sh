@@ -8,6 +8,8 @@
 # repo at http://bitbucket.org/durin42/hg-git/ .
 #
 # If GNU parallel is present, certain operations will be parallelized.
+# If notify-send is present, the script will send notifications that
+# certain long segments of the operation have been completed.
 #
 # Usage:
 #
