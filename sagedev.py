@@ -71,6 +71,9 @@ class SageDev(object):
         else:
             call(s, shell=True)
 
+    def has_uncommited_changes(self):
+        return False
+
     #########################################################
     # Trac interface
     #########################################################
@@ -146,3 +149,12 @@ class SageDev(object):
                 print "Please specify an allowable option"
             else:
                 print "Please disambiguate between options"
+
+    #########################################################
+    # High level functions
+    #########################################################
+
+    def start(self, ticketnum = None, branchname = None):
+        if ticketnum is None:
+            # User wants to create a ticket
+            pass
