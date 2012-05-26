@@ -27,9 +27,11 @@ class DigestTransport(Transport):
         return self.parse_response(response)
 
 class GitInterface(object):
-    def __init__(self, UI, gitcmd = 'git'):
+    def __init__(self, UI, username, gitcmd = 'git'):
         self._gitcmd = gitcmd
+        self._username = username
         self.UI = UI
+        raise NotImplementedError("Need to set unstable")
 
     def _clean_str(self, s):
         # for now, no error checking
@@ -53,6 +55,13 @@ class GitInterface(object):
             return s
         else:
             return call(s, shell=True)
+
+    def _branchname(self, ticketnum, branchname):
+        if ticketnum is None:
+            return self._unstable
+        if branchname is None:
+            branchname = "default"
+        return "%s/%s/%s"(ticketnum, self._username, branchname)
 
     def has_uncommitted_changes(self):
         raise NotImplementedError("Returns True if there are uncommitted changes or non-added files")
@@ -86,6 +95,12 @@ class GitInterface(object):
                 self.add_file(F)
         msg = self.UI.get_input("Please enter a commit message:")
         self.commit_all(m=msg)
+
+    def create_branch(self, ticketnum, branchname, at_unstable=False):
+        if at_unstable:
+            self.git("branch", self._branchname(ticketnum, branchname), self._branchname(None, None))
+        else:
+            self.git("branch", self._branchname(ticketnum, branchname))
 
     def switch(self, ticketnum, branchname):
         raise NotImplementedError("switches to another ticket")
@@ -214,7 +229,7 @@ class SageDev(object):
         devrc = os.path.expanduser(devrc)
         username, password = self.process_rc(devrc)
         self.UI = UserInterface()
-        self.git = GitInterface(self.UI, gitcmd)
+        self.git = GitInterface(self.UI, username, gitcmd)
         self.trac = TracInterface(self.UI, realm, trac, username, password)
 
     def process_rc(self, devrc):
@@ -232,7 +247,12 @@ class SageDev(object):
             if ticketnum is None:
                 return
             if curticket is not None:
-                depend = self.UI.get_input("Should the new ticket depend on #%s?"%(
+                depend = self.UI.get_input("Should the new ticket depend on #%s?"%(curticket), ["yes","no"],"yes")
+                if depend == "no":
+                    self.git.create_branch(self, ticketnum, branchname, at_unstable=True)
+                else:
+                    self.git.create_branch(self, ticketnum, branchname)
+                    self.trac.add_dependency(self, ticketnum, curticket)
         dest = None
         if self.git.has_uncommitted_changes():
             if curticket is None:
@@ -249,6 +269,5 @@ class SageDev(object):
                 self.git.move_uncommited_changes(ticketnum, branchname)
             else:
                 self.git.switch(ticketnum, branchname)
-            return
-        
+        else:
             self.git.commit_all()
