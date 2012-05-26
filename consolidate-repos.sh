@@ -32,12 +32,11 @@ usage () {
 }
 
 # parse command line options
-while getopts "i:o:t:" opt;
-do
+while getopts "i:o:t:" opt ; do
     case $opt in
-        i) SAGEDIR=$(readlink -f "$OPTARG");;
-        o) OUTDIR=$(readlink -f "$OPTARG");;
-        t) TMPDIR=$(readlink -f "$OPTARG");;
+        i) SAGEDIR=$(readlink -f "$OPTARG") ;;
+        o) OUTDIR=$(readlink -f "$OPTARG") ;;
+        t) TMPDIR=$(readlink -f "$OPTARG") ;;
     esac
 done
 shift $((OPTIND-1))
@@ -66,7 +65,7 @@ git init "$TMPDIR"/sage-repo && cd "$TMPDIR"/sage-repo
 # move the base tarballs into dist
 mkdir -p "$OUTDIR"/dist
 mkdir "$TMPDIR"/spkg
-for TARBALL in "$SAGEDIR"/spkg/base/*.tar*; do
+for TARBALL in "$SAGEDIR"/spkg/base/*.tar* ; do
     PKGNAME=$(sed -e 's/.*\/\([^/]*\)-[0-9]\{1,\}.*$/\1/' <<<"$TARBALL")
     PKGVER=$(sed -e 's/^-\(.*\)\.tar.*$/\1/' <<<"${TARBALL#*${PKGNAME}}")
     tar x -p -C "$TMPDIR"/spkg -f $TARBALL
@@ -127,16 +126,11 @@ process-spkg () {
 }
 export -f process-spkg
 
-if [[ $(command -v parallel) ]]; then
-    find "$SAGEDIR/spkg/standard" -print0 -name '*.spkg' |
-        parallel -0 'process-spkg {}'
-else
-    for SPKGPATH in "$SAGEDIR"/spkg/standard/*.spkg; do
-        process-spkg "$SPKGPATH"
-    done
-fi
+for SPKGPATH in "$SAGEDIR"/spkg/standard/*.spkg ; do
+    process-spkg "$SPKGPATH"
+done
 
-if [[ $(command -v notify-send) ]]; then
+if [[ $(command -v notify-send) ]] ; then
     notify-send "$CMD: finished parsing SPKGs"
 fi
 
@@ -146,10 +140,9 @@ fi
 # Put together a directory listing for the repo to commit in the merge
 BRANCHES=$(git branch)
 MERGEOBJS=$(
-    for BRANCH in $BRANCHES
-    do
+    for BRANCH in $BRANCHES ; do
         ENTRY=$(git ls-tree $BRANCH) # an object-filename association
-        if [ $(cut -f2 <<<"$ENTRY") == "spkg" ]; then
+        if [ $(cut -f2 <<<"$ENTRY") == "spkg" ] ; then
             # In this case, $BRANCH associates a subdirectory listing
             # to spkg containing a single dir. We ignore this
             # association and instead collect all the dirs that the
@@ -178,8 +171,7 @@ MERGETREE=$(echo -e "$MERGEOBJS" | git mktree --missing)
 # Commit the new fully consolidated file tree
 MERGECOMMIT=$(
     {
-        for BRANCH in $BRANCHES
-        do
+        for BRANCH in $BRANCHES ; do
             echo '-p '$(git show-ref -s --heads $BRANCH)
         done
     } | xargs git commit-tree $MERGETREE -m "ePiC oCtOmErGe"
@@ -187,14 +179,12 @@ MERGECOMMIT=$(
 # Set up a new master branch and delete the other branches, and we're
 # done!
 git checkout -b master $MERGECOMMIT
-for BRANCH in $BRANCHES;
-do
+for BRANCH in $BRANCHES ; do
     git branch -d $BRANCH || die "The octomerge failed; $BRANCH is still unmerged!"
 done
 
 # Clean up or adapt .hg* files (Mercurial-related data)
-for BRANCH in $BRANCHES;
-do
+for BRANCH in $BRANCHES ; do
     git rm --ignore-unmatch "$BRANCH"/.hgtags
     if [ -f "$BRANCH"/.hgignore ]; then
         sed "s+^[^#]+$BRANCH/&+" "$BRANCH"/.hgignore >> .gitignore
@@ -207,8 +197,7 @@ git commit -m "[CLEANUP] Mercurial-related data"
 
 # Commit spkg-version.txt files to track package \.p[0-9]+ versions
 # (i.e. local revisions)
-for BRANCH in $BRANCHES
-do
+for BRANCH in $BRANCHES ; do
     PKGNAME=${BRANCH#spkg/}
     if [ "$BRANCH" != "$PKGNAME" ]; then
         mv "$TMPDIR"/spkg-git/$PKGNAME/spkg-version.txt spkg/$PKGNAME/
