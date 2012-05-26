@@ -1,4 +1,4 @@
-import os
+import os, tempfile
 from subprocess import call
 from xmlrpclib import Transport, ServerProxy
 import urllib2
@@ -26,33 +26,16 @@ class DigestTransport(Transport):
 
         return self.parse_response(response)
 
-class SageDev(object):
-    def __init__(self, devrc = '~/.sage/devrc', gitcmd = 'git', realm = 'sage.math.washington.edu', trac='http://trac.sagemath.org/experimental/'):
-        devrc = os.path.expanduser(devrc)
-        username, password = self.process_rc(devrc)
+class GitInterface(object):
+    def __init__(self, UI, gitcmd = 'git'):
         self._gitcmd = gitcmd
-        if trac[-1] != '/':
-            trac += '/'
-        trac += 'login/xmlrpc'
-        transport = DigestTransport(realm, trac, username, password)
-        self._tracserver = ServerProxy(trac, transport=transport)
-
-    def process_rc(self, devrc):
-        with open(devrc) as F:
-            L = list(F)
-            username = L[0].strip()
-            passwd = L[1].strip()
-            return username, passwd
-
-    #########################################################
-    # Git interface
-    #########################################################
+        self.UI = UI
 
     def _clean_str(self, s):
         # for now, no error checking
         return str(s)
 
-    def git(self, cmd, *args, **kwds):
+    def execute(self, cmd, *args, **kwds):
         s = self._gitcmd + " " + cmd
         testing = kwds.pop("testing",None)
         for k, v in kwds:
@@ -69,30 +52,57 @@ class SageDev(object):
         if testing:
             return s
         else:
-            call(s, shell=True)
+            return call(s, shell=True)
 
-    def has_uncommited_changes(self):
+    def has_uncommitted_changes(self):
         return False
 
-    #########################################################
-    # Trac interface
-    #########################################################
+class TracInterface(object):
+    def __init__(self, UI, realm, trac, username, password):
+        self.UI = UI
+        if trac[-1] != '/':
+            trac += '/'
+        trac += 'login/xmlrpc'
+        transport = DigestTransport(realm, trac, username, password)
+        self._tracserver = ServerProxy(trac, transport=transport)
 
-    def trac_create_ticket(self, summary, description, attributes={}, notify=False):
+    def create_ticket(self, summary, description, type, component, attributes={}, notify=False):
         """
         Creates a ticket on trac and returns the new ticket number.
 
         EXAMPLES::
 
             sage: SD = SageDev()
-            sage: SD.trac_create_ticket("Creating a trac ticket is not doctested", "There seems to be no way to doctest the automated creation of trac tickets in the SageDev class")
+            sage: SD.trac_create_ticket("Creating a trac ticket is not doctested", "There seems to be no way to doctest the automated creation of trac tickets in the SageDev class", "defect", "scripts")
         """
         tnum = self._tracserver.ticket.create(summary, description, attributes, notify)
+        return tnum
 
-    #########################################################
-    # User input
-    #########################################################
+    def create_ticket_interactive(self):
+        proceed = self.UI.confirm("create a new ticket")
+        if proceed:
+            if os.environ.has_key('EDITOR'):
+                editor = os.environ['EDITOR']
+            else:
+                editor = 'nano'
+            while True:
+                F = tempfile.NamedTemporaryFile(delete=False)
+                filename = F.name
+                F.write("Summary (one line): \n")
+                F.write("Description (multiple lines, trac markup allowed): \n\n\n\n")
+                F.write("Type (defect/enhancement): \n")
+                F.write("Component: \n")
+                F.close()
+                parsed = self.parse(filename)
+                os.unlink(filename)
+                if any([a is None for a in parsed]):
+                    tryagain = self.UI.get_input("Error in entering ticket data. Would you like to try again?", ["yes","no"],default="y")
+                    if tryagain == "no": break
+                else:
+                    summary, description, type, component = parsed
+                    return self.create_ticket(summary, description, type, component)
 
+class UserInterface(object):
     def get_input(self, prompt, options=None, default=None, testing=False):
         """
         Get input from the developer.
@@ -128,6 +138,7 @@ class SageDev(object):
                 prompt += " [" + "/".join(options) + "] "
                 options[default] = options[default].lower()
             else:
+                prompt += " "
                 options = None
         if testing:
             return prompt
@@ -135,6 +146,12 @@ class SageDev(object):
             s = raw_input(prompt)
             if options is None:
                 return s
+            if len(s.strip()) == 0:
+                if default is None:
+                    print "Please enter an option"
+                    continue
+                else:
+                    return options[default]
             found = -1
             for i, opt in enumerate(options):
                 if opt.startswith(s):
@@ -150,11 +167,32 @@ class SageDev(object):
             else:
                 print "Please disambiguate between options"
 
-    #########################################################
-    # High level functions
-    #########################################################
+    def confirm(self, action, default_yes=True):
+        ok = self.get_input("Are you sure you want to " + action + "?", ["yes","no"], "yes" if default_yes else "no")
+        return ok == "yes"
+
+
+
+class SageDev(object):
+    def __init__(self, devrc = '~/.sage/devrc', gitcmd = 'git', realm = 'sage.math.washington.edu', trac='http://trac.sagemath.org/experimental/'):
+        devrc = os.path.expanduser(devrc)
+        username, password = self.process_rc(devrc)
+        self.UI = UserInterface()
+        self.git = GitInterface(self.UI, gitcmd)
+        self.trac = TracInterface(self.UI, realm, trac, username, password)
+
+    def process_rc(self, devrc):
+        with open(devrc) as F:
+            L = list(F)
+            username = L[0].strip()
+            passwd = L[1].strip()
+            return username, passwd
 
     def start(self, ticketnum = None, branchname = None):
         if ticketnum is None:
             # User wants to create a ticket
-            pass
+            ticketnum = self.trac.create_ticket_interactive()
+            if ticketnum is None:
+                return
+        if self.git.has_uncommitted_changes():
+            self.git.execute("commit",a=True)
