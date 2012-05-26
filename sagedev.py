@@ -114,10 +114,10 @@ class GitInterface(object):
 
     def create_branch(self, ticketnum, at_unstable=False):
         if at_unstable:
-            self.git("branch", self._local_branchname(ticketnum),
+            self.execute("branch", self._local_branchname(ticketnum),
                      self._local_branchname(None))
         else:
-            self.git("branch", self._local_branchname(ticketnum))
+            self.execute("branch", self._local_branchname(ticketnum))
 
     def fetch_branch(self, ticketnum):
         # fetches a branch from remote, including dependencies if
@@ -323,7 +323,7 @@ class SageDev(object):
                 # They didn't succeed.
                 return
             if curticket is not None:
-                if self.UI.confirm("Should the new ticket depend on #%s?"%(curticket))
+                if self.UI.confirm("Should the new ticket depend on #%s?"%(curticket)):
                     self.git.create_branch(self, ticketnum)
                     self.trac.add_dependency(self, ticketnum, curticket)
                 else:
@@ -355,7 +355,7 @@ class SageDev(object):
             if self.UI.confirm("Would you like to upload the changes?"):
                 self.git.upload()
 
-    def upload(self, ticketnum = None):
+    def upload(self, ticketnum=None):
         oldticket = self.git.current_ticket()
         if ticketnum is None or ticketnum == oldticket:
             oldticket = None
