@@ -57,6 +57,34 @@ class GitInterface(object):
     def has_uncommitted_changes(self):
         return False
 
+    def commit_all(self, *args, **kwds):
+        kwds['a'] = True
+        self.execute("commit", *args, **kwds)
+
+    def exists(self, ticketnum, branchname):
+        return False
+
+    def stash(self):
+        self.execute("stash")
+
+    def files_added(self):
+        raise NotImplementedError("Should return a list of filenames of files that the user might want to add")
+
+    def add_file(self, F):
+        raise NotImplementedError("Should add the file with filename F")
+
+    def save(self):
+        diff = self.UI.get_input("Would you like to see a diff of the changes?",["yes","no"],"no")
+        if diff == "yes":
+            self.execute("diff")
+        added = self.files_added()
+        for F in added:
+            toadd = self.UI.get_input("Would you like to start tracking %s?"%F,["yes","no"],"yes")
+            if toadd == "yes":
+                self.add_file(F)
+        msg = self.UI.get_input("Please enter a commit message:")
+        self.commit_all(m=msg)
+
 class TracInterface(object):
     def __init__(self, UI, realm, trac, username, password):
         self.UI = UI
@@ -195,4 +223,17 @@ class SageDev(object):
             if ticketnum is None:
                 return
         if self.git.has_uncommitted_changes():
-            self.git.execute("commit",a=True)
+            curticket = self.git.current_ticket()
+            if curticket is None:
+                options = [ticketnum, "stash"]
+            else:
+                options = [ticketnum, curticket, "stash"]
+            dest = self.UI.get_input("Where do you want to commit your changes?", options)
+            if dest == "stash":
+                self.git.stash()
+            elif dest == str(curticket):
+                self.git.save()
+            if self.git.exists(ticketnum, branchname):
+                
+
+            self.git.commit_all()
