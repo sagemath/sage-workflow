@@ -27,14 +27,17 @@ class DigestTransport(Transport):
         return self.parse_response(response)
 
 class GitInterface(object):
-    def __init__(self, UI, username, gitcmd = 'git'):
+    def __init__(self, UI, username, gitcmd='git'):
         self._gitcmd = gitcmd
         self._username = username
         self.UI = UI
-        raise NotImplementedError("Need to set unstable")
+        # Need to set unstable
+        raise NotImplementedError
 
     def released_sage_ver(self):
-        raise NotImplementedError("should return a string with the most recent released version of Sage (in this branch's past?)")
+        # should return a string with the most recent released version
+        # of Sage (in this branch's past?)
+        raise NotImplementedError
 
     def _clean_str(self, s):
         # for now, no error checking
@@ -42,8 +45,8 @@ class GitInterface(object):
 
     def execute(self, cmd, *args, **kwds):
         s = self._gitcmd + " " + cmd
-        testing = kwds.pop("testing",None)
-        for k, v in kwds:
+        dryrun = kwds.pop("dryrun", None)
+        for k, v in kwds.iteritems():
             if len(k) == 1:
                 k = ' -' + k
             else:
@@ -53,8 +56,8 @@ class GitInterface(object):
             else:
                 s += k + " " + self._clean_str(v)
         if args:
-            s += " " + "".join([self._clean_str(a) for a in args])
-        if testing:
+            s += " " + " ".join([self._clean_str(a) for a in args])
+        if dryrun:
             return s
         else:
             return call(s, shell=True)
@@ -70,7 +73,8 @@ class GitInterface(object):
         return "%s/%s"(self._username, ticketnum)
 
     def has_uncommitted_changes(self):
-        raise NotImplementedError("Returns True if there are uncommitted changes or non-added files")
+        # Returns True if there are uncommitted changes or non-added files
+        raise NotImplementedError
 
     def commit_all(self, *args, **kwds):
         # if files are non-tracked and user doesn't want to add any of
@@ -79,19 +83,25 @@ class GitInterface(object):
         self.execute("commit", *args, **kwds)
 
     def exists(self, ticketnum):
-        raise NotImplementedError("Returns True if ticket exists")
+        # Returns True if ticket exists
+        raise NotImplementedError
 
     def stash(self):
-        raise NotImplementedError("Should stash changes")
+        # Should stash changes
+        raise NotImplementedError
 
     def files_added(self):
-        raise NotImplementedError("Should return a list of filenames of files that the user might want to add")
+        # Should return a list of filenames of files that the user
+        # might want to add
+        raise NotImplementedError
 
     def add_file(self, F):
-        raise NotImplementedError("Should add the file with filename F")
+        # Should add the file with filename F
+        raise NotImplementedError
 
     def save(self):
-        diff = self.UI.confirm("Would you like to see a diff of the changes?",default_yes=False)
+        diff = self.UI.confirm("Would you like to see a diff of the changes?",
+                               default_yes=False)
         if diff == "yes":
             self.execute("diff")
         added = self.files_added()
@@ -104,36 +114,50 @@ class GitInterface(object):
 
     def create_branch(self, ticketnum, at_unstable=False):
         if at_unstable:
-            self.git("branch", self._local_branchname(ticketnum), self._local_branchname(None))
+            self.git("branch", self._local_branchname(ticketnum),
+                     self._local_branchname(None))
         else:
             self.git("branch", self._local_branchname(ticketnum))
 
     def fetch_branch(self, ticketnum):
-        raise NotImplementedError("fetches a branch from remote, including dependencies if necessary.  Doesn't switch")
+        # fetches a branch from remote, including dependencies if
+        # necessary. Doesn't switch
+        raise NotImplementedError
 
     def switch(self, ticketnum):
-        raise NotImplementedError("switches to another ticket")
+        # switches to another ticket
+        raise NotImplementedError
 
     def move_uncommited_changes(self, ticketnum):
-        raise NotImplementedError("create temp branch, commit changes, rebase, fast-forward....")
+        # create temp branch, commit chanes, rebase, fast-forward....
+        raise NotImplementedError
 
     def needs_update(self, ticketnum):
-        raise NotImplementedError("returns True if there are changes in the ticket on trac that aren't included in the current ticket")
+        # returns True if there are changes in the ticket on trac that
+        # aren't included in the current ticket
+        raise NotImplementedError
 
     def sync(self, ticketnum=None):
-        raise NotImplementedError("pulls in changes from trac and rebases the current branch to them.  ticketnum=None syncs unstable.")
+        # pulls in changes from trac and rebases the current branch to
+        # them. ticketnum=None syncs unstable.
+        raise NotImplementedError
 
     def vanilla(self, release=False):
-        raise NotImplementedError("switch to unstable branch in the past (release=False) or a given named release")
+        # switch to unstable branch in the past (release=False) or a
+        # given named release
+        raise NotImplementedError
 
     def review(self, ticketnum, user):
-        raise NotImplementedError("download a remote branch to review")
+        # download a remote branch to review
+        raise NotImplementedError
 
     def prune(self):
-        raise NotImplementedError("gets rid of branches that have been merged into unstable")
+        # gets rid of branches that have been merged into unstable
+        raise NotImplementedError
 
     def abandon(self, ticketnum):
-        raise NotImplementedError("deletes the branch")
+        # deletes the branch
+        raise NotImplementedError
 
 class TracInterface(object):
     def __init__(self, UI, realm, trac, username, password):
@@ -144,16 +168,23 @@ class TracInterface(object):
         transport = DigestTransport(realm, trac, username, password)
         self._tracserver = ServerProxy(trac, transport=transport)
 
-    def create_ticket(self, summary, description, type, component, attributes={}, notify=False):
+    def create_ticket(self, summary, description, type, component,
+                      attributes={}, notify=False):
         """
-        Creates a ticket on trac and returns the new ticket number.
+        Create a ticket on trac and return the new ticket number.
 
         EXAMPLES::
 
             sage: SD = SageDev()
-            sage: SD.trac_create_ticket("Creating a trac ticket is not doctested", "There seems to be no way to doctest the automated creation of trac tickets in the SageDev class", "defect", "scripts")
+            sage: SD.trac_create_ticket(
+            ... "Creating a trac ticket is not doctested",
+            ... "There seems to be no way to doctest the automated"
+            ... " creation of trac tickets in the SageDev class",
+            ... "defect", "scripts"
+            ... )
         """
-        tnum = self._tracserver.ticket.create(summary, description, attributes, notify)
+        tnum = self._tracserver.ticket.create(summary, description,
+                                              attributes, notify)
         return tnum
 
     def create_ticket_interactive(self):
@@ -167,27 +198,34 @@ class TracInterface(object):
                 F = tempfile.NamedTemporaryFile(delete=False)
                 filename = F.name
                 F.write("Summary (one line): \n")
-                F.write("Description (multiple lines, trac markup allowed): \n\n\n\n")
+                F.write("Description (multiple lines, trac markup allowed):"
+                        " \n\n\n\n")
                 F.write("Type (defect/enhancement): \n")
                 F.write("Component: \n")
                 F.close()
                 parsed = self.parse(filename)
                 os.unlink(filename)
                 if any([a is None for a in parsed]):
-                    if not self.UI.confirm("Error in entering ticket data. Would you like to try again?"):
+                    if not self.UI.confirm("Error in entering ticket data."
+                                           " Would you like to try again?"):
                         break
                 else:
-                    summary, description, type, component = parsed
-                    return self.create_ticket(summary, description, type, component)
+                    summary, description, ticket_type, component = parsed
+                    return self.create_ticket(summary, description, ticket_type,
+                                              component)
 
     def add_dependency(self, new_ticket, old_ticket):
-        raise NotImplementedError("makes the trac ticket for new_ticket depend on the old_ticket")
+        # makes the trac ticket for new_ticket depend on the old_ticket
+        raise NotImplementedError
 
     def dependencies(self, curticket):
-        raise NotImplementedError("returns the list of all ticket dependencies that have not been merged into unstable.  Earlier elements should be 'older'.")
+        # returns the list of all ticket dependencies that have not
+        # been merged into unstable. Earlier elements should be
+        # 'older'.
+        raise NotImplementedError
 
 class UserInterface(object):
-    def get_input(self, prompt, options=None, default=None, testing=False):
+    def get_input(self, prompt, options=None, default=None, dryrun=False):
         """
         Get input from the developer.
 
@@ -196,12 +234,13 @@ class UserInterface(object):
         - ``promt`` -- a string
         - ``options`` -- a list of strings or None
         - ``default`` -- a string or None
-        - ``testing`` -- boolean
+        - ``dryrun`` -- boolean
 
         EXAMPLES::
 
             sage: SD = SageDev()
-            sage: SD.get_input("Should I delete your home directory?", ["yes","no"], default="y", testing=True)
+            sage: SD.get_input("Should I delete your home directory?",
+            ... ["yes","no"], default="y", dryrun=True)
             'Should I delete your home directory? [Yes/no] '
         """
         if default is not None:
@@ -224,7 +263,7 @@ class UserInterface(object):
             else:
                 prompt += " "
                 options = None
-        if testing:
+        if dryrun:
             return prompt
         while True:
             s = raw_input(prompt)
@@ -252,13 +291,16 @@ class UserInterface(object):
                 print "Please disambiguate between options"
 
     def confirm(self, question, default_yes=True):
-        ok = self.get_input(question, ["yes","no"], "yes" if default_yes else "no")
+        ok = self.get_input(question, ["yes","no"],
+                            "yes" if default_yes else "no")
         return ok == "yes"
 
 
 
 class SageDev(object):
-    def __init__(self, devrc = '~/.sage/devrc', gitcmd = 'git', realm = 'sage.math.washington.edu', trac='http://trac.sagemath.org/experimental/'):
+    def __init__(self, devrc='~/.sage/devrc', gitcmd='git',
+                 realm='sage.math.washington.edu',
+                 trac='http://trac.sagemath.org/experimental/'):
         devrc = os.path.expanduser(devrc)
         username, password = self.process_rc(devrc)
         self.UI = UserInterface()
