@@ -187,12 +187,9 @@ done
 for BRANCH in $BRANCHES ; do
     git rm --ignore-unmatch "$BRANCH"/.hgtags
     if [ -f "$BRANCH"/.hgignore ]; then
-        sed "s+^[^#]+$BRANCH/&+" "$BRANCH"/.hgignore >> .gitignore
-        echo >> .gitignore
-        git rm "$BRANCH"/.hgignore
+        git mv "$BRANCH"/.hgignore "$BRANCH"/.gitignore
     fi
 done
-git add .gitignore
 git commit -m "[CLEANUP] Mercurial-related data"
 
 # Commit spkg-version.txt files to track package \.p[0-9]+ versions
