@@ -85,12 +85,12 @@ class GitInterface(object):
         raise NotImplementedError("Should add the file with filename F")
 
     def save(self):
-        diff = self.UI.get_input("Would you like to see a diff of the changes?",["yes","no"],"no")
+        diff = self.UI.confirm("Would you like to see a diff of the changes?",default_yes=False)
         if diff == "yes":
             self.execute("diff")
         added = self.files_added()
         for F in added:
-            toadd = self.UI.get_input("Would you like to start tracking %s?"%F,["yes","no"],"yes")
+            toadd = self.UI.confirm("Would you like to start tracking %s?"%F)
             if toadd == "yes":
                 self.add_file(F)
         msg = self.UI.get_input("Please enter a commit message:")
@@ -101,6 +101,9 @@ class GitInterface(object):
             self.git("branch", self._branchname(ticketnum, branchname), self._branchname(None, None))
         else:
             self.git("branch", self._branchname(ticketnum, branchname))
+
+    def fetch_branch(self, ticketnum, branchname):
+        raise NotImplementedError("fetches a branch from remote, including dependencies if necessary.  Doesn't switch")
 
     def switch(self, ticketnum, branchname):
         raise NotImplementedError("switches to another ticket")
@@ -147,11 +150,14 @@ class TracInterface(object):
                 parsed = self.parse(filename)
                 os.unlink(filename)
                 if any([a is None for a in parsed]):
-                    tryagain = self.UI.get_input("Error in entering ticket data. Would you like to try again?", ["yes","no"],default="y")
-                    if tryagain == "no": break
+                    if not self.UI.confirm("Error in entering ticket data. Would you like to try again?"):
+                        break
                 else:
                     summary, description, type, component = parsed
                     return self.create_ticket(summary, description, type, component)
+
+    def add_dependency(self, new_ticket, old_ticket):
+        raise NotImplementedError
 
 class UserInterface(object):
     def get_input(self, prompt, options=None, default=None, testing=False):
@@ -218,8 +224,8 @@ class UserInterface(object):
             else:
                 print "Please disambiguate between options"
 
-    def confirm(self, action, default_yes=True):
-        ok = self.get_input("Are you sure you want to " + action + "?", ["yes","no"], "yes" if default_yes else "no")
+    def confirm(self, question, default_yes=True):
+        ok = self.get_input(question, ["yes","no"], "yes" if default_yes else "no")
         return ok == "yes"
 
 
@@ -245,20 +251,20 @@ class SageDev(object):
             # User wants to create a ticket
             ticketnum = self.trac.create_ticket_interactive()
             if ticketnum is None:
+                # They didn't succeed.
                 return
             if curticket is not None:
-                depend = self.UI.get_input("Should the new ticket depend on #%s?"%(curticket), ["yes","no"],"yes")
-                if depend == "no":
-                    self.git.create_branch(self, ticketnum, branchname, at_unstable=True)
-                else:
+                if self.UI.confirm("Should the new ticket depend on #%s?"%(curticket))
                     self.git.create_branch(self, ticketnum, branchname)
                     self.trac.add_dependency(self, ticketnum, curticket)
+                else:
+                    self.git.create_branch(self, ticketnum, branchname, at_unstable=True)
         dest = None
         if self.git.has_uncommitted_changes():
             if curticket is None:
-                options = [ticketnum, "stash"]
+                options = ["#%s"%ticketnum, "stash"]
             else:
-                options = [ticketnum, curticket, "stash"]
+                options = ["#%s"%ticketnum, "#%s"%curticket, "stash"]
             dest = self.UI.get_input("Where do you want to commit your changes?", options)
             if dest == "stash":
                 self.git.stash()
@@ -270,4 +276,13 @@ class SageDev(object):
             else:
                 self.git.switch(ticketnum, branchname)
         else:
-            self.git.commit_all()
+            self.git.fetch_branch(self, ticketnum, branchname)
+            self.git.switch(ticketnum, branchname)
+
+    def save(self):
+        curticket = self.git.current_ticket()
+        if self.UI.confirm("Are you sure you want to save your changes to ticket #%s?"%(curticket)):
+            self.git.save()
+        
+
+    def upload(self, 
