@@ -55,17 +55,19 @@ class GitInterface(object):
             return call(s, shell=True)
 
     def has_uncommitted_changes(self):
-        return False
+        raise NotImplementedError("Returns True if there are uncommitted changes or non-added files")
 
     def commit_all(self, *args, **kwds):
+        # if files are non-tracked and user doesn't want to add any of
+        # them, there might be no changes being committed here....
         kwds['a'] = True
         self.execute("commit", *args, **kwds)
 
     def exists(self, ticketnum, branchname):
-        return False
+        raise NotImplementedError("Returns True if ticket exists")
 
     def stash(self):
-        self.execute("stash")
+        raise NotImplementedError("Should stash changes")
 
     def files_added(self):
         raise NotImplementedError("Should return a list of filenames of files that the user might want to add")
@@ -84,6 +86,12 @@ class GitInterface(object):
                 self.add_file(F)
         msg = self.UI.get_input("Please enter a commit message:")
         self.commit_all(m=msg)
+
+    def switch(self, ticketnum, branchname):
+        raise NotImplementedError("switches to another ticket")
+
+    def move_uncommited_changes(ticketnum, branchname):
+        raise NotImplementedChanges("create temp branch, commit changes, rebase, fast-forward....")
 
 class TracInterface(object):
     def __init__(self, UI, realm, trac, username, password):
@@ -217,13 +225,16 @@ class SageDev(object):
             return username, passwd
 
     def start(self, ticketnum = None, branchname = None):
+        curticket = self.git.current_ticket()
         if ticketnum is None:
             # User wants to create a ticket
             ticketnum = self.trac.create_ticket_interactive()
             if ticketnum is None:
                 return
+            if curticket is not None:
+                depend = self.UI.get_input("Should the new ticket depend on #%s?"%(
+        dest = None
         if self.git.has_uncommitted_changes():
-            curticket = self.git.current_ticket()
             if curticket is None:
                 options = [ticketnum, "stash"]
             else:
@@ -233,7 +244,11 @@ class SageDev(object):
                 self.git.stash()
             elif dest == str(curticket):
                 self.git.save()
-            if self.git.exists(ticketnum, branchname):
-                
-
+        if self.git.exists(ticketnum, branchname):
+            if dest == str(ticketnum):
+                self.git.move_uncommited_changes(ticketnum, branchname)
+            else:
+                self.git.switch(ticketnum, branchname)
+            return
+        
             self.git.commit_all()
