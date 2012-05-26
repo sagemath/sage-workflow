@@ -18,7 +18,7 @@
 # Output:
 #
 # - A consolidated repo in outdir
-# - tarballs for the source files in outdir/dist/
+# - tarballs for the source files in outdir/upstream/
 
 CMD="${0##*/}"
 
@@ -62,18 +62,18 @@ mkdir -p "$TMPDIR" && cd "$TMPDIR" && rm -rf *
 # initialize output repo
 git init "$TMPDIR"/sage-repo && cd "$TMPDIR"/sage-repo
 
-# move the base tarballs into dist
-mkdir -p "$OUTDIR"/dist
+# move the base tarballs into upstream
+mkdir -p "$OUTDIR"/upstream
 mkdir "$TMPDIR"/spkg
 for TARBALL in "$SAGEDIR"/spkg/base/*.tar* ; do
     PKGNAME=$(sed -e 's/.*\/\([^/]*\)-[0-9]\{1,\}.*$/\1/' <<<"$TARBALL")
     PKGVER=$(sed -e 's/^-\(.*\)\.tar.*$/\1/' <<<"${TARBALL#*${PKGNAME}}")
     tar x -p -C "$TMPDIR"/spkg -f $TARBALL
-    tar c -f "$OUTDIR"/dist/$PKGNAME-$PKGVER.tar -C "$TMPDIR"/spkg/ $PKGNAME-$PKGVER
+    tar c -f "$OUTDIR"/upstream/$PKGNAME-$PKGVER.tar -C "$TMPDIR"/spkg/ $PKGNAME-$PKGVER
 done
 
 # get the SPKG repos converted to git and pull them into the consolidated repo
-# also tarball the src/ directories of the SPKGs and put them into a dist/ directory
+# also tarball the src/ directories of the SPKGs and put them into a upstream/ directory
 rm -f "$OUTDIR"/detracked-files.txt
 mkdir "$TMPDIR"/spkg-git
 
@@ -89,7 +89,7 @@ process-spkg () {
     tar x -p -C "$TMPDIR"/spkg -f "$SPKGPATH"
 
     # determine eventual subtree of the spkg's repo
-    # tarball the src/ directory and put it into our dist/ directory
+    # tarball the src/ directory and put it into our upstream/ directory
     case $PKGNAME in
         extcode) REPO=ext ;;
         sage) REPO=library ;;
@@ -97,7 +97,7 @@ process-spkg () {
         sage_scripts) REPO=bin ;;
         *)
             mv -T "$TMPDIR"/spkg/$PKGNAME-$PKGVER/src "$TMPDIR"/spkg/$PKGNAME-$PKGVER/$PKGNAME-$PKGVER_UPSTREAM
-            tar c -jf "$OUTDIR"/dist/$PKGNAME-$PKGVER_UPSTREAM.tar.bz2 -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER_UPSTREAM
+            tar c -jf "$OUTDIR"/upstream/$PKGNAME-$PKGVER_UPSTREAM.tar.bz2 -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER_UPSTREAM
             REPO=spkg/$PKGNAME
         ;;
     esac
