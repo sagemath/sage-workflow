@@ -211,8 +211,8 @@ cp -r base/* "$OUTDIR"/
 
 # Move the consolidated repo into place, and check out the package
 # installation scripts so that Sage can start building
-mkdir -p "$OUTDIR"/devel/sage && mv "$TMPDIR"/sage-repo/.git "$OUTDIR"/devel/sage/
-cd "$OUTDIR"/devel/sage
+mkdir -p "$OUTDIR"/src && mv "$TMPDIR"/sage-repo/.git "$OUTDIR"/src
+cd "$OUTDIR"/src
 git checkout master -- spkg/
 
 # Clean up $TMPDIR
