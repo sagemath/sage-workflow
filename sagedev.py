@@ -33,6 +33,9 @@ class GitInterface(object):
         self.UI = UI
         raise NotImplementedError("Need to set unstable")
 
+    def released_sage_ver(self):
+        raise NotImplementedError("should return a string with the most recent released version of Sage (in this branch's past?)")
+
     def _clean_str(self, s):
         # for now, no error checking
         return str(s)
@@ -56,12 +59,15 @@ class GitInterface(object):
         else:
             return call(s, shell=True)
 
-    def _branchname(self, ticketnum, branchname):
+    def _local_branchname(self, ticketnum):
         if ticketnum is None:
             return self._unstable
-        if branchname is None:
-            branchname = "default"
-        return "%s/%s/%s"(ticketnum, self._username, branchname)
+        return str(ticketnum)
+
+    def _remote_branchname(self, ticketnum):
+        if ticketnum is None:
+            return self._unstable
+        return "%s/%s"(self._username, ticketnum)
 
     def has_uncommitted_changes(self):
         raise NotImplementedError("Returns True if there are uncommitted changes or non-added files")
@@ -72,7 +78,7 @@ class GitInterface(object):
         kwds['a'] = True
         self.execute("commit", *args, **kwds)
 
-    def exists(self, ticketnum, branchname):
+    def exists(self, ticketnum):
         raise NotImplementedError("Returns True if ticket exists")
 
     def stash(self):
@@ -96,20 +102,29 @@ class GitInterface(object):
         msg = self.UI.get_input("Please enter a commit message:")
         self.commit_all(m=msg)
 
-    def create_branch(self, ticketnum, branchname, at_unstable=False):
+    def create_branch(self, ticketnum, at_unstable=False):
         if at_unstable:
-            self.git("branch", self._branchname(ticketnum, branchname), self._branchname(None, None))
+            self.git("branch", self._local_branchname(ticketnum), self._local_branchname(None))
         else:
-            self.git("branch", self._branchname(ticketnum, branchname))
+            self.git("branch", self._local_branchname(ticketnum))
 
-    def fetch_branch(self, ticketnum, branchname):
+    def fetch_branch(self, ticketnum):
         raise NotImplementedError("fetches a branch from remote, including dependencies if necessary.  Doesn't switch")
 
-    def switch(self, ticketnum, branchname):
+    def switch(self, ticketnum):
         raise NotImplementedError("switches to another ticket")
 
-    def move_uncommited_changes(ticketnum, branchname):
-        raise NotImplementedChanges("create temp branch, commit changes, rebase, fast-forward....")
+    def move_uncommited_changes(self, ticketnum):
+        raise NotImplementedError("create temp branch, commit changes, rebase, fast-forward....")
+
+    def needs_update(self, ticketnum):
+        raise NotImplementedError("returns True if there are changes in the ticket on trac that aren't included in the current ticket")
+
+    def sync(self, ticketnum=None):
+        raise NotImplementedError("pulls in changes from trac and rebases the current branch to them.  ticketnum=None syncs unstable.")
+
+    def vanilla(self, release=False):
+        raise NotImplementedError("switch to unstable branch in the past (release=False) or a given named release")
 
 class TracInterface(object):
     def __init__(self, UI, realm, trac, username, password):
@@ -157,7 +172,10 @@ class TracInterface(object):
                     return self.create_ticket(summary, description, type, component)
 
     def add_dependency(self, new_ticket, old_ticket):
-        raise NotImplementedError
+        raise NotImplementedError("makes the trac ticket for new_ticket depend on the old_ticket")
+
+    def dependencies(self, curticket):
+        raise NotImplementedError("returns the list of all ticket dependencies that have not been merged into unstable.  Earlier elements should be 'older'.")
 
 class UserInterface(object):
     def get_input(self, prompt, options=None, default=None, testing=False):
@@ -245,7 +263,7 @@ class SageDev(object):
             passwd = L[1].strip()
             return username, passwd
 
-    def start(self, ticketnum = None, branchname = None):
+    def start(self, ticketnum = None):
         curticket = self.git.current_ticket()
         if ticketnum is None:
             # User wants to create a ticket
@@ -255,10 +273,10 @@ class SageDev(object):
                 return
             if curticket is not None:
                 if self.UI.confirm("Should the new ticket depend on #%s?"%(curticket))
-                    self.git.create_branch(self, ticketnum, branchname)
+                    self.git.create_branch(self, ticketnum)
                     self.trac.add_dependency(self, ticketnum, curticket)
                 else:
-                    self.git.create_branch(self, ticketnum, branchname, at_unstable=True)
+                    self.git.create_branch(self, ticketnum, at_unstable=True)
         dest = None
         if self.git.has_uncommitted_changes():
             if curticket is None:
@@ -270,19 +288,60 @@ class SageDev(object):
                 self.git.stash()
             elif dest == str(curticket):
                 self.git.save()
-        if self.git.exists(ticketnum, branchname):
+        if self.git.exists(ticketnum):
             if dest == str(ticketnum):
-                self.git.move_uncommited_changes(ticketnum, branchname)
+                self.git.move_uncommited_changes(ticketnum)
             else:
-                self.git.switch(ticketnum, branchname)
+                self.git.switch(ticketnum)
         else:
-            self.git.fetch_branch(self, ticketnum, branchname)
-            self.git.switch(ticketnum, branchname)
+            self.git.fetch_branch(self, ticketnum)
+            self.git.switch(ticketnum)
 
     def save(self):
         curticket = self.git.current_ticket()
         if self.UI.confirm("Are you sure you want to save your changes to ticket #%s?"%(curticket)):
             self.git.save()
-        
+            if self.UI.confirm("Would you like to upload the changes?"):
+                self.git.upload()
 
-    def upload(self, 
+    def upload(self, ticketnum = None):
+        oldticket = self.git.current_ticket()
+        if ticketnum is None or ticketnum == oldticket:
+            oldticket = None
+            ticketnum = self.git.current_ticket()
+            if not self.UI.confirm("Are you sure you want to upload your changes to ticket #%s?"%(ticketnum)):
+                return
+        elif not self.git.exists(ticketnum):
+            print "You don't have a branch for ticket %s"%(ticketnum)
+            return
+        elif not self.UI.confirm("Are you sure you want to upload your changes to ticket #%s?"%(ticketnum)):
+            return
+        else:
+            self.start(ticketnum)
+        self.git.upload()
+        if oldticket is not None:
+            self.git.switch(oldticket)
+
+    def sync(self):
+        curticket = self.git.current_ticket()
+        if self.UI.confirm("Are you sure you want to save your changes and sync to the most recent development version of Sage?"):
+            self.git.save()
+            self.git.sync()
+        if curticket is not None and curticket.isdigit():
+            dependencies = self.trac.dependencies(curticket)
+            for dep in dependencies:
+                if self.git.needs_update(dep) and self.UI.confirm("Do you want to sync to the latest version of #%s"%(dep)):
+                    self.git.sync(dep)
+
+    def vanilla(self, release=False):
+        if self.UI.confirm("Are you sure you want to revert to %s?"%(self.git.released_sage_ver() if release else "a plain development version")):
+            if self.git.has_uncommitted_changes():
+                dest = self.UI.get_input("Where would you like to save your changes?",["current branch","stash"],"current branch")
+                if dest == "stash":
+                    self.git.stash()
+                else:
+                    self.git.save()
+            self.git.vanilla(release)
+
+    def review(self):
+        
