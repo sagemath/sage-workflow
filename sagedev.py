@@ -126,6 +126,15 @@ class GitInterface(object):
     def vanilla(self, release=False):
         raise NotImplementedError("switch to unstable branch in the past (release=False) or a given named release")
 
+    def review(self, ticketnum, user):
+        raise NotImplementedError("download a remote branch to review")
+
+    def prune(self):
+        raise NotImplementedError("gets rid of branches that have been merged into unstable")
+
+    def abandon(self, ticketnum):
+        raise NotImplementedError("deletes the branch")
+
 class TracInterface(object):
     def __init__(self, UI, realm, trac, username, password):
         self.UI = UI
@@ -343,5 +352,31 @@ class SageDev(object):
                     self.git.save()
             self.git.vanilla(release)
 
-    def review(self):
-        
+    def review(self, ticketnum, user=None):
+        if self.UI.confirm("Are you sure you want to download and review #%s"%(ticketnum)):
+            self.git.review(ticketnum, user)
+            if self.UI.confirm("Would you like to rebuild Sage?"):
+                call("sage -b", shell=True)
+
+    def status(self):
+        self.git.execute("status")
+
+    def list(self):
+        self.git.execute("branch")
+
+    def diff(self, vs_unstable=False):
+        if vs_unstable:
+            self.git.execute("diff", self.git._unstable)
+        else:
+            self.git.execute("diff")
+
+    def prune(self):
+        if self.UI.confirm("Are you sure you want to delete all branches that have been merged into unstable?"):
+            self.git.prune()
+
+    def abandon(self, ticketnum):
+        if self.UI.confirm("Are you sure you want to delete your work on #%s?"%(ticketnum), default_yes=False):
+            self.git.abandon(ticketnum)
+
+    def help(self):
+        raise NotImplementedError
