@@ -15,10 +15,8 @@ tarball which you will extract, enter the extracted directory, do
 `make`, wait a long time, and then end up with a working copy of Sage.
 
 The difference will be that now there will be a single, consolidated git
-repo sitting in ``devel/sage/`` from the moment you extract the tarball
-(not a symlink, and not even the same thing as what is currently in
-``devel/sage-main/``!). The repo will contain within it the Sage
-library, the Sage scripts, the Sage root scripts (i.e. the stuff other
+repo sitting in the top level directory. The repo will contain within it the
+Sage library, the Sage scripts, the Sage root scripts (i.e. the stuff other
 than SPKGs which you usually see when you extract a source tarball), the
 Sage external system code (i.e. what is currently in ``data/extcode``).
 
@@ -26,8 +24,8 @@ There will also be no SPKGs in the new tarball. The script will have
 disassembled each SPKG ``foo-x.y.z.spkg``, repacking the src/ directory
 into a new tarball ``dist/foo-x.y.z.tar.bz2`` and merging the internal
 Mercurial repository into the single consolidated git repo in
-``devel/sage/``, specifically so that its files appear in
-``devel/sage/spkg/foo/``.
+``packages/``, specifically so that its files appear in
+``packages/foo/``.
 
 Thus, in this variant of Sage, when installing a package, instead of
 extracting an SPKG file into a build directory for building, the
@@ -64,3 +62,22 @@ Functionality includes:
 - ...?
 
 .. _Trac server: http://trac.sagemath.org/sage_trac/
+
+
+directory structure
+-------------------
+
+The directory structure of sage root will be
+
+sage_root/
+    sage          # the binary
+    Makefile      # top level Makefile
+    (configure)   # perhaps, eventually
+    devel/        # all the non-spkg sources will here
+        sage/     # sage library, i.e. devel/sage-main/sage
+        extcode/  # sage-extcode
+        bin/      # sage-scripts
+        ...
+    packages/     # install, patch, and metadata from spkgs
+    upstream/     # (stripped) tarballs of upstream sources (not in git)
+    local/        # installed binaries and compile artifacts (not in git)
