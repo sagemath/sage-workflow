@@ -64,20 +64,20 @@ git init "$TMPDIR"/sage-repo && cd "$TMPDIR"/sage-repo
 
 # move the base tarballs into upstream
 mkdir -p "$OUTDIR"/upstream
-mkdir "$TMPDIR"/spkg
+mkdir "$TMPDIR"/packages
 for TARBALL in "$SAGEDIR"/spkg/base/*.tar* ; do
     PKGNAME=$(sed -e 's/.*\/\([^/]*\)-[0-9]\{1,\}.*$/\1/' <<<"$TARBALL")
     PKGVER=$(sed -e 's/^-\(.*\)\.tar.*$/\1/' <<<"${TARBALL#*${PKGNAME}}")
-    tar x -p -C "$TMPDIR"/spkg -f $TARBALL
-    tar c -f "$OUTDIR"/upstream/$PKGNAME-$PKGVER.tar -C "$TMPDIR"/spkg/ $PKGNAME-$PKGVER
+    tar x -p -C "$TMPDIR"/packages -f $TARBALL
+    tar c -f "$OUTDIR"/upstream/$PKGNAME-$PKGVER.tar -C "$TMPDIR"/packages/ $PKGNAME-$PKGVER
 done
 
 # get the SPKG repos converted to git and pull them into the consolidated repo
 # also tarball the src/ directories of the SPKGs and put them into a upstream/ directory
 rm -f "$OUTDIR"/detracked-files.txt
-mkdir "$TMPDIR"/spkg-git
+mkdir "$TMPDIR"/packages-git
 
-process-spkg () {
+process-packages() {
     # figure out what the spkg is
     SPKGPATH=$1
     SPKG="${SPKGPATH#$SAGEDIR/spkg/standard/}"
@@ -86,27 +86,27 @@ process-spkg () {
     PKGVER_UPSTREAM=$(sed -e 's/\.p[0-9][0-9]*$//' <<<"$PKGVER")
     echo
     echo "*** Found SPKG: $PKGNAME version $PKGVER"
-    tar x -p -C "$TMPDIR"/spkg -f "$SPKGPATH"
+    tar x -p -C "$TMPDIR"/packages -f "$SPKGPATH"
 
     # determine eventual subtree of the spkg's repo
     # tarball the src/ directory and put it into our upstream/ directory
     case $PKGNAME in
-        extcode) REPO=ext ;;
-        sage) REPO=library ;;
+        extcode) REPO=devel/ext ;;
+        sage) REPO=devel ;;
         sage_root) REPO=base ;;
-        sage_scripts) REPO=bin ;;
+        sage_scripts) REPO=devel/bin ;;
         *)
-            mv -T "$TMPDIR"/spkg/$PKGNAME-$PKGVER/src "$TMPDIR"/spkg/$PKGNAME-$PKGVER/$PKGNAME-$PKGVER_UPSTREAM
-            tar c -jf "$OUTDIR"/upstream/$PKGNAME-$PKGVER_UPSTREAM.tar.bz2 -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER_UPSTREAM
-            REPO=spkg/$PKGNAME
+            mv -T "$TMPDIR"/packages/$PKGNAME-$PKGVER/src "$TMPDIR"/packages/$PKGNAME-$PKGVER/$PKGNAME-$PKGVER_UPSTREAM
+            tar c -jf "$OUTDIR"/upstream/$PKGNAME-$PKGVER_UPSTREAM.tar.bz2 -C "$TMPDIR"/packages/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER_UPSTREAM
+            REPO=packages/$PKGNAME
         ;;
     esac
 
     # convert the SPKG's hg repo to git
-    git init --bare "$TMPDIR"/spkg-git/$PKGNAME
-    pushd "$TMPDIR"/spkg-git/$PKGNAME > /dev/null
-    hg -R "$TMPDIR"/spkg/$PKGNAME-$PKGVER push . ; # hg-git returns non-zero exit code upon warnings (!?)
-        rm -rf "$TMPDIR"/spkg/$PKGNAME-$PKGVER
+    git init --bare "$TMPDIR"/packages-git/$PKGNAME
+    pushd "$TMPDIR"/packages-git/$PKGNAME > /dev/null
+    hg -R "$TMPDIR"/packages/$PKGNAME-$PKGVER push . ; # hg-git returns non-zero exit code upon warnings (!?)
+        rm -rf "$TMPDIR"/packages/$PKGNAME-$PKGVER
 
     # rewrite paths
     # (taken from `man git-filter-branch` and modified a bit)
@@ -118,16 +118,16 @@ process-spkg () {
     popd > /dev/null
 
     # pull it into the consolidated repo
-    git fetch -n "$TMPDIR"/spkg-git/$PKGNAME master:$REPO &&
-        rm -rf "$TMPDIR"/spkg-git/$PKGNAME/.git
+    git fetch -n "$TMPDIR"/packages-git/$PKGNAME master:$REPO &&
+        rm -rf "$TMPDIR"/packages-git/$PKGNAME/.git
 
     # save the package version for later
-    echo "$PKGVER" > "$TMPDIR"/spkg-git/$PKGNAME/spkg-version.txt
+    echo "$PKGVER" > "$TMPDIR"/packages-git/$PKGNAME/package-version.txt
 }
-export -f process-spkg
+export -f process-packages
 
 for SPKGPATH in "$SAGEDIR"/spkg/standard/*.spkg ; do
-    process-spkg "$SPKGPATH"
+    process-packages "$SPKGPATH"
 done
 
 if [[ $(command -v notify-send) ]] ; then
@@ -142,13 +142,13 @@ BRANCHES=$(git branch)
 MERGEOBJS=$(
     for BRANCH in $BRANCHES ; do
         ENTRY=$(git ls-tree $BRANCH) # an object-filename association
-        if [ $(cut -f2 <<<"$ENTRY") == "spkg" ] ; then
+        if [ $(cut -f2 <<<"$ENTRY") == "packages" ] ; then
             # In this case, $BRANCH associates a subdirectory listing
             # to spkg containing a single dir. We ignore this
             # association and instead collect all the dirs that the
             # various branches insist are sole occupants of spkg/ ,
             # and produce a combined listing for spkg/ .
-            PKGDIR_ENTRY=$(git ls-tree $(git ls-tree $BRANCH spkg | cut -d' ' -f3 | cut -f1))
+            PKGDIR_ENTRY=$(git ls-tree $(git ls-tree $BRANCH packages | cut -d' ' -f3 | cut -f1))
             PKGOBJS="${PKGOBJS}${PKGDIR_ENTRY}\n"
         else
             # At the same time, we continue producing a listing of the
@@ -158,13 +158,13 @@ MERGEOBJS=$(
         fi
     done
 
-    # Produce a new directory listing object for spkg/ from the
+    # Produce a new directory listing object for packages/ from the
     # information gathered above, then dump that object into the
     # listing of the root directory which we are building on
     # stdout. --batch is used because there's an extra newline at the
     # end of $PKGOBJS.
     PKGTREE=$(echo -e "$PKGOBJS" | git mktree --missing --batch)
-    echo -e "040000 tree $PKGTREE\tspkg"
+    echo -e "040000 tree $PKGTREE\tpackages"
 )
 # Actually make the directory listing into a git object
 MERGETREE=$(echo -e "$MERGEOBJS" | git mktree --missing)
@@ -192,28 +192,25 @@ for BRANCH in $BRANCHES ; do
 done
 git commit -m "[CLEANUP] Mercurial-related data"
 
-# Commit spkg-version.txt files to track package \.p[0-9]+ versions
+# Commit packages-version.txt files to track package \.p[0-9]+ versions
 # (i.e. local revisions)
 for BRANCH in $BRANCHES ; do
-    PKGNAME=${BRANCH#spkg/}
+    PKGNAME=${BRANCH#packages/}
     if [ "$BRANCH" != "$PKGNAME" ]; then
-        mv "$TMPDIR"/spkg-git/$PKGNAME/spkg-version.txt spkg/$PKGNAME/
-        git add spkg/$PKGNAME/spkg-version.txt
+        mv "$TMPDIR"/packages-git/$PKGNAME/packages-version.txt packages/$PKGNAME/
+        git add packages/$PKGNAME/packages-version.txt
     fi
 done
-git commit -m "[CLEANUP] Add spkg-version.txt files"
+git commit -m "[CLEANUP] Add packages-version.txt files"
 
 # Optimize the repo
 git gc --aggressive --prune=0
 
-# Unpack the root layout of the consolidated Sage installation
-cp -r base/* "$OUTDIR"/
-
 # Move the consolidated repo into place, and check out the package
 # installation scripts so that Sage can start building
-mkdir -p "$OUTDIR"/src && mv "$TMPDIR"/sage-repo/.git "$OUTDIR"/src
-cd "$OUTDIR"/src
-git checkout master -- spkg/
+mv "$TMPDIR"/sage-repo/.git "$OUTDIR"
+cd "$OUTDIR"
+git checkout master
 
 # Clean up $TMPDIR
 cd "$OUTDIR"
