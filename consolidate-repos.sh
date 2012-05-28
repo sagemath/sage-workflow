@@ -93,7 +93,7 @@ process-packages() {
     case $PKGNAME in
         extcode) REPO=devel/ext ;;
         sage) REPO=devel ;;
-        sage_root) REPO=base ;;
+        sage_root) return 0; REPO=base ;;
         sage_scripts) REPO=devel/bin ;;
         *)
             mv -T "$TMPDIR"/packages/$PKGNAME-$PKGVER/src "$TMPDIR"/packages/$PKGNAME-$PKGVER/$PKGNAME-$PKGVER_UPSTREAM
@@ -108,14 +108,16 @@ process-packages() {
     hg -R "$TMPDIR"/packages/$PKGNAME-$PKGVER push . ; # hg-git returns non-zero exit code upon warnings (!?)
         rm -rf "$TMPDIR"/packages/$PKGNAME-$PKGVER
 
-    # rewrite paths
-    # (taken from `man git-filter-branch` and modified a bit)
-    git filter-branch -f -d "$TMPDIR/filter-branch/$SPKG" --prune-empty --index-filter "
-        git ls-files -s | sed \"s+\t\\\"*+&$REPO/+\" | GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info &&
-        mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\" &&
-        git rm -rf --cached --ignore-unmatch $REPO/src/ >> $OUTDIR/detracked-files.txt
-    " master
-    popd > /dev/null
+    if [[ "$REPO" != base ]]; then
+        # rewrite paths
+        # (taken from `man git-filter-branch` and modified a bit)
+        git filter-branch -f -d "$TMPDIR/filter-branch/$SPKG" --prune-empty --index-filter "
+            git ls-files -s | sed \"s+\t\\\"*+&$REPO/+\" | GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info &&
+            mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\" &&
+            git rm -rf --cached --ignore-unmatch $REPO/src/ >> $OUTDIR/detracked-files.txt
+        " master
+        popd > /dev/null
+    fi
 
     # pull it into the consolidated repo
     git fetch -n "$TMPDIR"/packages-git/$PKGNAME master:$REPO &&
@@ -150,6 +152,11 @@ MERGEOBJS=$(
             # and produce a combined listing for spkg/ .
             PKGDIR_ENTRY=$(git ls-tree $(git ls-tree $BRANCH packages | cut -d' ' -f3 | cut -f1))
             PKGOBJS="${PKGOBJS}${PKGDIR_ENTRY}\n"
+        elif [ $(cut -f2 <<<"$ENTRY") == "devel" ]; then
+            if [ "$BRANCH" != "devel" ]; then
+                DEVDIR_ENTRY=$(git ls-tree $(git ls-tree $BRANCH devel | cut -d' ' -f3 | cut -f1))
+                DEVOBJS="${DEVOBJS}${DEVDIR_ENTRY}\n"
+            fi
         else
             # At the same time, we continue producing a listing of the
             # root dir on stdout. (This case should only happen four
@@ -165,6 +172,8 @@ MERGEOBJS=$(
     # end of $PKGOBJS.
     PKGTREE=$(echo -e "$PKGOBJS" | git mktree --missing --batch)
     echo -e "040000 tree $PKGTREE\tpackages"
+    DEVTREE=$(echo -e "$DEVOBJS" | git mktree --missing --batch)
+    echo -e "040000 tree $DEVTREE\tdevel"
 )
 # Actually make the directory listing into a git object
 MERGETREE=$(echo -e "$MERGEOBJS" | git mktree --missing)
@@ -192,16 +201,16 @@ for BRANCH in $BRANCHES ; do
 done
 git commit -m "[CLEANUP] Mercurial-related data"
 
-# Commit packages-version.txt files to track package \.p[0-9]+ versions
+# Commit package-version.txt files to track package \.p[0-9]+ versions
 # (i.e. local revisions)
 for BRANCH in $BRANCHES ; do
     PKGNAME=${BRANCH#packages/}
     if [ "$BRANCH" != "$PKGNAME" ]; then
-        mv "$TMPDIR"/packages-git/$PKGNAME/packages-version.txt packages/$PKGNAME/
-        git add packages/$PKGNAME/packages-version.txt
+        mv "$TMPDIR"/packages-git/$PKGNAME/package-version.txt packages/$PKGNAME/
+        git add packages/$PKGNAME/package-version.txt
     fi
 done
-git commit -m "[CLEANUP] Add packages-version.txt files"
+git commit -m "[CLEANUP] Add package-version.txt files"
 
 # Optimize the repo
 git gc --aggressive --prune=0
@@ -210,7 +219,7 @@ git gc --aggressive --prune=0
 # installation scripts so that Sage can start building
 mv "$TMPDIR"/sage-repo/.git "$OUTDIR"
 cd "$OUTDIR"
-git checkout master
+git checkout master .
 
 # Clean up $TMPDIR
 cd "$OUTDIR"
