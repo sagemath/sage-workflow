@@ -64,20 +64,20 @@ git init "$TMPDIR"/sage-repo && cd "$TMPDIR"/sage-repo
 
 # move the base tarballs into upstream
 mkdir -p "$OUTDIR"/upstream
-mkdir "$TMPDIR"/packages
+mkdir "$TMPDIR"/spkg
 for TARBALL in "$SAGEDIR"/spkg/base/*.tar* ; do
     PKGNAME=$(sed -e 's/.*\/\([^/]*\)-[0-9]\{1,\}.*$/\1/' <<<"$TARBALL")
     PKGVER=$(sed -e 's/^-\(.*\)\.tar.*$/\1/' <<<"${TARBALL#*${PKGNAME}}")
-    tar x -p -C "$TMPDIR"/packages -f $TARBALL
-    tar c -f "$OUTDIR"/upstream/$PKGNAME-$PKGVER.tar -C "$TMPDIR"/packages/ $PKGNAME-$PKGVER
+    tar x -p -C "$TMPDIR"/spkg -f $TARBALL
+    tar c -f "$OUTDIR"/upstream/$PKGNAME-$PKGVER.tar -C "$TMPDIR"/spkg/ $PKGNAME-$PKGVER
 done
 
 # get the SPKG repos converted to git and pull them into the consolidated repo
 # also tarball the src/ directories of the SPKGs and put them into a upstream/ directory
 rm -f "$OUTDIR"/detracked-files.txt
-mkdir "$TMPDIR"/packages-git
+mkdir "$TMPDIR"/spkg-git
 
-process-packages() {
+process-spkg () {
     # figure out what the spkg is
     SPKGPATH=$1
     SPKG="${SPKGPATH#$SAGEDIR/spkg/standard/}"
@@ -86,50 +86,63 @@ process-packages() {
     PKGVER_UPSTREAM=$(sed -e 's/\.p[0-9][0-9]*$//' <<<"$PKGVER")
     echo
     echo "*** Found SPKG: $PKGNAME version $PKGVER"
-    tar x -p -C "$TMPDIR"/packages -f "$SPKGPATH"
+    tar x -p -C "$TMPDIR"/spkg -f "$SPKGPATH"
 
     # determine eventual subtree of the spkg's repo
     # tarball the src/ directory and put it into our upstream/ directory
     case $PKGNAME in
-        extcode) REPO=devel/ext ;;
+        sage_root) REPO=. ;;
         sage) REPO=devel ;;
-        sage_root) return 0; REPO=base ;;
         sage_scripts) REPO=devel/bin ;;
-        *)
-            mv -T "$TMPDIR"/packages/$PKGNAME-$PKGVER/src "$TMPDIR"/packages/$PKGNAME-$PKGVER/$PKGNAME-$PKGVER_UPSTREAM
-            tar c -jf "$OUTDIR"/upstream/$PKGNAME-$PKGVER_UPSTREAM.tar.bz2 -C "$TMPDIR"/packages/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER_UPSTREAM
-            REPO=packages/$PKGNAME
+        extcode) REPO=devel/ext ;;
+        *)  REPO=packages/$PKGNAME
+            mv -T "$TMPDIR"/spkg/$PKGNAME-$PKGVER/src "$TMPDIR"/spkg/$PKGNAME-$PKGVER/$PKGNAME-$PKGVER_UPSTREAM
+            tar c -jf "$OUTDIR"/upstream/$PKGNAME-$PKGVER_UPSTREAM.tar.bz2 -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER_UPSTREAM
         ;;
     esac
 
     # convert the SPKG's hg repo to git
-    git init --bare "$TMPDIR"/packages-git/$PKGNAME
-    pushd "$TMPDIR"/packages-git/$PKGNAME > /dev/null
-    hg -R "$TMPDIR"/packages/$PKGNAME-$PKGVER push . ; # hg-git returns non-zero exit code upon warnings (!?)
-        rm -rf "$TMPDIR"/packages/$PKGNAME-$PKGVER
+    git init --bare "$TMPDIR"/spkg-git/$PKGNAME
+    pushd "$TMPDIR"/spkg-git/$PKGNAME > /dev/null
+    hg -R "$TMPDIR"/spkg/$PKGNAME-$PKGVER push . ; # hg-git returns non-zero exit code upon warnings (!?)
+        rm -rf "$TMPDIR"/spkg/$PKGNAME-$PKGVER
 
-    if [[ "$REPO" != base ]]; then
-        # rewrite paths
-        # (taken from `man git-filter-branch` and modified a bit)
+    # rewrite paths
+    # (taken from `man git-filter-branch` and modified a bit)
+    if [[ "$REPO" != "." ]]; then
         git filter-branch -f -d "$TMPDIR/filter-branch/$SPKG" --prune-empty --index-filter "
             git ls-files -s | sed \"s+\t\\\"*+&$REPO/+\" | GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info &&
             mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\" &&
             git rm -rf --cached --ignore-unmatch $REPO/src/ >> $OUTDIR/detracked-files.txt
         " master
-        popd > /dev/null
+    else
+        # Incidentally this should do nothing in the case of the base
+        # repo in particular, since there is no ./src
+        git filter-branch -f -d "$TMPDIR/filter-branch/$SPKG" --prune-empty --index-filter "
+            git rm -rf --cached --ignore-unmatch ./src/ >> $OUTDIR/detracked-files.txt
+        " master
     fi
+    popd > /dev/null
 
     # pull it into the consolidated repo
-    git fetch -n "$TMPDIR"/packages-git/$PKGNAME master:$REPO &&
-        rm -rf "$TMPDIR"/packages-git/$PKGNAME/.git
+    if [[ "$REPO" == '.' ]]; then
+        BRANCH=base
+    elif [[ "$REPO" == 'devel' ]]; then
+        # you can't have branches named devel and devel/foo at the same time
+        BRANCH=library
+    else
+        BRANCH=$REPO
+    fi
+    git fetch -n "$TMPDIR"/spkg-git/$PKGNAME master:$BRANCH &&
+        rm -rf "$TMPDIR"/spkg-git/$PKGNAME/.git
 
     # save the package version for later
-    echo "$PKGVER" > "$TMPDIR"/packages-git/$PKGNAME/package-version.txt
+    echo "$PKGVER" > "$TMPDIR"/spkg-git/$PKGNAME/spkg-version.txt
 }
-export -f process-packages
+export -f process-spkg
 
 for SPKGPATH in "$SAGEDIR"/spkg/standard/*.spkg ; do
-    process-packages "$SPKGPATH"
+    process-spkg "$SPKGPATH"
 done
 
 if [[ $(command -v notify-send) ]] ; then
@@ -141,40 +154,58 @@ fi
 
 # Put together a directory listing for the repo to commit in the merge
 BRANCHES=$(git branch)
-MERGEOBJS=$(
-    for BRANCH in $BRANCHES ; do
-        ENTRY=$(git ls-tree $BRANCH) # an object-filename association
-        if [ $(cut -f2 <<<"$ENTRY") == "packages" ] ; then
-            # In this case, $BRANCH associates a subdirectory listing
-            # to spkg containing a single dir. We ignore this
-            # association and instead collect all the dirs that the
-            # various branches insist are sole occupants of spkg/ ,
-            # and produce a combined listing for spkg/ .
-            PKGDIR_ENTRY=$(git ls-tree $(git ls-tree $BRANCH packages | cut -d' ' -f3 | cut -f1))
-            PKGOBJS="${PKGOBJS}${PKGDIR_ENTRY}\n"
-        elif [ $(cut -f2 <<<"$ENTRY") == "devel" ]; then
-            if [ "$BRANCH" != "devel" ]; then
-                DEVDIR_ENTRY=$(git ls-tree $(git ls-tree $BRANCH devel | cut -d' ' -f3 | cut -f1))
-                DEVOBJS="${DEVOBJS}${DEVDIR_ENTRY}\n"
-            fi
-        else
-            # At the same time, we continue producing a listing of the
-            # root dir on stdout. (This case should only happen four
-            # times, when $BRANCH is one of the four special cases.)
-            echo "$ENTRY"
-        fi
-    done
+DEVOBJS=""
+PKGOBJS=""
+MERGEOBJS=""
+# Collect directory entries from the various branches
+for BRANCH in $BRANCHES ; do
+    case "$BRANCH" in
+        base)
+            # Base entries are in the current directory, so we
+            # output them into $MERGEOBJS immediately.
+            MERGEOBJS="${MERGEOBJS}$(git ls-tree $BRANCH .)\n"
+            ;;
+        devel/*)
+            # We incrementally build a list of stuff in devel/ ;
+            # this $BRANCH will give us one of the subdirs' tree
+            # objects. This will happen twice, once for devel/bin
+            # and once for devel/ext.
+            DEV_ENTRY=$(git ls-tree -d $BRANCH $BRANCH)
+            DEV_ENTRY=$(sed "s+devel/++" <<<"$DEV_ENTRY")
+            DEVOBJS="${DEVOBJS}${DEV_ENTRY}\n"
+            ;;
+        library)
+            # We incrementally build a list of stuff in devel/ ;
+            # this $BRANCH will give us the rest of the entries in
+            # devel/ .
+            DEV_ENTRIES=$(git ls-tree $BRANCH devel/)
+            DEV_ENTRIES=$(sed "s+devel/++" <<<"$DEV_ENTRIES")
+            DEVOBJS="${DEVOBJS}${DEV_ENTRIES}\n"
+            ;;
+        packages/*)
+            # We incrementally build a list of stuff in packages/
+            # ; this $BRANCH will give us one of the subdirs' tree
+            # objects. This will happen many many times.
+            PKG_ENTRY=$(git ls-tree -d $BRANCH $BRANCH)
+            PKG_ENTRY=$(sed "s+packages/++" <<<"$PKG_ENTRY")
+            PKGOBJS="${PKGOBJS}${PKG_ENTRY}\n"
+            ;;
+        *)
+            # WTF?
+            die "Something bizarre happened; branch name $BRANCH shouldn't exist!"
+    esac
+done
 
-    # Produce a new directory listing object for packages/ from the
-    # information gathered above, then dump that object into the
-    # listing of the root directory which we are building on
-    # stdout. --batch is used because there's an extra newline at the
-    # end of $PKGOBJS.
-    PKGTREE=$(echo -e "$PKGOBJS" | git mktree --missing --batch)
-    echo -e "040000 tree $PKGTREE\tpackages"
-    DEVTREE=$(echo -e "$DEVOBJS" | git mktree --missing --batch)
-    echo -e "040000 tree $DEVTREE\tdevel"
-)
+# Produce new directory listing objects for packages/ and devel/
+# from the information gathered above, then dump those objects
+# into the listing of the root directory which we are building on
+# stdout. --batch is used because there's an extra newline at the
+# end of $DEVOBJS and $PKGOBJS.
+DEVTREE=$(echo -e "$DEVOBJS" | git mktree --missing --batch)
+PKGTREE=$(echo -e "$PKGOBJS" | git mktree --missing --batch)
+MERGEOBJS="${MERGEOBJS}040000 tree $DEVTREE\tdevel\n"
+MERGEOBJS="${MERGEOBJS}040000 tree $PKGTREE\tpackages"
+
 # Actually make the directory listing into a git object
 MERGETREE=$(echo -e "$MERGEOBJS" | git mktree --missing)
 # Commit the new fully consolidated file tree
@@ -193,10 +224,12 @@ for BRANCH in $BRANCHES ; do
 done
 
 # Clean up or adapt .hg* files (Mercurial-related data)
-for BRANCH in $BRANCHES ; do
-    git rm --ignore-unmatch "$BRANCH"/.hgtags
-    if [ -f "$BRANCH"/.hgignore ]; then
-        git mv "$BRANCH"/.hgignore "$BRANCH"/.gitignore
+for REPO in $BRANCHES ; do
+    [[ "$REPO" == 'base' ]] && REPO=.
+    [[ "$REPO" == 'library' ]] && REPO=devel
+    git rm --ignore-unmatch "$REPO"/.hgtags
+    if [ -f "$REPO"/.hgignore ]; then
+        git mv "$REPO"/.hgignore "$REPO"/.gitignore
     fi
 done
 git commit -m "[CLEANUP] Mercurial-related data"
@@ -204,11 +237,13 @@ git commit -m "[CLEANUP] Mercurial-related data"
 # Commit package-version.txt files to track package \.p[0-9]+ versions
 # (i.e. local revisions)
 for BRANCH in $BRANCHES ; do
-    PKGNAME=${BRANCH#packages/}
-    if [ "$BRANCH" != "$PKGNAME" ]; then
-        mv "$TMPDIR"/packages-git/$PKGNAME/package-version.txt packages/$PKGNAME/
-        git add packages/$PKGNAME/package-version.txt
-    fi
+    case $BRANCH in
+        packages/*)
+            PKGNAME=${BRANCH#packages/}
+            mv "$TMPDIR"/spkg-git/$PKGNAME/spkg-version.txt -T packages/$PKGNAME/package-version.txt
+            git add packages/$PKGNAME/package-version.txt
+            ;;
+    esac
 done
 git commit -m "[CLEANUP] Add package-version.txt files"
 
