@@ -70,20 +70,22 @@ Functionality includes:
 directory structure
 -------------------
 
-The directory structure of sage root will be::
+The proposed directory structure of sage root is::
 
     sage_root/
         sage          # the binary
         Makefile      # top level Makefile
         (configure)   # perhaps, eventually
-        devel/        # all the non-spkg sources will here
+        ...           # other standard top level files (README, etc.)
+        build/
+            core/     # sage's build system
+            pkgs/     # install, patch, and metadata from spkgs
+            ...
+        src/
             sage/     # sage library, i.e. devel/sage-main/sage
             ext/      # sage_extcode
-            bin/      # sage_scripts
+            (macapp/) # would no longer have to awkwardly be in extcode
+            scripts/  # sage_scripts
             ...
-        packages/     # install, patch, and metadata from spkgs
-            ...
-        upstream/     # (stripped) tarballs of upstream sources (not in
-                      # git)
-        local/        # installed binaries and compile artifacts (not in
-                      # git)
+        upstream/     # (stripped) tarballs of upstream sources (not tracked)
+        local/        # installed binaries and compile artifacts (not tracked)
