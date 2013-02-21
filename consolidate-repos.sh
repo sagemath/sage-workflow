@@ -20,6 +20,8 @@
 # - A consolidated repo in outdir
 # - tarballs for the source files in outdir/upstream/
 
+. ${0%consolidate-repos.sh}configuration.sh
+
 CMD="${0##*/}"
 
 die () {
@@ -91,11 +93,25 @@ process-spkg () {
     # determine eventual subtree of the spkg's repo
     # tarball the src/ directory and put it into our upstream/ directory
     case $PKGNAME in
-        sage_root) REPO=. ;;
-        sage) REPO=devel ;;
-        sage_scripts) REPO=devel/bin ;;
-        extcode) REPO=devel/ext ;;
-        *)  REPO=packages/$PKGNAME
+        sage_root)
+            REPO=.
+            BRANCH=base
+        ;;
+        sage)
+            REPO=$SAGE_SRC
+            BRANCH=library
+        ;;
+        sage_scripts)
+            REPO=$SAGE_SRC/bin
+            BRANCH=devel/bin
+        ;;
+        extcode)
+            REPO=$SAGE_SRC/ext
+            BRANCH=devel/ext
+        ;;
+        *)
+            REPO=packages/$PKGNAME
+            BRANCH=$REPO
             mv -T "$TMPDIR"/spkg/$PKGNAME-$PKGVER/src "$TMPDIR"/spkg/$PKGNAME-$PKGVER/$PKGNAME-$PKGVER_UPSTREAM
             tar c -jf "$OUTDIR"/upstream/$PKGNAME-$PKGVER_UPSTREAM.tar.bz2 -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER_UPSTREAM
         ;;
@@ -125,14 +141,6 @@ process-spkg () {
     popd > /dev/null
 
     # pull it into the consolidated repo
-    if [[ "$REPO" == '.' ]]; then
-        BRANCH=base
-    elif [[ "$REPO" == 'devel' ]]; then
-        # you can't have branches named devel and devel/foo at the same time
-        BRANCH=library
-    else
-        BRANCH=$REPO
-    fi
     git fetch -n "$TMPDIR"/spkg-git/$PKGNAME master:$BRANCH &&
         rm -rf "$TMPDIR"/spkg-git/$PKGNAME/.git
 
@@ -166,20 +174,21 @@ for BRANCH in $BRANCHES ; do
             MERGEOBJS="${MERGEOBJS}$(git ls-tree $BRANCH .)\n"
             ;;
         devel/*)
-            # We incrementally build a list of stuff in devel/ ;
+            # We incrementally build a list of stuff in $SAGE_SRC/ ;
             # this $BRANCH will give us one of the subdirs' tree
             # objects. This will happen twice, once for devel/bin
             # and once for devel/ext.
-            DEV_ENTRY=$(git ls-tree -d $BRANCH $BRANCH)
-            DEV_ENTRY=$(sed "s+devel/++" <<<"$DEV_ENTRY")
+            BRANCH_DIR=$SAGE_SRC${BRANCH#devel}
+            DEV_ENTRY=$(git ls-tree -d $BRANCH $BRANCH_DIR)
+            DEV_ENTRY=$(sed "s+$SAGE_SRC/++" <<<"$DEV_ENTRY")
             DEVOBJS="${DEVOBJS}${DEV_ENTRY}\n"
             ;;
         library)
-            # We incrementally build a list of stuff in devel/ ;
+            # We incrementally build a list of stuff in $SAGE_SRC/ ;
             # this $BRANCH will give us the rest of the entries in
-            # devel/ .
-            DEV_ENTRIES=$(git ls-tree $BRANCH devel/)
-            DEV_ENTRIES=$(sed "s+devel/++" <<<"$DEV_ENTRIES")
+            # $SAGE_SRC/ .
+            DEV_ENTRIES=$(git ls-tree $BRANCH $SAGE_SRC/)
+            DEV_ENTRIES=$(sed "s+$SAGE_SRC/++" <<<"$DEV_ENTRIES")
             DEVOBJS="${DEVOBJS}${DEV_ENTRIES}\n"
             ;;
         packages/*)
@@ -196,14 +205,14 @@ for BRANCH in $BRANCHES ; do
     esac
 done
 
-# Produce new directory listing objects for packages/ and devel/
+# Produce new directory listing objects for packages/ and $SAGE_SRC/
 # from the information gathered above, then dump those objects
 # into the listing of the root directory which we are building on
 # stdout. --batch is used because there's an extra newline at the
 # end of $DEVOBJS and $PKGOBJS.
 DEVTREE=$(echo -e "$DEVOBJS" | git mktree --missing --batch)
 PKGTREE=$(echo -e "$PKGOBJS" | git mktree --missing --batch)
-MERGEOBJS="${MERGEOBJS}040000 tree $DEVTREE\tdevel\n"
+MERGEOBJS="${MERGEOBJS}040000 tree $DEVTREE\t$SAGE_SRC\n"
 MERGEOBJS="${MERGEOBJS}040000 tree $PKGTREE\tpackages"
 
 # Actually make the directory listing into a git object
