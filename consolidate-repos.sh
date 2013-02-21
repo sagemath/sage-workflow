@@ -214,7 +214,7 @@ MERGECOMMIT=$(
         for BRANCH in $BRANCHES ; do
             echo '-p '$(git show-ref -s --heads $BRANCH)
         done
-    } | xargs git commit-tree $MERGETREE -m "ePiC oCtOmErGe"
+    } | xargs git commit-tree $MERGETREE -m "Consolidate Sage's Repositories"
 )
 # Set up a new master branch and delete the other branches, and we're
 # done!
