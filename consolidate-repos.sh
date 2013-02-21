@@ -223,17 +223,6 @@ for BRANCH in $BRANCHES ; do
     git branch -d $BRANCH || die "The octomerge failed; $BRANCH is still unmerged!"
 done
 
-# Clean up or adapt .hg* files (Mercurial-related data)
-for REPO in $BRANCHES ; do
-    [[ "$REPO" == 'base' ]] && REPO=.
-    [[ "$REPO" == 'library' ]] && REPO=devel
-    git rm --ignore-unmatch "$REPO"/.hgtags
-    if [ -f "$REPO"/.hgignore ]; then
-        git mv "$REPO"/.hgignore "$REPO"/.gitignore
-    fi
-done
-git commit -m "[CLEANUP] Mercurial-related data"
-
 # Commit package-version.txt files to track package \.p[0-9]+ versions
 # (i.e. local revisions)
 for BRANCH in $BRANCHES ; do
