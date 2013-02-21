@@ -110,8 +110,8 @@ process-spkg () {
             BRANCH=devel/ext
         ;;
         *)
-            REPO=packages/$PKGNAME
-            BRANCH=$REPO
+            REPO=$SAGE_PKGS/$PKGNAME
+            BRANCH=packages/$PKGNAME
             mv -T "$TMPDIR"/spkg/$PKGNAME-$PKGVER/src "$TMPDIR"/spkg/$PKGNAME-$PKGVER/$PKGNAME-$PKGVER_UPSTREAM
             tar c -jf "$OUTDIR"/upstream/$PKGNAME-$PKGVER_UPSTREAM.tar.bz2 -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER_UPSTREAM
         ;;
@@ -192,11 +192,12 @@ for BRANCH in $BRANCHES ; do
             DEVOBJS="${DEVOBJS}${DEV_ENTRIES}\n"
             ;;
         packages/*)
-            # We incrementally build a list of stuff in packages/
+            # We incrementally build a list of stuff in $SAGE_PKGS/
             # ; this $BRANCH will give us one of the subdirs' tree
             # objects. This will happen many many times.
-            PKG_ENTRY=$(git ls-tree -d $BRANCH $BRANCH)
-            PKG_ENTRY=$(sed "s+packages/++" <<<"$PKG_ENTRY")
+            BRANCH_DIR=$SAGE_PKGS${BRANCH#packages}
+            PKG_ENTRY=$(git ls-tree -d $BRANCH $BRANCH_DIR)
+            PKG_ENTRY=$(sed "s+$SAGE_PKGS/++" <<<"$PKG_ENTRY")
             PKGOBJS="${PKGOBJS}${PKG_ENTRY}\n"
             ;;
         *)
@@ -205,7 +206,7 @@ for BRANCH in $BRANCHES ; do
     esac
 done
 
-# Produce new directory listing objects for packages/ and $SAGE_SRC/
+# Produce new directory listing objects for $SAGE_PKGS/ and $SAGE_SRC/
 # from the information gathered above, then dump those objects
 # into the listing of the root directory which we are building on
 # stdout. --batch is used because there's an extra newline at the
@@ -213,7 +214,7 @@ done
 DEVTREE=$(echo -e "$DEVOBJS" | git mktree --missing --batch)
 PKGTREE=$(echo -e "$PKGOBJS" | git mktree --missing --batch)
 MERGEOBJS="${MERGEOBJS}040000 tree $DEVTREE\t$SAGE_SRC\n"
-MERGEOBJS="${MERGEOBJS}040000 tree $PKGTREE\tpackages"
+MERGEOBJS="${MERGEOBJS}040000 tree $PKGTREE\t$SAGE_PKGS"
 
 # Actually make the directory listing into a git object
 MERGETREE=$(echo -e "$MERGEOBJS" | git mktree --missing)
@@ -238,8 +239,8 @@ for BRANCH in $BRANCHES ; do
     case $BRANCH in
         packages/*)
             PKGNAME=${BRANCH#packages/}
-            mv "$TMPDIR"/spkg-git/$PKGNAME/spkg-version.txt -T packages/$PKGNAME/package-version.txt
-            git add packages/$PKGNAME/package-version.txt
+            mv "$TMPDIR"/spkg-git/$PKGNAME/spkg-version.txt -T $SAGE_PKGS/$PKGNAME/package-version.txt
+            git add $SAGE_PKGS/$PKGNAME/package-version.txt
             ;;
     esac
 done
