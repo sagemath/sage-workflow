@@ -16,11 +16,11 @@ git rm $(find -name '.hg*')
 git commit -m "[CLEANUP] Mercurial-related data"
 
 # TODO: incorporate the following into consolidate repos
-git mv $SAGE_SRC/ext/sage/ext/mac-app $SAGE_SRC/mac-app
+git mv $SAGE_SRC/ext/sage/ext/mac-app $SAGE_SRC/$SAGE_MACAPP
 rm -r $SAGE_SRC/ext/sage
 git commit -m '[REORG] Rewrite mac app directory'
 git mv spkg $SAGE_BUILD
-git mv $SAGE_BUILD/bin/* $SAGE_SRC/scripts/
+git mv $SAGE_BUILD/bin/* $SAGE_SRC/$SAGE_SCRIPTS/
 rm -r $SAGE_BUILD/bin
 git commit -m '[REORG] Rewrite build system directory'
 
@@ -34,7 +34,7 @@ git rm $(find -name sage-pull)
 git rm $(find $SAGE_SRC -name spkg-install)
 git rm $(find $SAGE_SRC -name spkg-dist)
 git rm $(find $SAGE_SRC -name spkg-delauto)
-for file in pull bundle install scripts/sage-sage
+for file in pull bundle install $SAGE_SCRIPTS/sage-sage
 do
   git rm $SAGE_SRC/$file
 done
