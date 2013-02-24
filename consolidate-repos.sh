@@ -102,7 +102,7 @@ process-spkg () {
             BRANCH=library
         ;;
         sage_scripts)
-            REPO=$SAGE_SRC/$SAGE_SCRIPTS
+            REPO=$SAGE_SCRIPTS_DIR
             BRANCH=devel/bin
         ;;
         extcode)

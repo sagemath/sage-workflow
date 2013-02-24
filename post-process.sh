@@ -19,8 +19,9 @@ git commit -m "[CLEANUP] Mercurial-related data"
 git mv $SAGE_SRC/ext/sage/ext/mac-app $SAGE_SRC/$SAGE_MACAPP
 rm -r $SAGE_SRC/ext/sage
 git commit -m '[REORG] Rewrite mac app directory'
-git mv spkg $SAGE_BUILD
-git mv $SAGE_BUILD/bin/* $SAGE_SRC/$SAGE_SCRIPTS/
+git mv spkg/* $SAGE_BUILD/
+rm -r spkg
+git mv $SAGE_BUILD/bin/* $SAGE_SCRIPTS_DIR/
 rm -r $SAGE_BUILD/bin
 git commit -m '[REORG] Rewrite build system directory'
 
@@ -34,9 +35,17 @@ git rm $(find -name sage-pull)
 git rm $(find $SAGE_SRC -name spkg-install)
 git rm $(find $SAGE_SRC -name spkg-dist)
 git rm $(find $SAGE_SRC -name spkg-delauto)
-for file in pull bundle install $SAGE_SCRIPTS/sage-sage
+for file in $(cat <<FILES
+  $SAGE_SRC/bundle
+  $SAGE_SRC/export
+  $SAGE_SRC/install
+  $SAGE_SRC/pull
+  $SAGE_SCRIPTS_DIR/sage-sage
+  $SAGE_BUILD/root-spkg-install
+FILES
+)
 do
-  git rm $SAGE_SRC/$file
+  git rm $file
 done
 git rm -r $SAGE_BUILD/standard
 git commit -m "[CLEANUP] Old unused scripts"
