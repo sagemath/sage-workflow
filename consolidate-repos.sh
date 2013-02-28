@@ -127,15 +127,15 @@ process-spkg () {
     # (taken from `man git-filter-branch` and modified a bit)
     if [[ "$REPO" != "." ]]; then
         git filter-branch -f -d "$TMPDIR/filter-branch/$SPKG" --prune-empty --index-filter "
-            git ls-files -s | sed \"s+\t\\\"*+&$REPO/+\" | GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info &&
+            git ls-files -s | sed \"s+\t+&$REPO/+\" | GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info &&
             mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\" &&
             git rm -rf --cached --ignore-unmatch $REPO/src/ >> $OUTDIR/detracked-files.txt
         " master
     else
-        # Incidentally this should do nothing in the case of the base
-        # repo in particular, since there is no ./src
         git filter-branch -f -d "$TMPDIR/filter-branch/$SPKG" --prune-empty --index-filter "
-            git rm -rf --cached --ignore-unmatch ./src/ >> $OUTDIR/detracked-files.txt
+            git ls-files -s | sed \"s+\tspkg/bin+\t$SAGE_SCRIPTS_DIR+\" | sed \"s+\tspkg+\t$SAGE_BUILD+\" |
+            GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info &&
+            mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\"
         " master
     fi
     popd > /dev/null

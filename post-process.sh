@@ -19,11 +19,6 @@ git commit -m "[CLEANUP] Mercurial-related data"
 git mv $SAGE_SRC/ext/sage/ext/mac-app $SAGE_MACAPP
 rm -r $SAGE_SRC/ext/sage
 git commit -m '[REORG] Rewrite mac app directory'
-git mv spkg/* $SAGE_BUILD/
-rm -r spkg
-git mv $SAGE_BUILD/bin/* $SAGE_SCRIPTS_DIR/
-rm -r $SAGE_BUILD/bin
-git commit -m '[REORG] Rewrite build system directory'
 
 # final fix of file locations
 git mv $SAGE_BUILD/standard/deps $SAGE_BUILD/deps
