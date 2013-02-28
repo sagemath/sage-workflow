@@ -106,7 +106,7 @@ process-spkg () {
             BRANCH=devel/bin
         ;;
         extcode)
-            REPO=$SAGE_SRC/ext
+            REPO=$SAGE_EXTDIR
             BRANCH=devel/ext
         ;;
         *)
@@ -125,17 +125,24 @@ process-spkg () {
 
     # rewrite paths
     # (taken from `man git-filter-branch` and modified a bit)
-    if [[ "$REPO" != "." ]]; then
-        git filter-branch -f -d "$TMPDIR/filter-branch/$SPKG" --prune-empty --index-filter "
-            git ls-files -s | sed \"s+\t+&$REPO/+\" | GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info &&
-            mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\" &&
-            git rm -rf --cached --ignore-unmatch $REPO/src/ >> $OUTDIR/detracked-files.txt
-        " master
-    else
+    if [[ "$REPO" == "." ]]; then
         git filter-branch -f -d "$TMPDIR/filter-branch/$SPKG" --prune-empty --index-filter "
             git ls-files -s | sed \"s+\tspkg/bin+\t$SAGE_SCRIPTS_DIR+\" | sed \"s+\tspkg+\t$SAGE_BUILD+\" |
             GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info &&
             mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\"
+        " master
+    elif [[ "$REPO" == "$SAGE_EXTDIR" ]]; then
+        git filter-branch -f -d "$TMPDIR/filter-branch/$SPKG" --prune-empty --index-filter "
+            git ls-files -s | sed \"s+\t+&$REPO/+\" | sed \"s+$REPO/sage/ext/mac-app+$SAGE_MACAPP+\" |
+            GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info &&
+            mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\"
+            git rm -rf --cached --ignore-unmatch $REPO/src/ >> $OUTDIR/detracked-files.txt
+        " master
+    else
+        git filter-branch -f -d "$TMPDIR/filter-branch/$SPKG" --prune-empty --index-filter "
+            git ls-files -s | sed \"s+\t+&$REPO/+\" | GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info &&
+            mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\" &&
+            git rm -rf --cached --ignore-unmatch $REPO/src/ >> $OUTDIR/detracked-files.txt
         " master
     fi
     popd > /dev/null
@@ -178,7 +185,10 @@ for BRANCH in $BRANCHES ; do
             # this $BRANCH will give us one of the subdirs' tree
             # objects. This will happen twice, once for devel/bin
             # and once for devel/ext.
-            BRANCH_DIR=$SAGE_SRC${BRANCH#devel}
+            case "$BRANCH" in
+                devel/ext) BRANCH_DIR="$SAGE_EXTDIR $SAGE_MACAPP" ;;
+                devel/bin) BRANCH_DIR=$SAGE_SCRIPTS_DIR ;;
+            esac
             DEV_ENTRY=$(git ls-tree -d $BRANCH $BRANCH_DIR)
             DEV_ENTRY=$(sed "s+$SAGE_SRC/++" <<<"$DEV_ENTRY")
             DEVOBJS="${DEVOBJS}${DEV_ENTRY}\n"

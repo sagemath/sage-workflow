@@ -15,11 +15,6 @@ cd "$SAGE_ROOT"
 git rm $(find -name '.hg*')
 git commit -m "[CLEANUP] Mercurial-related data"
 
-# TODO: incorporate the following into consolidate repos
-git mv $SAGE_SRC/ext/sage/ext/mac-app $SAGE_MACAPP
-rm -r $SAGE_SRC/ext/sage
-git commit -m '[REORG] Rewrite mac app directory'
-
 # final fix of file locations
 git mv $SAGE_BUILD/standard/deps $SAGE_BUILD/deps
 git commit -m "[REORG] Final fix of file locations"
