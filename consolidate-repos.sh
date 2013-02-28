@@ -221,10 +221,22 @@ done
 # into the listing of the root directory which we are building on
 # stdout. --batch is used because there's an extra newline at the
 # end of $DEVOBJS and $PKGOBJS.
+flatten-tree () {
+    TREE="$1"
+    TREE_DIR="$2"
+    while [[ "$TREE_DIR" == *"/"* ]]
+    do
+        TREE=$(echo -e "040000 tree $TREE\t${TREE_DIR##*/}" | git mktree --missing)
+        TREE_DIR="${TREE_DIR%/*}"
+    done
+    echo -n "040000 tree $TREE\t$TREE_DIR"
+}
+export -f flatten-tree
+
 DEVTREE=$(echo -e "$DEVOBJS" | git mktree --missing --batch)
 PKGTREE=$(echo -e "$PKGOBJS" | git mktree --missing --batch)
-MERGEOBJS="${MERGEOBJS}040000 tree $DEVTREE\t$SAGE_SRC\n"
-MERGEOBJS="${MERGEOBJS}040000 tree $PKGTREE\t$SAGE_PKGS"
+MERGEOBJS="${MERGEOBJS}$(flatten-tree "$DEVTREE" "$SAGE_SRC")\n"
+MERGEOBJS="${MERGEOBJS}$(flatten-tree "$PKGTREE" "$SAGE_PKGS")"
 
 # Actually make the directory listing into a git object
 MERGETREE=$(echo -e "$MERGEOBJS" | git mktree --missing)
