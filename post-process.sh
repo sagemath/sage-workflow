@@ -16,7 +16,7 @@ git rm $(find -name '.hg*')
 git commit -m "[CLEANUP] Mercurial-related data"
 
 # TODO: incorporate the following into consolidate repos
-git mv $SAGE_SRC/ext/sage/ext/mac-app $SAGE_SRC/$SAGE_MACAPP
+git mv $SAGE_SRC/ext/sage/ext/mac-app $SAGE_MACAPP
 rm -r $SAGE_SRC/ext/sage
 git commit -m '[REORG] Rewrite mac app directory'
 git mv spkg/* $SAGE_BUILD/
@@ -49,3 +49,8 @@ do
 done
 git rm -r $SAGE_BUILD/standard
 git commit -m "[CLEANUP] Old unused scripts"
+
+# add gitignores
+cat_workflow_file post-process_files/gitignore-root | sort > .gitignore
+git add $(find -name '.gitignore')
+git commit -m '[CLEANUP] Add gitignores'
