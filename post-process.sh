@@ -36,11 +36,31 @@ for file in $(cat <<FILES
 FILES
 )
 do
-  git rm -r $file
+    git rm -r $file
 done
 git commit -m "[CLEANUP] Old unused scripts"
 
 # add gitignores
-cat_workflow_file post-process_files/gitignore-root | sort > .gitignore
+add_gitignore() {
+    FILE=$1
+    case $FILE in
+        root) OUTDIR="." ;;
+        build) OUTDIR="$SAGE_BUILD" ;;
+        *) OUTDIR=$(sed 's+_+/+g' <<<$FILE)
+    esac
+
+    cat_workflow_file post-process_files/gitignore-$FILE | sort > $OUTDIR/.gitignore
+}
+
+add_gitignore root
+add_gitignore build
 git add $(find -name '.gitignore')
 git commit -m '[CLEANUP] Add gitignores'
+
+# apply patchs
+apply_patch () {
+    cat_workflow_file post-process_files/$1.patch | git am
+}
+
+apply_patch sage-env1
+apply_patch install1
