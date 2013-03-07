@@ -171,7 +171,7 @@ process-spkg () {
 }
 export -f process-spkg
 
-for SPKGPATH in "$SAGEDIR"/spkg/standard/*.spkg ; do
+for SPKGPATH in "$SAGEDIR"/spkg/*/*.spkg ; do
     process-spkg "$SPKGPATH"
 done
 
