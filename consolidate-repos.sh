@@ -79,6 +79,15 @@ done
 rm -f "$OUTDIR"/detracked-files.txt
 mkdir "$TMPDIR"/spkg-git
 
+fix-whitespace () {
+    while read file
+    do
+        cat "$file" | git stripspace > "$TMPDIR"/nospacefile
+        mv "$TMPDIR"/nospacefile "$file"
+    done
+}
+export -f fix-whitespace
+
 process-spkg () {
     # figure out what the spkg is
     SPKGPATH=$1
@@ -130,20 +139,26 @@ process-spkg () {
             git ls-files -s | sed \"s+\tspkg/bin+\t$SAGE_SCRIPTS_DIR+\" | sed \"s+\tspkg+\t$SAGE_BUILD+\" |
             GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info &&
             mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\"
-        " master
+        " --tree-filter '
+            git diff-tree --name-only --diff-filter=AM -r --no-commit-id $GIT_COMMIT | fix-whitespace
+        ' master
     elif [[ "$REPO" == "$SAGE_EXTDIR" ]]; then
         git filter-branch -f -d "$TMPDIR/filter-branch/$SPKG" --prune-empty --index-filter "
             git ls-files -s | sed \"s+\t+&$REPO/+\" | sed \"s+$REPO/sage/ext/mac-app+$SAGE_MACAPP+\" |
             GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info &&
             mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\"
             git rm -rf --cached --ignore-unmatch $REPO/src/ >> $OUTDIR/detracked-files.txt
-        " master
+        " --tree-filter '
+            git diff-tree --name-only --diff-filter=AM -r --no-commit-id $GIT_COMMIT | fix-whitespace
+        ' master
     else
         git filter-branch -f -d "$TMPDIR/filter-branch/$SPKG" --prune-empty --index-filter "
             git ls-files -s | sed \"s+\t+&$REPO/+\" | GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info &&
             mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\" &&
             git rm -rf --cached --ignore-unmatch $REPO/src/ >> $OUTDIR/detracked-files.txt
-        " master
+        " --tree-filter '
+            git diff-tree --name-only --diff-filter=AM -r --no-commit-id $GIT_COMMIT | fix-whitespace
+        ' master
     fi
     popd > /dev/null
 
