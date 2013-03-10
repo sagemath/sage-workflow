@@ -123,27 +123,33 @@ new-object () {
 }
 export -f new-object
 
-clean-ls-files () {
-    git rev-parse $GIT_COMMIT^ > /dev/null 2>&1
-    if [ $? -ne 0 ]; then
+if [ -n "$STRIP_WHITESPACE" ]; then
+    clean-ls-files () {
+        git rev-parse $GIT_COMMIT^ > /dev/null 2>&1
+        if [ $? -ne 0 ]; then
+            git ls-files -s |
+            while read a object b c
+            do
+                new-object $object
+            done
+        else
+            git diff-tree -r --diff-filter=AM --no-commit-id $GIT_COMMIT | cut -f4 -d' ' |
+            while read object
+            do
+                new-object $object
+            done
+        fi
         git ls-files -s |
         while read a object b c
         do
-            new-object $object
+            echo -e "$a `get-obj $object` $b\t$c"
         done
-    else
-        git diff-tree -r --diff-filter=AM --no-commit-id $GIT_COMMIT | cut -f4 -d' ' |
-        while read object
-        do
-            new-object $object
-        done
-    fi
-    git ls-files -s |
-    while read a object b c
-    do
-        echo -e "$a `get-obj $object` $b\t$c"
-    done
-}
+    }
+else
+    clean-ls-files () {
+        git ls-files -s
+    }
+fi
 export -f clean-ls-files
 
 process-spkg () {
@@ -191,7 +197,7 @@ process-spkg () {
         rm -rf "$TMPDIR"/spkg/$PKGNAME-$PKGVER
 
     # setup object directory that is needed for clean-ls-files
-    export OBJ_DIR="$TMPDIR/obj_dirs/$SPKG"
+    export OBJ_DIR="$TMPDIR/obj_dirs/$PKGNAME"
     mkdir -p "$OBJ_DIR"
 
     # add null object to repository for is-binary
