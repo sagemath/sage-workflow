@@ -79,14 +79,72 @@ done
 rm -f "$OUTDIR"/detracked-files.txt
 mkdir "$TMPDIR"/spkg-git
 
-fix-whitespace () {
-    while read file
+set-obj() {
+    if [ "$1" != "$2" ]; then
+        echo "$2" > "$OBJ_DIR/$1"
+    fi
+}
+export -f set-obj
+
+get-obj() {
+	# if it was not rewritten, take the original
+	if test -r "$OBJ_DIR/$1"; then
+		cat "$OBJ_DIR/$1"
+	else
+		echo "$1"
+	fi
+}
+export -f get-obj
+
+# based on
+# http://stackoverflow.com/questions/6119956/how-to-determine-if-git-handles-a-file-as-binary-or-as-text
+BINARY_NUMSTAT=$(printf '%s\t-\t' -)
+export BINARY_NUMSTAT
+is-binary () {
+    object=$1
+    diffstat="`git diff --numstat $NULL_OBJECT $object`"
+    case $diffstat in
+        "$BINARY_NUMSTAT"*)
+            return 0
+        ;;
+        *)
+            return 1
+        ;;
+    esac
+}
+export -f is-binary
+
+new-object () {
+    object=$1
+    if ! is-binary $object; then
+        new_object=`git cat-file -p $object | git stripspace | git hash-object -w --stdin`
+        set-obj $object $new_object
+    fi
+}
+export -f new-object
+
+clean-ls-files () {
+    git rev-parse $GIT_COMMIT^ > /dev/null 2>&1
+    if [ $? -ne 0 ]; then
+        git ls-files -s |
+        while read a object b c
+        do
+            new-object $object
+        done
+    else
+        git diff-tree -r --diff-filter=AM --no-commit-id $GIT_COMMIT | cut -f4 -d' ' |
+        while read object
+        do
+            new-object $object
+        done
+    fi
+    git ls-files -s |
+    while read a object b c
     do
-        cat "$file" | git stripspace > "$TMPDIR"/nospacefile
-        mv "$TMPDIR"/nospacefile "$file"
+        echo -e "$a `get-obj $object` $b\t$c"
     done
 }
-export -f fix-whitespace
+export -f clean-ls-files
 
 process-spkg () {
     # figure out what the spkg is
@@ -132,41 +190,45 @@ process-spkg () {
     hg -R "$TMPDIR"/spkg/$PKGNAME-$PKGVER push . ; # hg-git returns non-zero exit code upon warnings (!?)
         rm -rf "$TMPDIR"/spkg/$PKGNAME-$PKGVER
 
+    # setup object directory that is needed for clean-ls-files
+    export OBJ_DIR="$TMPDIR/obj_dirs/$SPKG"
+    mkdir -p "$OBJ_DIR"
+
+    # add null object to repository for is-binary
+    NULL_OBJECT=`git hash-object -w /dev/null`
+    export NULL_OBJECT
+
     # rewrite paths
-    # (taken from `man git-filter-branch` and modified a bit)
+    # based on `man git-filter-branch`
     if [[ "$REPO" == "." ]]; then
         git filter-branch -f -d "$TMPDIR/filter-branch/$SPKG" --prune-empty --index-filter "
-            git ls-files -s | sed \"s+\tspkg/bin+\t$SAGE_SCRIPTS_DIR+\" | sed \"s+\tspkg+\t$SAGE_BUILD+\" |
+            clean-ls-files | sed 's+\tspkg/bin\t$SAGE_SCRIPTS_DIR+' | sed 's+\tspkg+\t$SAGE_BUILD+' |
             GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info &&
-            mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\"
-        " --tree-filter '
-            git diff-tree --name-only --diff-filter=AM -r --no-commit-id $GIT_COMMIT | fix-whitespace
-        ' master
+            mv \$GIT_INDEX_FILE.new \$GIT_INDEX_FILE
+        " master
     elif [[ "$REPO" == "$SAGE_EXTDIR" ]]; then
         git filter-branch -f -d "$TMPDIR/filter-branch/$SPKG" --prune-empty --index-filter "
-            git ls-files -s | sed \"s+\t+&$REPO/+\" | sed \"s+$REPO/sage/ext/mac-app+$SAGE_MACAPP+\" |
+            clean-ls-files | sed 's+\t+&$REPO/+' | sed 's+$REPO/sage/ext/mac-app+$SAGE_MACAPP+' |
             GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info &&
-            mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\"
-            git rm -rf --cached --ignore-unmatch $REPO/src/ >> $OUTDIR/detracked-files.txt
-        " --tree-filter '
-            git diff-tree --name-only --diff-filter=AM -r --no-commit-id $GIT_COMMIT | fix-whitespace
-        ' master
+            mv \$GIT_INDEX_FILE.new \$GIT_INDEX_FILE
+        " master
     else
         git filter-branch -f -d "$TMPDIR/filter-branch/$SPKG" --prune-empty --index-filter "
-            git ls-files -s | sed \"s+\t+&$REPO/+\" | GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info &&
-            mv \"\$GIT_INDEX_FILE.new\" \"\$GIT_INDEX_FILE\" &&
+            clean-ls-files | sed 's+\t+&$REPO/+' |
+            GIT_INDEX_FILE=\$GIT_INDEX_FILE.new git update-index --index-info &&
+            mv \$GIT_INDEX_FILE.new \$GIT_INDEX_FILE &&
             git rm -rf --cached --ignore-unmatch $REPO/src/ >> $OUTDIR/detracked-files.txt
-        " --tree-filter '
-            git diff-tree --name-only --diff-filter=AM -r --no-commit-id $GIT_COMMIT | fix-whitespace
-        ' master
+        " master
     fi
+    rm -rf "$OBJ_DIR"
     popd > /dev/null
 
     # pull it into the consolidated repo
     git fetch -n "$TMPDIR"/spkg-git/$PKGNAME master:$BRANCH &&
-        rm -rf "$TMPDIR"/spkg-git/$PKGNAME/.git
+        rm -rf "$TMPDIR"/spkg-git/$PKGNAME
 
     # save the package version for later
+    mkdir -p "$TMPDIR"/spkg-git/$PKGNAME
     echo "$PKGVER" > "$TMPDIR"/spkg-git/$PKGNAME/spkg-version.txt
 }
 export -f process-spkg
