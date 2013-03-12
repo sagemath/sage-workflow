@@ -3,8 +3,6 @@
 WORKFLOW_DIR=$(readlink -f "$0")
 WORKFLOW_DIR=${WORKFLOW_DIR%/*}
 
-STRIP_WHITESPACE=y
-
 SAGE_BUILD=build
 SAGE_SRC=src
 SAGE_TARBALLS=upstream
