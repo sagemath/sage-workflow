@@ -322,15 +322,7 @@ while read commit parents; do
 	GIT_COMMIT=$commit
 	export GIT_COMMIT
 
-    objects_to_check="`git diff-tree -r --no-commit-id $GIT_COMMIT`"
-    if [ -z "$objects_to_check" ]; then
-        # the diff-tree is empty if there is no parent
-        # and also randomly elsewhere (bad mercurial commits?)
-        objects_to_check="`git ls-files -s | cut -f2 -d' '`"
-    else
-        objects_to_check="`git diff-tree -r --diff-filter=AM --no-commit-id $GIT_COMMIT | cut -f4 -d' '`"
-    fi
-    for object in $objects_to_check
+    for object in `git ls-files -s | cut -f2 -d' '`
     do
         if [ -z "${GIT_OBJ_DICT[X$object]}" ]; then
             if is-binary $object; then
