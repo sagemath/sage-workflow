@@ -1,0 +1,37 @@
+From 0d8964fa2f962fb2d5b9aef46d2d5b81fad2f7c5 Mon Sep 17 00:00:00 2001
+From: "R. Andrew Ohana" <andrew.ohana@gmail.com>
+Date: Sun, 17 Mar 2013 01:11:35 -0700
+Subject: [PATCH] (FIXUP) copy csage, including headers
+
+---
+
+diff --git a/__SAGE_SRC__/c_lib/SConstruct b/__SAGE_SRC__/c_lib/SConstruct
+index 11e5bc0..8f6d65b 100644
+--- a/__SAGE_SRC__/c_lib/SConstruct
++++ b/__SAGE_SRC__/c_lib/SConstruct
+@@ -131,17 +131,15 @@ cFiles = Split( "convert.c  interrupt.c  memory.c  mpn_pylong.c  mpz_pylong.c")
+          Split( "mpz_longlong.c stdsage.c  gmp_globals.c" )
+ cppFiles = Split( "ZZ_pylong.cpp  ntl_wrap.cpp" )
+ srcFiles = cFiles + cppFiles
++incFiles = Split( "ccobject.h  convert.h  ginac_wrap.h  gmp_globals.h" ) + \
++           Split( "interrupt.h  memory.h  mpn_pylong.h  mpz_longlong.h" ) + \
++           Split( "mpz_pylong.h  ntl_wrap.h  pb_wrap.h  stdsage.h  ZZ_pylong.h" )
+ 
+ lib = env.SharedLibrary( "csage", [ "src/" + x for x in srcFiles ],
+                          LIBS=['ntl', 'pari', 'gmp', 'python$PYV'],
+                          LIBPATH=['$SAGE_LOCAL/lib','$SAGE_LOCAL/lib/python$PYV/config/'],
+                          CPPPATH=includes )
+ env.Install("$SAGE_LOCAL/lib", lib)
++env.Install("$SAGE_LOCAL/include/csage", [ os.path.join('include',x) for x in incFiles ])
+ 
+-#Here we only copy the files over if we are on Cygwin.  Otherwise, the
+-#library will be handled by the symlinks created in
+-#$SAGE_ROOT/devel/sage/spkg-install
+-if os.environ['UNAME'] == 'CYGWIN':
+-    env.Alias("install", "$SAGE_LOCAL/lib")
+-else:
+-    env.Alias("install", [lib])
++env.Alias("install", "$SAGE_LOCAL")
+-- 
+1.8.1.5
+

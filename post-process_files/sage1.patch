@@ -1,0 +1,23 @@
+From 9b59d4f48031310a1697ee67c1fa76f3e445e266 Mon Sep 17 00:00:00 2001
+From: "R. Andrew Ohana" <andrew.ohana@gmail.com>
+Date: Sun, 17 Mar 2013 01:58:55 -0700
+Subject: [PATCH] (FIXUP) sage: fix pipestatus location
+
+---
+
+diff --git a/__SAGE_SCRIPTS_DIR__/sage b/__SAGE_SCRIPTS_DIR__/sage
+index d1e6759..e2968f3 100755
+--- a/__SAGE_SCRIPTS_DIR__/sage
++++ b/__SAGE_SCRIPTS_DIR__/sage
+@@ -808,7 +808,7 @@ install() {
+         PKG_NAME=`echo "$PKG" | sed -e "s/\.spkg$//"`
+         PKG_NAME=`basename "$PKG_NAME"`
+ 
+-        "$SAGE_ROOT"/spkg/pipestatus \
++        "$SAGE_ROOT"/__SAGE_BUILD__/pipestatus \
+             "sage-spkg $OPTINFO $OPTF $OPTS $OPTC '$PKG' 2>&1" \
+             "(trap '' SIGINT; tee -a '$SAGE_ROOT/install.log' '$SAGE_LOGS/$PKG_NAME.log')"
+         # Do not try to install further packages if one failed
+-- 
+1.8.1.5
+

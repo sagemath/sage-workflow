@@ -1,0 +1,32 @@
+From 57ac4fd2c5911b2b0d6d20bc6fd9ab60a5db082b Mon Sep 17 00:00:00 2001
+From: "R. Andrew Ohana" <andrew.ohana@gmail.com>
+Date: Sun, 17 Mar 2013 00:55:41 -0700
+Subject: [PATCH] (FIXUP) update prereq-install
+
+---
+
+diff --git a/__SAGE_BUILD__/base/prereq-1.1-install b/__SAGE_BUILD__/base/prereq-1.1-install
+index 3123e66..d321c50 100755
+--- a/__SAGE_BUILD__/base/prereq-1.1-install
++++ b/__SAGE_BUILD__/base/prereq-1.1-install
+@@ -5,7 +5,7 @@
+ 
+ TARGET=prereq-1.1
+ if [ "x$SAGE_BUILD_DIR" = x ]; then
+-    SAGE_BUILD_DIR="$SAGE_ROOT/spkg/build"
++    SAGE_BUILD_DIR="$SAGE_ROOT/__SAGE_ARTIFACTS__"
+ fi
+ mkdir -p "$SAGE_BUILD_DIR"
+ if [ $? -ne 0 ]; then
+@@ -128,7 +128,7 @@ fi
+ # does not update the base packages and we cannot retro-actively change
+ # that in earlier versions.  So the only thing to do is to skip this
+ # test.
+-prereq_tarball="$SAGE_ROOT/spkg/base/$TARGET.tar.gz"
++prereq_tarball="$SAGE_ROOT/__SAGE_TARBALLS__/$TARGET.tar.gz"
+ if [ -f "$prereq_tarball" ]; then
+     gzip -cd "$prereq_tarball" | tar xf - --no-same-owner
+     if [ $? -ne 0 ]; then
+-- 
+1.8.1.5
+

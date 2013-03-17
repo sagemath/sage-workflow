@@ -70,3 +70,9 @@ apply_patch () {
 
 apply_patch sage-env1
 apply_patch install1
+apply_patch prereq-install1
+apply_patch deps1
+apply_patch sage-spkg1
+apply_patch sage-starts1
+apply_patch csage1
+apply_patch sage1

@@ -1,0 +1,66 @@
+From d8666d8a526c59b6aa268f1905f04ee10bbbd803 Mon Sep 17 00:00:00 2001
+From: "R. Andrew Ohana" <andrew.ohana@gmail.com>
+Date: Sun, 17 Mar 2013 01:22:21 -0700
+Subject: [PATCH] (FIXUP) sage-spkg: support legacy spkgs
+
+---
+
+diff --git a/__SAGE_SCRIPTS_DIR__/sage-spkg b/__SAGE_SCRIPTS_DIR__/sage-spkg
+index 321ecc8..2c9eabd 100755
+--- a/__SAGE_SCRIPTS_DIR__/sage-spkg
++++ b/__SAGE_SCRIPTS_DIR__/sage-spkg
+@@ -15,7 +15,6 @@
+ #  variables are defined:
+ #
+ #      SAGE_ROOT     -- root directory of sage install
+-#      SAGE_PACKAGES -- $SAGE_ROOT/spkg
+ #      SAGE_LOCAL    -- $SAGE_ROOT/local
+ #      SAGE_DATA     -- $SAGE_ROOT/data
+ #      LIBRARY_PATH, PYTHONPATH, LD_LIBRARY_PATH, DYLD_LIBRARY_PATH
+@@ -93,7 +92,7 @@ fi
+ # The following sets environment variables for building packages.
+ # Since this is sourced, it returns a non-zero value on errors rather
+ # than exiting.  Using dot suggested by W. Cheung.
+-. "$SAGE_ROOT/spkg/bin/sage-env"
++. "${0%spkg}env"
+ 
+ if [ $? -ne 0 ]; then
+     echo >&2 "Error setting environment variables by sourcing '$SAGE_ROOT/spkg/bin/sage-env';"
+@@ -102,7 +101,7 @@ if [ $? -ne 0 ]; then
+ fi
+ 
+ if [ -z "$SAGE_BUILD_DIR" ]; then
+-    export SAGE_BUILD_DIR="$SAGE_PACKAGES/build"
++    export SAGE_BUILD_DIR="$SAGE_ROOT/__SAGE_ARTIFACTS__"
+ fi
+ 
+ mkdir -p "$SAGE_SPKG_INST"
+@@ -222,11 +221,11 @@ elif [ -z "$PKG_HAS_PATH" ]; then
+     # If PKG_SRC is not an existing file and doesn't contain a slash,
+     # we are in case 2a or 3.  Try to find a package in spkg/standard
+     # or spkg/optional (or other possible directories under spkg).
+-    cd "$SAGE_PACKAGES"
+-    for spkg in `ls -1t */${PKG_NAME}.spkg */${PKG_NAME}-*.spkg 2>/dev/null`; do
++    cd "$SAGE_ROOT/__SAGE_TARBALLS__"
++    for spkg in `ls -1t ${PKG_NAME}.spkg ${PKG_NAME}-*.spkg 2>/dev/null`; do
+         if [ -f "$spkg" ]; then
+             # Found a good package
+-            echo "Found package $PKG_NAME in spkg/$spkg"
++            echo "Found package $PKG_NAME in __SAGE_TARBALLS__/$spkg"
+             PKG_SRC="`pwd`/$spkg"
+             PKG_NAME=`basename "$spkg" | sed 's/\.spkg$//'`
+             break
+@@ -253,8 +252,8 @@ if [ ! -f "$PKG_SRC" ]; then
+     else
+         echo "Attempting to get on-line info for package $PKG_NAME"
+     fi
+-    mkdir -p "$SAGE_PACKAGES/optional"
+-    cd "$SAGE_PACKAGES/optional"
++    mkdir -p "$SAGE_ROOT/__SAGE_TARBALLS__"
++    cd "$SAGE_ROOT/__SAGE_TARBALLS__"
+ 
+     # Reduce everything to case 4: full URL.
+     if [ -n "$PKG_HAS_PATH" ]; then
+-- 
+1.8.1.5
+

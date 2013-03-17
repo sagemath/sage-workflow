@@ -3,3 +3,4 @@
 /.BUILDSTART
 /__SAGE_LOGS_DIR__
 *.pyc
+/__SAGE_ARTIFACTS__
