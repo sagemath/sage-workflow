@@ -57,10 +57,12 @@ add_gitignore() {
 
 add_gitignore root
 add_gitignore build
+add_gitignore src
 add_gitignore src-sage
+add_gitignore src-sage-ext-interpreters
 add_gitignore src-c_lib
 
-git add $(find -name '.gitignore')
+git add -f $(find -name '.gitignore')
 git commit -m '[CLEANUP] Add gitignores'
 
 # apply patchs
