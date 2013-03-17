@@ -2,3 +2,4 @@
 /__SAGE_TARBALLS__
 /.BUILDSTART
 /__SAGE_LOGS_DIR__
+*.pyc

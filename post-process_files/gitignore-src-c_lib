@@ -1,0 +1,3 @@
+*.so
+*.os
+.sconsign.dblite

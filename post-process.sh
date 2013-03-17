@@ -45,15 +45,20 @@ add_gitignore() {
     FILE=$1
     case $FILE in
         root) OUTDIR="." ;;
-        build) OUTDIR="$SAGE_BUILD" ;;
-        *) OUTDIR=$(sed 's+_+/+g' <<<$FILE)
+        build*) OUTDIR="$(sed -e "s+\$build+$SAGE_BUILD+" <<<$FILE)" ;;
+        src*) OUTDIR="$(sed -e "s+\$src+$SAGE_SRC+" <<<$FILE)" ;;
+        *) OUTDIR="$FILE" ;;
     esac
+    OUTDIR="$(sed 's+-+/+g' <<<$OUTDIR)"
 
     cat_workflow_file post-process_files/gitignore-$FILE | sort > $OUTDIR/.gitignore
 }
 
 add_gitignore root
 add_gitignore build
+add_gitignore src-sage
+add_gitignore src-c_lib
+
 git add $(find -name '.gitignore')
 git commit -m '[CLEANUP] Add gitignores'
 
