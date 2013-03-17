@@ -1,21 +1,20 @@
-From 9ca53b85d5ccc68bfa5e13d57592585288e420ed Mon Sep 17 00:00:00 2001
+From fe83cbc0b6ad476df64d2eb3b093e151ae3ebac7 Mon Sep 17 00:00:00 2001
 From: "R. Andrew Ohana" <andrew.ohana@gmail.com>
-Date: Wed, 27 Feb 2013 23:26:52 -0800
+Date: Sun, 17 Mar 2013 00:45:21 -0700
 Subject: [PATCH] (FIXUP) move __SAGE_BUILD__/install to git layout
 
 ---
 
 diff --git a/Makefile b/Makefile
-index 5da73f4..06df32d 100644
+index 740e5c9..276364c 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -7,16 +7,17 @@
+@@ -7,15 +7,16 @@
  # See below for targets to build the documentation in other formats,
  # to run various types of test suites, and to remove parts of the build etc.
  
 -PIPE = spkg/pipestatus
 +PIPE = __SAGE_BUILD__/pipestatus
- 
  
  all: start doc  # indirectly depends on build
  
@@ -30,89 +29,39 @@ index 5da73f4..06df32d 100644
  	./sage -b
  
  # ssl: build Sage, and also install pyOpenSSL. This is necessary for
-diff --git a/build/deps b/build/deps
-index 9ac61d3..889ef35 100644
---- a/build/deps
-+++ b/build/deps
-@@ -13,7 +13,7 @@ INST = installed
- # (SAGE_ROOT/spkg/bin is added to the PATH in spkg/install).
- # Therefore, do not put an explicit path for sage-spkg here.
- SAGE_SPKG = sage-spkg $${SAGE_SPKG_OPTS}
--PIPE = $(SAGE_ROOT)/spkg/pipestatus
-+PIPE = $(SAGE_ROOT)/__SAGE_BUILD__/pipestatus
- 
- # Tell make not to look for files with these names:
- .PHONY: all all-sage base toolchain
-diff --git a/build/install b/build/install
-index 5bf892f..cbf2a86 100755
---- a/build/install
-+++ b/build/install
-@@ -4,14 +4,9 @@
+diff --git a/__SAGE_BUILD__/install b/__SAGE_BUILD__/install
+index 317493a..1f2ca22 100755
+--- a/__SAGE_BUILD__/install
++++ b/__SAGE_BUILD__/install
+@@ -4,15 +4,9 @@
  # Set various environment variables
  ########################################################################
  
 -# Assume current directory is SAGE_ROOT/spkg
-+# Assume current directory is SAGE_ROOT/__SAGE_BUILD__
- SAGE_ROOT=`cd .. && pwd -P`
+-SAGE_ROOT=`cd .. && pwd -P`
 -SAGE_LOCAL="$SAGE_ROOT/local"
 -SAGE_SHARE="$SAGE_LOCAL/share"
 -SAGE_LOGS="$SAGE_ROOT/spkg/logs"
+-SAGE_SPKG_INST="$SAGE_ROOT/spkg/installed"
 -PATH="$SAGE_ROOT/spkg/bin:$SAGE_LOCAL/bin:$PATH"
 -PYTHONPATH="$SAGE_LOCAL"
--export SAGE_ROOT SAGE_LOCAL SAGE_LOGS PATH PYTHONPATH
+-export SAGE_ROOT SAGE_LOCAL SAGE_LOGS SAGE_SPKG_INST PATH PYTHONPATH
++# Assume current directory is SAGE_ROOT/__SAGE_BUILD__
++SAGE_ROOT="`cd .. && pwd -P`"
 +. "$SAGE_ROOT/__SAGE_SCRIPTS_DIR__/sage-env"
  
  # Storing the start time of the build process. The time is stored in
  # seconds since 1970-01-01 in a hidden file called
-@@ -38,15 +33,8 @@ EOF
-     exit 2
+@@ -47,7 +41,7 @@ if [ ! -f "$SAGE_ROOT/spkg/bin/sage-env" ]; then
  fi
  
--# If spkg/bin/sage-env doesn't exist, we are surely upgrading (sage-env
--# was moved to spkg/bin in sage-5.0).  Manually set SAGE_UPGRADING=yes,
--# as old versions of sage-upgrade didn't do this.
--if [ ! -f "$SAGE_ROOT/spkg/bin/sage-env" ]; then
--    SAGE_UPGRADING=yes
--fi
--
  if [ "$SAGE_UPGRADING" = yes ]; then
 -    # We're doing an upgrade. Let spkg/Makefile call sage-spkg with
 +    # We're doing an upgrade. Let __SAGE_BUILD__/Makefile call sage-spkg with
      # "-f" to force rebuilding dependent packages, too:
      export SAGE_SPKG_OPTS="-f"
  
-@@ -80,29 +68,13 @@ fi
- # Create basic directories needed for Sage
- ###############################################################################
- 
--mkdir -p "$SAGE_ROOT/tmp"
- mkdir -p "$SAGE_LOGS"
- mkdir -p "$SAGE_LOCAL/bin"
- mkdir -p "$SAGE_LOCAL/etc"
- mkdir -p "$SAGE_LOCAL/lib"
--mkdir -p "$SAGE_ROOT/spkg/installed"
-+mkdir -p "$SAGE_INST"
- mkdir -p "$SAGE_SHARE"
- 
--# If we are upgrading from an old version of Sage where $SAGE_SHARE
--# was stored at $SAGE_ROOT/data, move it to the right location.
--# Check that $SAGE_ROOT/data is an existing directory and not a symlink.
--if [ -d "$SAGE_ROOT/data" ] && [ ! -h "$SAGE_ROOT/data" ]; then
--    mkdir -p "$SAGE_ROOT/devel"
--    mv "$SAGE_ROOT"/data/extcode "$SAGE_ROOT/devel/ext-main"
--    mv "$SAGE_ROOT"/data/* "$SAGE_SHARE"
--    rm -rf "$SAGE_ROOT/data"
--fi
--
--# Symlink old SAGE_DATA to SAGE_SHARE for optional/experimental
--# packages that haven't yet been updated.
--rm -f "$SAGE_ROOT/data"
--ln -s local/share "$SAGE_ROOT/data"
--
- ###############################################################################
- # Determine whether to install GCC (gcc, g++, gfortran).
- ###############################################################################
-@@ -134,7 +106,7 @@ sleep 5
+@@ -135,7 +129,7 @@ sleep 5
  fi
  
  # Determine various compilers.  These variables should not be exported,
@@ -121,16 +70,7 @@ index 5bf892f..cbf2a86 100755
  # install GCC.  The "real" $CC, $CXX,... variables for building Sage are
  # set in sage-env.
  
-@@ -169,7 +141,7 @@ if [ -f "$SAGE_LOCAL/bin/gcc" ]; then
-         echo >&2 "We are upgrading Sage and GCC was installed before, it will get"
-         echo >&2 "re-installed if needed."
-         need_to_install_gcc=yes
--        for f in "$SAGE_ROOT/spkg/installed"/gcc-*; do
-+        for f in "$SAGE_INST"/gcc-*; do
-             if [ -f "$f" ]; then
-                 touch "$f"
-             fi
-@@ -261,7 +233,7 @@ cat >"$SAGE_LOCAL/bin/sage_fortran" <<EOF
+@@ -262,7 +256,7 @@ cat >"$SAGE_LOCAL/bin/sage_fortran" <<EOF
  #!/bin/sh
  
  if [ "x\$FC" = x ]; then
@@ -139,7 +79,7 @@ index 5bf892f..cbf2a86 100755
      myFC='${FC:-gfortran}'
  else
      myFC="\$FC"
-@@ -284,7 +256,7 @@ if [ -f "$SAGE_FORTRAN_LIB" ]; then
+@@ -285,7 +279,7 @@ if [ -f "$SAGE_FORTRAN_LIB" ]; then
  fi
  
  ###############################################################################
@@ -148,7 +88,7 @@ index 5bf892f..cbf2a86 100755
  ###############################################################################
  
  exec 3>Makefile
-@@ -292,7 +264,7 @@ exec 3>Makefile
+@@ -293,7 +287,7 @@ exec 3>Makefile
  cat >&3 <<EOF
  #==============================================================================
  # This file has been automatically generated by
@@ -157,7 +97,7 @@ index 5bf892f..cbf2a86 100755
  # You should not edit it by hand
  #==============================================================================
  
-@@ -328,25 +300,17 @@ newest_version_base() {
+@@ -329,25 +323,17 @@ newest_version_base() {
  }
  
  # Usage: newest_version $pkg
@@ -169,7 +109,7 @@ index 5bf892f..cbf2a86 100755
 -    # First find the most recent spkg.  We also look for *optional*
 -    # packages since downloaded packages arrive in spkg/optional.
 -    # As a fallback, we also look at the latest installed package.
--    for FILE in `{ ls -1t standard/$PKG-*.spkg optional/$PKG-*.spkg; ls -1t installed/$PKG-*; } 2>/dev/null`
+-    for FILE in `{ ls -1t standard/$PKG-*.spkg optional/$PKG-*.spkg; ls -1t "$SAGE_SPKG_INST"/$PKG-*; } 2>/dev/null`
 -    do
 -        ANS=`echo "$FILE" | sed 's|.*/||; s|\.spkg||'`
 -        if [ -n "$ANS" ]; then
@@ -192,7 +132,7 @@ index 5bf892f..cbf2a86 100755
  }
  
  cat >&3 <<EOF
-@@ -370,7 +334,6 @@ ECL=`newest_version ecl`
+@@ -371,7 +357,6 @@ ECL=`newest_version ecl`
  ECLIB=`newest_version eclib`
  ECM=`newest_version ecm`
  ELLIPTIC_CURVES=`newest_version elliptic_curves`
@@ -200,7 +140,7 @@ index 5bf892f..cbf2a86 100755
  FFLASFFPACK=`newest_version fflas_ffpack`
  FLINT=`newest_version flint`
  FLINTQS=`newest_version flintqs`
-@@ -427,11 +390,8 @@ RPY=`newest_version rpy2`
+@@ -428,11 +413,8 @@ RPY=`newest_version rpy2`
  RATPOINTS=`newest_version ratpoints`
  READLINE=`newest_version readline`
  RUBIKS=`newest_version rubiks`
@@ -212,7 +152,7 @@ index 5bf892f..cbf2a86 100755
  SCIPY=`newest_version scipy`
  SCONS=`newest_version scons`
  SETUPTOOLS=`newest_version setuptools`
-@@ -462,17 +422,17 @@ if [ "$need_to_install_gcc" == yes ]; then
+@@ -463,17 +445,17 @@ if [ "$need_to_install_gcc" == yes ]; then
  fi
  echo >&3
  
@@ -229,11 +169,11 @@ index 5bf892f..cbf2a86 100755
  EOF
  
 -cat standard/deps >&3
-+cat deps >&3
++cat "$SAGE_ROOT/__SAGE_BUILD__/deps" >&3
  
  # Close the Makefile
  exec 3>&-
-@@ -489,16 +449,9 @@ fi
+@@ -490,16 +472,9 @@ fi
  # * If "make" doesn't understand the -q option (although we require
  #   GNU make, which supports it), it should exit with a non-zero status
  #   which is not a problem.
@@ -253,18 +193,6 @@ index 5bf892f..cbf2a86 100755
  fi
  
  # Dump environment for debugging purposes:
-diff --git a/src/bin/sage-env b/src/bin/sage-env
-index 2ea4a7d..b77c536 100644
---- a/src/bin/sage-env
-+++ b/src/bin/sage-env
-@@ -246,6 +246,7 @@ export SAGE_LOCAL="$SAGE_ROOT/local"
- export SAGE_SHARE="$SAGE_LOCAL/share"
- export SAGE_EXTCODE="$SAGE_SHARE/sage/ext"
- export SAGE_LOGS="$SAGE_ROOT/logs"
-+export SAGE_INST="__SAGE_INSTALLED__"
- export SAGE_DOC="$SAGE_ROOT/devel/sage/doc"
- export PATH="$SAGE_ROOT/src/bin:$SAGE_LOCAL/bin:$PATH"
- 
 -- 
-1.8.1.2
+1.8.1.5
 

@@ -1,16 +1,16 @@
-From 5562f806fa950dba81804f76129e4bfe598081ec Mon Sep 17 00:00:00 2001
+From 55d157975c73952d5f5049740bd62ee7700abec3 Mon Sep 17 00:00:00 2001
 From: "R. Andrew Ohana" <andrew.ohana@gmail.com>
 Date: Wed, 27 Feb 2013 22:34:35 -0800
-Subject: [PATCH] (FIXUP) make sage-env and basic startup not depend on the spkg
- directory
+Subject: [PATCH] (FIXUP) make sage-env and basic startup not depend on the
+ spkg directory
 
 ---
 
 diff --git a/sage b/sage
-index 38170de..086b74c 100755
+index 0a085c4..a08eb43 100755
 --- a/sage
 +++ b/sage
-@@ -124,11 +124,10 @@ fi
+@@ -120,11 +120,10 @@ fi
  export SAGE_ROOT
  
  # Run the actual Sage script
@@ -26,10 +26,10 @@ index 38170de..086b74c 100755
  else
      echo >&2 "$0: no Sage installation found in \$SAGE_ROOT=$SAGE_ROOT"
      exit 1
-diff --git a/src/bin/sage b/src/bin/sage
-index 3e31e0a..6b2dd24 100755
---- a/src/bin/sage
-+++ b/src/bin/sage
+diff --git a/__SAGE_SCRIPTS_DIR__/sage b/__SAGE_SCRIPTS_DIR__/sage
+index 961ae78..d1e6759 100755
+--- a/__SAGE_SCRIPTS_DIR__/sage
++++ b/__SAGE_SCRIPTS_DIR__/sage
 @@ -248,7 +248,7 @@ if [ "$1" = '--nodotsage' ]; then
  fi
  
@@ -39,10 +39,10 @@ index 3e31e0a..6b2dd24 100755
  if [ $? -ne 0 ]; then
      echo >&2 "Error setting environment variables by sourcing '$SAGE_ROOT/spkg/bin/sage-env';"
      echo >&2 "possibly contact sage-devel (see http://groups.google.com/group/sage-devel)."
-diff --git a/src/bin/sage-env b/src/bin/sage-env
-index 1df159a..2ea4a7d 100644
---- a/src/bin/sage-env
-+++ b/src/bin/sage-env
+diff --git a/__SAGE_SCRIPTS_DIR__/sage-env b/__SAGE_SCRIPTS_DIR__/sage-env
+index 4b37e9e..349891c 100644
+--- a/__SAGE_SCRIPTS_DIR__/sage-env
++++ b/__SAGE_SCRIPTS_DIR__/sage-env
 @@ -7,7 +7,7 @@
  #  NOTES:
  #  - You must *source* this script instead of executing.
@@ -61,7 +61,7 @@ index 1df159a..2ea4a7d 100644
  #
  #  from the SAGE_ROOT directory.
  #
-@@ -114,9 +114,9 @@ resolvelinks() {
+@@ -111,9 +111,9 @@ resolvelinks() {
  # or a guessed value based on pwd.
  if [ -n "$SAGE_ROOT" ]; then
      NEW_SAGE_ROOT="$SAGE_ROOT"
@@ -73,7 +73,7 @@ index 1df159a..2ea4a7d 100644
      NEW_SAGE_ROOT="../.."
  else
      # No idea what SAGE_ROOT should be...
-@@ -129,7 +129,7 @@ fi
+@@ -126,7 +126,7 @@ fi
  NEW_SAGE_ROOT=`cd "$NEW_SAGE_ROOT" && pwd -P`
  
  # Sanity check NEW_SAGE_ROOT
@@ -82,7 +82,7 @@ index 1df159a..2ea4a7d 100644
      :
  else
      echo >&2 "Error: SAGE_ROOT is set to a bad value:"
-@@ -154,7 +154,7 @@ fi
+@@ -151,7 +151,7 @@ fi
  # "version number" of sage-env.  If a different version of sage-env was
  # sourced earlier (when upgrading), we still source the new version.
  # The sage-env version should be increased whenever a newer sage-env is
@@ -91,7 +91,7 @@ index 1df159a..2ea4a7d 100644
  # to be changed: the packages which need the new sage-env must depend on
  # SAGE_ROOT_REPO (the root repo contains sage-env).
  #
-@@ -171,6 +171,27 @@ export SAGE_ENV_SOURCED=$SAGE_ENV_VERSION
+@@ -168,6 +168,28 @@ export SAGE_ENV_SOURCED=$SAGE_ENV_VERSION
  
  export SAGE_ROOT="$NEW_SAGE_ROOT"
  
@@ -115,28 +115,28 @@ index 1df159a..2ea4a7d 100644
 +fi
 +
 +# Make SAGE_SCRIPTS_DIR absolute
-+export SAGE_SCRIPTS_DIR=`cd $SAGE_SCRIPTS_DIR && pwd -P`
- 
++export SAGE_SCRIPTS_DIR="`cd "$SAGE_SCRIPTS_DIR" && pwd -P`"
++
  # Call with: contains_spaces X${VAR}X
  # i.e., WITHOUT quotes but some character(s) around the environment variable to test.
-@@ -224,14 +245,9 @@ fi
+ # (This function does return false for empty/unset variables.)
+@@ -218,11 +240,11 @@ fi
  export SAGE_LOCAL="$SAGE_ROOT/local"
  export SAGE_SHARE="$SAGE_LOCAL/share"
  export SAGE_EXTCODE="$SAGE_SHARE/sage/ext"
 -export SAGE_PACKAGES="$SAGE_ROOT/spkg"
+-export SAGE_SPKG_INST="$SAGE_ROOT/spkg/installed"
 -export SAGE_LOGS="$SAGE_ROOT/spkg/logs"
++export SAGE_SPKG_INST="__SAGE_INSTALLED__"
 +export SAGE_LOGS="$SAGE_ROOT/__SAGE_LOGS_DIR__"
  export SAGE_DOC="$SAGE_ROOT/devel/sage/doc"
 -export PATH="$SAGE_PACKAGES/bin:$SAGE_LOCAL/bin:$PATH"
--
--# this is to be compatible with optional packages that haven't
--# been updated to not use SAGE_DATA
--export SAGE_DATA="$SAGE_SHARE"
++export SAGE_SRC="$SAGE_ROOT/__SAGE_SRC__"
 +export PATH="$SAGE_ROOT/__SAGE_SCRIPTS_DIR__:$SAGE_LOCAL/bin:$PATH"
  
- # We offer a toolchain option, so if $SAGE_LOCAL/toolchain/toolchain-env exists source it.
- # Since the user might do something crazy we do not do any checks, but hope for the best.
-@@ -278,7 +294,7 @@ HGENCODING="utf8" && export HGENCODING
+ # this is to be compatible with optional packages that haven't
+ # been updated to not use SAGE_DATA
+@@ -273,7 +295,7 @@ HGENCODING="utf8" && export HGENCODING
  
  # Make Mercurial not use any user defaults (like enabling the pager extension)
  # This is needed in order to use mercurial in scripts.  When running hg
@@ -145,16 +145,16 @@ index 1df159a..2ea4a7d 100644
  # See Trac Ticket #12058
  HGPLAIN="yes" && export HGPLAIN
  
-@@ -302,7 +318,7 @@ fi
+@@ -297,7 +319,7 @@ fi
  
  if [ "$DOT_SAGE" = "" ]; then
      # It is *not* an error if this directory does not exist, it will
 -    # be created in spkg/bin/sage or devel/sage/sage/misc/misc.py.
-+    # be created in __SAGE_SCRIPTS_DIR__/sage or devel/sage/sage/misc/misc.py.
++    # be created in __SAGE_SCRIPTS_DIR__/sage or __SAGE_SRC__/sage/misc/misc.py.
      # This also works if $HOME/.sage is a symbolic link to a
      # non-existing directory.
      DOT_SAGE=`resolvelinks "$HOME/.sage"`
-@@ -419,7 +435,7 @@ export PKG_CONFIG_PATH
+@@ -413,7 +435,7 @@ export PKG_CONFIG_PATH
  # Whenever a flag like SAGE64 has been set once, it needs to be
  # restored in every run of sage, as mixing 64-bit and 32-bit code is
  # bad idea at best.  This script takes care of that.
@@ -164,5 +164,5 @@ index 1df159a..2ea4a7d 100644
  ############ compilation flags
  
 -- 
-1.8.1.2
+1.8.1.5
 
