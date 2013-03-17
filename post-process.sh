@@ -32,6 +32,7 @@ for file in $(cat <<FILES
   $SAGE_SRC/pull
   $SAGE_SCRIPTS_DIR/sage-sage
   $SAGE_BUILD/root-spkg-install
+  $SAGE_BUILD/gen_html
   $SAGE_BUILD/standard
 FILES
 )
