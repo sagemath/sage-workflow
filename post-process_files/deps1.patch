@@ -58,7 +58,7 @@ index 155a1af..c51d18b 100644
  # every part of Sage will work.  It does not include Maxima for example.
 -SAGERUNTIME = $(INST)/$(SAGE_SCRIPTS) $(INST)/$(SAGE) $(INST)/$(SAGENB) \
 -              $(INST)/$(IPYTHON) $(INST)/$(GAP)
-+SAGERUNTIME = sage $(INST)/$(SAGENB) $(INST)/$(IPYTHON) $(INST)/$(GAP)
++SAGERUNTIME = scripts sage $(INST)/$(SAGENB) $(INST)/$(IPYTHON) $(INST)/$(GAP)
  
  ###############################################################################
  # Building the base system
@@ -181,7 +181,7 @@ index 155a1af..c51d18b 100644
  		 $(INST)/$(ATLAS) \
  		 $(INST)/$(CEPHES) \
  		 $(INST)/$(CLIQUER) \
-@@ -498,20 +465,32 @@ $(INST)/$(SAGE): \
+@@ -498,19 +465,33 @@ $(INST)/$(SAGE): \
  		 $(INST)/$(PYTHON) \
  		 $(INST)/$(RATPOINTS) \
  		 $(INST)/$(READLINE) \
@@ -195,16 +195,24 @@ index 155a1af..c51d18b 100644
 +		 csage
 +	+$(PIPE) "cd $(SAGE_SRC) && python setup.py install 2>&1" "tee -a $(SAGE_LOGS)/$(SAGE).log"
 +
++# don't just use `install` since we don't want to change permissions
++$(SAGE_LOCAL)/bin/%: $(SAGE_SRC)/__SAGE_SCRIPTS_REL__/%
++	cp $< $@
++
++# don't just use `install -D` since we don't want to change permissions
++$(SAGE_EXTCODE)/%: $(SAGE_SRC)/__SAGE_EXTREL__/%
++	@mkdir -p "$(@D)"
++	cp $< $@
++
 +SCRIPT_SOURCES = $(wildcard $(SAGE_SRC)/__SAGE_SCRIPTS_REL__/*)
 +SCRIPT_TARGETS = $(subst $(SAGE_SRC),$(SAGE_LOCAL),$(SCRIPT_SOURCES))
-+
-+$(SAGE_LOCAL)/%: $(SAGE_SRC)/%
-+	cp $< $@
 +
 +scripts: $(SCRIPT_TARGETS)
 +
 +EXTCODE_SOURCES = $(shell find $(SAGE_SRC)/__SAGE_EXTREL__ -type f)
 +EXTCODE_TARGETS = $(subst $(SAGE_SRC)/__SAGE_EXTREL__,$(SAGE_EXTCODE),$(EXTCODE_SOURCES))
++
++extcode: $(EXTCODE_TARGETS)
  
 -# Because of ticket #11073 (remove the base repo), merged in sage-5.0,
 -# a version 5.x scripts repo does not work together with a version 4.x
@@ -212,19 +220,12 @@ index 155a1af..c51d18b 100644
 -# repo before the scripts repo.
 -$(INST)/$(SAGE_SCRIPTS): $(INST)/$(SAGE_ROOT_REPO)
 -	+$(PIPE) "$(SAGE_SPKG) $(SAGE_SCRIPTS) 2>&1" "tee -a $(SAGE_LOGS)/$(SAGE_SCRIPTS).log"
-+$(SAGE_EXTCODE)/%: $(SAGE_SRC)/__SAGE_EXTREL__/%
-+	@mkdir -p "$(@D)"
-+	cp $< $@
- 
-+extcode: $(EXTCODE_TARGETS)
-+
 +csage: $(INST)/$(SCONS) $(INST)/$(MPIR) $(INST)/$(PARI)
 +	+$(PIPE) "cd $(SAGE_SRC)/c_lib && scons -Q install 2>&1" "tee -a $(SAGE_LOGS)/csage.log"
-+
+ 
  $(INST)/ccache: $(BASE) $(INST)/$(ZLIB)
  	+$(PIPE) "$(SAGE_SPKG) ccache 2>&1" "tee -a $(SAGE_LOGS)/ccache.log"
- 	touch $(INST)/ccache
-@@ -523,10 +502,7 @@ $(INST)/$(GCC): $(INST)/$(MPIR) $(INST)/$(MPFR) $(INST)/$(MPC) \
+@@ -523,10 +504,7 @@ $(INST)/$(GCC): $(INST)/$(MPIR) $(INST)/$(MPFR) $(INST)/$(MPC) \
  $(INST)/$(PIL): $(INST)/$(PYTHON)
  	+$(PIPE) "$(SAGE_SPKG) $(PIL) 2>&1" "tee -a $(SAGE_LOGS)/$(PIL).log"
  
