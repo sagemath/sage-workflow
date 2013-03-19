@@ -322,14 +322,16 @@ while read commit parents; do
 	GIT_COMMIT=$commit
 	export GIT_COMMIT
 
-    OIFS=$IFS
-    IFS=$'\n'$'\r'
-    for line in `git ls-files -s`
+    if [ "${#parents}" != "40" ]; then
+        readarray < <(git ls-files -s)
+    else
+        readarray < <(git diff-tree -r --no-commit-id $parents $commit | cut -f2,4 -d' ')
+    fi
+    for line in "${MAPFILE[@]}"
     do
-        object=`echo -e "$line" | cut -f2 -d' '`
+        object="${line:7:40}"
         if [ -z "${GIT_OBJ_DICT[X$object]}" ]; then
-            mode=`echo -e "$line" | cut -f1 -d' '`
-            if [ "${mode:0:2}" != "10" ]; then
+            if [ "${line:0:2}" != "10" ]; then
                 # not a regular file in this case, so skip it
                 new_object=$object
             elif is-binary $object; then
@@ -340,7 +342,6 @@ while read commit parents; do
             GIT_OBJ_DICT[X$object]=$new_object
         fi
     done
-    IFS=$OIFS
 
     git ls-files -s |
         {
