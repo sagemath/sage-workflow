@@ -322,10 +322,17 @@ while read commit parents; do
 	GIT_COMMIT=$commit
 	export GIT_COMMIT
 
-    for object in `git ls-files -s | cut -f2 -d' '`
+    OIFS=$IFS
+    IFS=$'\n'$'\r'
+    for line in `git ls-files -s`
     do
+        object=`echo -e "$line" | cut -f2 -d' '`
         if [ -z "${GIT_OBJ_DICT[X$object]}" ]; then
-            if is-binary $object; then
+            mode=`echo -e "$line" | cut -f1 -d' '`
+            if [ "${mode:0:2}" != "10" ]; then
+                # not a regular file in this case, so skip it
+                new_object=$object
+            elif is-binary $object; then
                 new_object=$object
             else
                 new_object=`git cat-file -p $object | git stripspace | git hash-object -w --stdin`
@@ -333,6 +340,7 @@ while read commit parents; do
             GIT_OBJ_DICT[X$object]=$new_object
         fi
     done
+    IFS=$OIFS
 
     git ls-files -s |
         {
