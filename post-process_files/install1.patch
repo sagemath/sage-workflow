@@ -181,7 +181,7 @@ index 317493a..1f2ca22 100755
  
  # Close the Makefile
  exec 3>&-
-@@ -490,16 +465,9 @@ fi
+@@ -492,16 +467,9 @@ INST="`echo ${SAGE_SPKG_INST:-installed} | sed 's/ /\\\\ /g'`"
  # * If "make" doesn't understand the -q option (although we require
  #   GNU make, which supports it), it should exit with a non-zero status
  #   which is not a problem.
@@ -191,11 +191,11 @@ index 317493a..1f2ca22 100755
 -#   which doesn't check MAKEFLAGS.
 -#   See Trac #12248 and also #12016.
 -if [ -f "$SAGE_ROOT/spkg/bin/sage-spkg" ]; then
--    if $MAKE -q "$@"; then
+-    if $MAKE -q INST="$INST" "$@"; then
 -        echo "Nothing to (re)build / all up-to-date."
 -        exit 0
 -    fi
-+if $MAKE -q "$@"; then
++if $MAKE -q INST="$INST" "$@"; then
 +    echo "Nothing to (re)build / all up-to-date."
 +    exit 0
  fi

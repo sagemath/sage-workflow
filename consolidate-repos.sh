@@ -92,18 +92,33 @@ process-spkg () {
 
     # determine eventual subtree of the spkg's repo
     # tarball the src/ directory and put it into our $SAGE_TARBALLS/ directory
+    # apply any WIP mecurial patches
+    pushd "$TMPDIR"/spkg/$PKGNAME-$PKGVER > /dev/null
     case $PKGNAME in
         sage_root)
             REPO=.
             BRANCH=base
+
+            # apply WIP mecurial patches
+            hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/14226/trac14226_root.patch
         ;;
         sage)
             REPO=$SAGE_SRC
             BRANCH=library
+
+            # apply WIP mecurial patches
+            hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/14226/trac14226_library.patch
+
+            hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/13031/trac13031-cythonize-simple.patch
+            hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/13031/trac13031-cythonize-version.patch
+            hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/13031/13031-doctest-fix.patch
         ;;
         sage_scripts)
             REPO=$SAGE_SCRIPTS_DIR
             BRANCH=devel/bin
+
+            # apply WIP mecurial patches
+            hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/14226/trac14226_scripts.patch
         ;;
         extcode)
             REPO=$SAGE_EXTDIR
@@ -116,6 +131,7 @@ process-spkg () {
             tar c -jf "$OUTDIR"/$SAGE_TARBALLS/$PKGNAME-$PKGVER_UPSTREAM.tar.bz2 -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER_UPSTREAM
         ;;
     esac
+    popd > /dev/null
 
     # convert the SPKG's hg repo to git
     git init --bare "$TMPDIR"/spkg-git/$PKGNAME
