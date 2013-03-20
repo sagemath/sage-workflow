@@ -112,6 +112,7 @@ process-spkg () {
             hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/13031/trac13031-cythonize-simple.patch
             hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/13031/trac13031-cythonize-version.patch
             hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/13031/13031-doctest-fix.patch
+            hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/13031/13031-flush.patch
         ;;
         sage_scripts)
             REPO=$SAGE_SCRIPTS_DIR
