@@ -76,6 +76,10 @@ apply_patch install1
 apply_patch prereq-install1
 apply_patch deps1
 apply_patch sage-spkg1
+apply_patch sage-spkg2
 apply_patch sage-starts1
 apply_patch csage1
 apply_patch sage1
+apply_patch docbuild1
+apply_patch sage_artifacts1
+apply_patch setup1

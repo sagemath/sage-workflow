@@ -9,7 +9,7 @@ diff --git a/Makefile b/Makefile
 index 740e5c9..276364c 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -7,15 +7,16 @@
+@@ -7,16 +7,16 @@
  # See below for targets to build the documentation in other formats,
  # to run various types of test suites, and to remove parts of the build etc.
  
@@ -25,10 +25,11 @@ index 740e5c9..276364c 100644
  	"../$(PIPE)" \
  		"env SAGE_PARALLEL_SPKG_BUILD='$(SAGE_PARALLEL_SPKG_BUILD)' ./install all 2>&1" \
 -		"tee -a ../install.log"
+-	./sage -b
 +		"tee -a ../__SAGE_LOGS_DIR__/install.log"
- 	./sage -b
  
  # ssl: build Sage, and also install pyOpenSSL. This is necessary for
+ # running the secure notebook. This make target requires internet
 diff --git a/__SAGE_BUILD__/install b/__SAGE_BUILD__/install
 index 317493a..1f2ca22 100755
 --- a/__SAGE_BUILD__/install
@@ -201,6 +202,15 @@ index 317493a..1f2ca22 100755
  fi
  
  # Dump environment for debugging purposes:
+@@ -530,7 +498,7 @@ EOF
+ 
+ package: $base_f
+ log file: $f
+-build directory: ${SAGE_BUILD_DIR:-$SAGE_ROOT/spkg/build}/$base_f
++build directory: ${SAGE_BUILD_DIR:-$SAGE_ROOT/__SAGE_ARTIFACTS__}/$base_f
+ EOF
+         fi
+     done
 -- 
 1.8.1.5
 

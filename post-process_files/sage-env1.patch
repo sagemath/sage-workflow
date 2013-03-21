@@ -127,11 +127,12 @@ index 4b37e9e..349891c 100644
 -export SAGE_PACKAGES="$SAGE_ROOT/spkg"
 -export SAGE_SPKG_INST="$SAGE_ROOT/spkg/installed"
 -export SAGE_LOGS="$SAGE_ROOT/spkg/logs"
+-export SAGE_DOC="$SAGE_ROOT/devel/sage/doc"
+-export PATH="$SAGE_PACKAGES/bin:$SAGE_LOCAL/bin:$PATH"
 +export SAGE_SPKG_INST="__SAGE_INSTALLED__"
 +export SAGE_LOGS="$SAGE_ROOT/__SAGE_LOGS_DIR__"
- export SAGE_DOC="$SAGE_ROOT/devel/sage/doc"
--export PATH="$SAGE_PACKAGES/bin:$SAGE_LOCAL/bin:$PATH"
 +export SAGE_SRC="$SAGE_ROOT/__SAGE_SRC__"
++export SAGE_DOC="$SAGE_SRC/doc"
 +export PATH="$SAGE_SRC/__SAGE_SCRIPTS_REL__:$SAGE_LOCAL/bin:$PATH"
  
  # this is to be compatible with optional packages that haven't

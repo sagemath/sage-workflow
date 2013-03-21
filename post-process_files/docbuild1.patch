@@ -1,0 +1,23 @@
+From fb3c98e77096a5f4b53cdb5e6e70d0bce19d52c4 Mon Sep 17 00:00:00 2001
+From: "R. Andrew Ohana" <andrew.ohana@gmail.com>
+Date: Tue, 19 Mar 2013 10:41:59 -0700
+Subject: [PATCH] (FIXUP) correct path for docbuilder
+
+---
+
+diff --git a/__SAGE_SCRIPTS_DIR__/sage b/__SAGE_SCRIPTS_DIR__/sage
+index 08df18d..ee161a6 100755
+--- a/src/bin/sage
++++ b/src/bin/sage
+@@ -921,7 +921,7 @@ fi
+ 
+ if [ "$1" = "-docbuild" -o "$1" = "--docbuild" ]; then
+     shift
+-    exec python "$SAGE_ROOT/devel/sage/doc/common/builder.py" "$@"
++    exec python "$SAGE_SRC/doc/common/builder.py" "$@"
+ fi
+ 
+ if [ "$1" = '-gdb' -o "$1" = "--gdb" ]; then
+-- 
+1.8.1.5
+

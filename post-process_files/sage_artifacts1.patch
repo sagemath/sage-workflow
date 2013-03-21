@@ -1,0 +1,70 @@
+From b09daf7e960ea830bd9a2e2db1c0a3a5b45a5783 Mon Sep 17 00:00:00 2001
+From: "R. Andrew Ohana" <andrew.ohana@gmail.com>
+Date: Wed, 20 Mar 2013 17:11:39 -0700
+Subject: [PATCH] (FIXUP) do not create spkg/build anymore
+
+---
+
+diff --git a/__SAGE_SCRIPTS_DIR__/testcc.sh b/__SAGE_SCRIPTS_DIR__/testcc.sh
+index e80ecfb..e8bdf0c 100755
+--- a/__SAGE_SCRIPTS_DIR__/testcc.sh
++++ b/__SAGE_SCRIPTS_DIR__/testcc.sh
+@@ -70,13 +70,13 @@ if [ -z "$SAGE_ROOT" ]; then
+     exit 1
+ fi
+ 
+-mkdir -p "$SAGE_ROOT/spkg/build"
++mkdir -p "$SAGE_ROOT/__SAGE_ARTIFACTS__"
+ if [ $? -ne 0 ]; then
+     echo "Error while trying to create the build directory."
+     exit 1
+ fi
+ 
+-cd "$SAGE_ROOT/spkg/build"
++cd "$SAGE_ROOT/__SAGE_ARTIFACTS__"
+ if [ $? -ne 0 ]; then
+     echo "Error while trying to change into the build directory."
+     exit 1
+diff --git a/__SAGE_SCRIPTS_DIR__/testcflags.sh b/__SAGE_SCRIPTS_DIR__/testcflags.sh
+index 5f8fc0c..916276e 100755
+--- a/__SAGE_SCRIPTS_DIR__/testcflags.sh
++++ b/__SAGE_SCRIPTS_DIR__/testcflags.sh
+@@ -82,13 +82,13 @@ if [ -z "$SAGE_ROOT" ]; then
+     exit 1
+ fi
+ 
+-mkdir -p "$SAGE_ROOT/spkg/build"
++mkdir -p "$SAGE_ROOT/__SAGE_ARTIFACTS__"
+ if [ $? -ne 0 ]; then
+     echo "Error while trying to create the build directory."
+     exit 1
+ fi
+ 
+-cd "$SAGE_ROOT/spkg/build"
++cd "$SAGE_ROOT/__SAGE_ARTIFACTS__"
+ if [ $? -ne 0 ]; then
+     echo "Error while trying to change into the build directory."
+     exit 1
+diff --git a/__SAGE_SCRIPTS_DIR__/testcxx.sh b/__SAGE_SCRIPTS_DIR__/testcxx.sh
+index 4270ba0..6c98c67 100755
+--- a/__SAGE_SCRIPTS_DIR__/testcxx.sh
++++ b/__SAGE_SCRIPTS_DIR__/testcxx.sh
+@@ -70,13 +70,13 @@ if [ -z "$SAGE_ROOT" ]; then
+     exit 1
+ fi
+ 
+-mkdir -p "$SAGE_ROOT/spkg/build"
++mkdir -p "$SAGE_ROOT/__SAGE_ARTIFACTS__"
+ if [ $? -ne 0 ]; then
+     echo "Error while trying to create the build directory."
+     exit 1
+ fi
+ 
+-cd "$SAGE_ROOT/spkg/build"
++cd "$SAGE_ROOT/__SAGE_ARTIFACTS__"
+ if [ $? -ne 0 ]; then
+     echo "Error while trying to change into the build directory."
+     exit 1
+-- 
+1.8.1.5
+
