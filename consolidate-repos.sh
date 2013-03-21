@@ -82,7 +82,7 @@ mkdir "$TMPDIR"/spkg-git
 process-spkg () {
     # figure out what the spkg is
     SPKGPATH=$1
-    SPKG="${SPKGPATH#$SAGEDIR/spkg/standard/}"
+    SPKG="${SPKGPATH#$SAGEDIR/spkg/*/}"
     PKGNAME=$(sed -e 's/\([^-]*\)-[0-9].*.spkg$/\1/' <<< "$SPKG")
     PKGVER=$(sed -e 's/^-\(.*\)\.spkg$/\1/' <<< "${SPKG#"$PKGNAME"}")
     PKGVER_UPSTREAM=$(sed -e 's/\.p[0-9][0-9]*$//' <<<"$PKGVER")
