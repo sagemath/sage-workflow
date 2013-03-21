@@ -323,9 +323,9 @@ while read commit parents; do
 	export GIT_COMMIT
 
     if [ "${#parents}" != "40" ]; then
-        readarray < <(git ls-files -s)
+        readarray -t < <(git ls-files -s | sed "s/\t/ /" | cut -f1,2,4)
     else
-        readarray < <(git diff-tree -r --no-commit-id $parents $commit | cut -f2,4 -d' ')
+        readarray -t < <(git diff-tree -r --no-commit-id $parents $commit | sed "s/\t/ /" | cut -f2,4,6 -d' ')
     fi
     for line in "${MAPFILE[@]}"
     do
@@ -335,6 +335,10 @@ while read commit parents; do
                 # not a regular file in this case, so skip it
                 new_object=$object
             elif is-binary $object; then
+                # don't mess with binaries (such as png files)
+                new_object=$object
+            elif [ "${line: -6}" == ".patch" -o "${line: -5}" == ".diff" ]; then
+                # don't mess with diff or patch files
                 new_object=$object
             else
                 new_object=`git cat-file -p $object | git stripspace | git hash-object -w --stdin`
