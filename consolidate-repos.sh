@@ -130,6 +130,26 @@ process-spkg () {
         *)
             REPO=$SAGE_PKGS/$PKGNAME
             BRANCH=packages/$PKGNAME
+
+            rm .hgignore # hg add doesn't really add things if the file is supposed to be ignored
+            case "$PKGNAME" in
+                # some packages need a bit of special processing
+                mpfr)
+                    hg add patches/upstream
+                    hg commit -m 'mpfr: add upstream patches to the repository'
+                ;;
+                cliquer)
+                    hg add patches
+                    hg commit -m 'cliquer: add patches to the repository'
+                ;;
+                ntl)
+                    mv libtool src
+                ;;
+                singular)
+                    mv shared src
+                ;;
+            esac
+
             mv -T "$TMPDIR"/spkg/$PKGNAME-$PKGVER/src "$TMPDIR"/spkg/$PKGNAME-$PKGVER/$PKGNAME-$PKGVER_UPSTREAM
             tar c -jf "$OUTDIR"/$SAGE_TARBALLS/$PKGNAME-$PKGVER_UPSTREAM.tar.bz2 -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER_UPSTREAM
         ;;
