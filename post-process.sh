@@ -30,7 +30,9 @@ for file in $(cat <<FILES
   $SAGE_SRC/export
   $SAGE_SRC/install
   $SAGE_SRC/pull
+  $SAGE_SRC/sage/misc/hg.py
   $SAGE_SCRIPTS_DIR/sage-sage
+  $SAGE_SCRIPTS_DIR/sage-clone
   $SAGE_BUILD/root-spkg-install
   $SAGE_BUILD/gen_html
   $SAGE_BUILD/standard
@@ -39,7 +41,7 @@ FILES
 do
     git rm -r $file
 done
-git commit -m "[CLEANUP] Old unused scripts"
+git commit -m "[CLEANUP] Unused files"
 
 # add gitignores
 add_gitignore() {
@@ -85,4 +87,5 @@ apply_patch sage_artifacts1
 apply_patch ntl1
 apply_patch singular1
 apply_patch sagenb1
+apply_patch hg1
 apply_patch setup1

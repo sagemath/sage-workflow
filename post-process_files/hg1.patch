@@ -1,0 +1,277 @@
+From 54c6f79f57a4a1784df8fa21dc2d7f84b3433d2c Mon Sep 17 00:00:00 2001
+From: "R. Andrew Ohana" <andrew.ohana@gmail.com>
+Date: Thu, 21 Mar 2013 15:17:57 -0700
+Subject: [PATCH] (FIXUP) remove mecurial dependency
+
+---
+
+diff --git a/__SAGE_BUILD__/deps b/__SAGE_BUILD__/deps
+index 80a4fb9..b72381d 100644
+--- a/__SAGE_BUILD__/deps
++++ b/__SAGE_BUILD__/deps
+@@ -74,7 +74,6 @@ all-sage: \
+      $(INST)/$(M4RIE) \
+      $(INST)/$(MATPLOTLIB) \
+      $(INST)/$(MAXIMA) \
+-     $(INST)/$(MERCURIAL) \
+      $(INST)/$(MPC) \
+      $(INST)/$(MPFI) \
+      $(INST)/$(MPFR) \
+@@ -314,9 +313,6 @@ $(INST)/$(RUBIKS):
+ $(INST)/$(SQLITE): $(INST)/$(READLINE)
+ 	+$(PIPE) "$(SAGE_SPKG) $(SQLITE) 2>&1" "tee -a $(SAGE_LOGS)/$(SQLITE).log"
+ 
+-$(INST)/$(MERCURIAL): $(INST)/$(PYTHON)
+-	+$(PIPE) "$(SAGE_SPKG) $(MERCURIAL) 2>&1" "tee -a $(SAGE_LOGS)/$(MERCURIAL).log"
+-
+ # To build SageTeX, you just need Python, but to test (SAGE_CHECK=yes)
+ # SageTeX, you actually need to run sage, produce plots,...
+ $(INST)/$(SAGETEX): $(INST)/$(PYTHON) \
+@@ -451,7 +447,6 @@ sage: \
+ 		 $(INST)/$(LINBOX) \
+ 		 $(INST)/$(M4RI) \
+ 		 $(INST)/$(M4RIE) \
+-		 $(INST)/$(MERCURIAL) \
+ 		 $(INST)/$(MPC) \
+ 		 $(INST)/$(MPFI) \
+ 		 $(INST)/$(MPFR) \
+diff --git a/__SAGE_BUILD__/install b/__SAGE_BUILD__/install
+index 1e801e7..6cd4429 100755
+--- a/__SAGE_BUILD__/install
++++ b/__SAGE_BUILD__/install
+@@ -380,7 +380,6 @@ M4RI=`newest_version libm4ri`
+ M4RIE=`newest_version libm4rie`
+ MATPLOTLIB=`newest_version matplotlib`
+ MAXIMA=`newest_version maxima`
+-MERCURIAL=`newest_version mercurial`
+ MPC=`newest_version mpc`
+ MPFI=`newest_version mpfi`
+ MPFR=`newest_version mpfr`
+diff --git a/__SAGE_SCRIPTS_DIR__/sage b/__SAGE_SCRIPTS_DIR__/sage
+index ee161a6..5a6ca27 100755
+--- a/__SAGE_SCRIPTS_DIR__/sage
++++ b/__SAGE_SCRIPTS_DIR__/sage
+@@ -85,7 +85,6 @@ usage_advanced() {
+     echo "  -gap [...]          -- run Sage's Gap with given arguments"
+     echo "  -gdb                -- run Sage under the control of gdb"
+     echo "  -gp [...]           -- run Sage's PARI/GP calculator with given arguments"
+-    echo "  -hg [...]           -- run Sage's Mercurial with given arguments"
+     echo "  -ipython [...]      -- run Sage's IPython using the default environment (not"
+     echo "                         Sage), passing additional options to IPython"
+     echo "  -kash [...]         -- run Sage's Kash with given arguments"
+@@ -144,12 +143,9 @@ usage_advanced() {
+     echo "  -ba [branch]        -- same as -b and rebuild all Cython code"
+     echo "  -ba-force [branch]  -- same as -ba, but don't query before rebuilding"
+     echo "  -br [branch]        -- switch to, build, and run Sage given branch"
+-    echo "  -branch             -- print the current Sage branch"
+     echo "  -bt [...]           -- build and test, options like -t below"
+     echo "  -btp <N> [...]      -- build and test parallel, options like -tp below"
+     echo "  -btnew [...]        -- build and test modified files, options like -tnew"
+-    echo "  -clone [new branch] -- clone a new branch of the Sage library from the"
+-    echo "                         current branch"
+     echo "  -fixdoctests <file.py> -- create <file.py>.out that would pass the doctests"
+     echo "                            and output a patch"
+     echo "  -startuptime [module]  -- display how long each component of Sage takes to"
+@@ -336,12 +332,6 @@ if [ "$1" = '-root'  -o "$1" = '--root' ]; then
+     exit 0
+ fi
+ 
+-if [ "$1" = '-branch'  -o "$1" = '--branch' ]; then
+-    cd "$SAGE_ROOT/devel/sage"
+-    pwd -P | sed 's|.*/||; s|^sage-||'
+-    exit $?
+-fi
+-
+ #####################################################################
+ # Run Sage's versions of the standard Algebra/Geometry etc. software
+ #####################################################################
+@@ -554,14 +544,6 @@ EOF
+     exit $status
+ fi
+ 
+-if [ "$1" = '-hg' -o "$1" = '--hg' ]; then
+-    shift
+-    # Disable HGPLAIN, so we use all user defaults
+-    # (both in $SAGE_LOCAL/etc/mercurial and $HOME/.hgrc)
+-    unset HGPLAIN
+-    exec "$SAGE_LOCAL/bin/hg" "$@"
+-fi
+-
+ if [ "$1" = '-merge' -o "$1" = '--merge' ]; then
+     shift
+     exec sage-apply-ticket "$@"
+@@ -661,21 +643,6 @@ fi
+ 
+ if [ "$1" = '-r' ]; then
+    shift
+-   if [ "$1" != "" ]; then
+-      cd "$SAGE_ROOT/devel/"
+-      if [ ! -d "sage-$1" ]; then
+-         echo >&2 "No such branch '$SAGE_ROOT/devel/sage-$1'"
+-         echo >&2 "Use 'sage --clone' to create a new branch."
+-         exit 1
+-      fi
+-      # On Solaris (and perhaps other systems), "ln -snf FILE LINK"
+-      # doesn't remove LINK and then relink it, so we need to first
+-      # delete LINK -- in this case, SAGE_ROOT/devel/sage -- and then
+-      # create a new link.  We use the full path name to make sure we
+-      # remove the correct file.
+-      rm -f "$SAGE_ROOT/devel/sage"
+-      ln -s "sage-$1" sage
+-   fi
+    interactive_sage
+ fi
+ 
+@@ -710,12 +677,6 @@ if [ "$1" = '-sync-build' -o "$1" = '--sync-build' ]; then
+     exec sage-sync-build.py "$@"
+ fi
+ 
+-if [ "$1" = '-clone' -o "$1" = "--clone" ]; then
+-   shift
+-   time sage-clone "$@"
+-   exit $?
+-fi
+-
+ if [ "$1" = '-t' -o "$1" = '-bt' -o "$1" = '-tp' -o "$1" = '-btp' ]; then
+     if [ "$1" = '-bt' -o "$1" = '-btp' ]; then
+         build_sage
+diff --git a/__SAGE_SRC__/sage/misc/all.py b/__SAGE_SRC__/sage/misc/all.py
+index 2638ec0..be64eff 100644
+--- a/__SAGE_SRC__/sage/misc/all.py
++++ b/__SAGE_SRC__/sage/misc/all.py
+@@ -41,8 +41,6 @@ from fpickle import pickle_function, unpickle_function
+ 
+ from dist import install_scripts
+ 
+-from hg import hg_sage, hg_scripts, hg_extcode, hg_sagenb, hg_root
+-
+ from package import install_package, is_package_installed, standard_packages, optional_packages, experimental_packages, upgrade
+ 
+ from pager import pager
+diff --git a/__SAGE_SRC__/sage/misc/lazy_import_cache.py b/__SAGE_SRC__/sage/misc/lazy_import_cache.py
+index 7cdd396..104d43b 100644
+--- a/__SAGE_SRC__/sage/misc/lazy_import_cache.py
++++ b/__SAGE_SRC__/sage/misc/lazy_import_cache.py
+@@ -17,8 +17,7 @@ def get_cache_file():
+         '...-lazy_import_cache.pickle'
+         sage: get_cache_file().startswith(DOT_SAGE)
+         True
+-        sage: from sage.misc.misc import branch_current_hg
+-        sage: branch_current_hg() in get_cache_file()
++        sage: '__SAGE_SRC__' in get_cache_file()
+         True
+ 
+     It shouldn't matter whether DOT_SAGE ends with a slash::
+diff --git a/__SAGE_SRC__/sage/misc/misc.py b/__SAGE_SRC__/sage/misc/misc.py
+index 856e4c3..8fc203a 100644
+--- a/__SAGE_SRC__/sage/misc/misc.py
++++ b/__SAGE_SRC__/sage/misc/misc.py
+@@ -1951,55 +1951,6 @@ def getitem(v, n):
+     except TypeError:
+         return v[int(n)]
+ 
+-def branch_current_hg():
+-    """
+-    Return the current Mercurial branch name.
+-
+-    TESTS::
+-
+-        sage: br = sage.misc.misc.branch_current_hg()
+-        sage: len(br) > 0
+-        True
+-
+-    AUTHOR:
+-
+-    - Jeroen Demeyer (#12481)
+-    """
+-    try:
+-        br = os.readlink(SAGE_SRC)
+-    except OSError:
+-        raise RuntimeError("Unable to determine branch")
+-    br = os.path.basename(br)
+-
+-    # Delete everything up to and including the first "-".
+-    # (if there is no "-", then i == -1 and we return everything)
+-    i = br.find('-')
+-    return br[i+1:]
+-
+-def branch_current_hg_notice(branch):
+-    r"""
+-    Return a string describing the current branch.
+-
+-    Also, indicate that the library is being loaded.
+-
+-    INPUT:
+-
+-    -  ``branch`` -- a representation of the name of the
+-       Sage library branch.
+-
+-    OUTPUT: string
+-
+-    .. note::
+-
+-       If the branch is main, then return an empty string.
+-    """
+-    if branch[-1] == '/':
+-        branch = branch[:-1]
+-    if branch == 'main':
+-        return ''
+-    notice = 'Loading Sage library. Current Mercurial branch is: '
+-    return notice + branch
+-
+ def pad_zeros(s, size=3):
+     """
+     EXAMPLES::
+diff --git a/__SAGE_SRC__/sage/tests/cmdline.py b/__SAGE_SRC__/sage/tests/cmdline.py
+index e27911d5..f695891 100644
+--- a/__SAGE_SRC__/sage/tests/cmdline.py
++++ b/__SAGE_SRC__/sage/tests/cmdline.py
+@@ -11,7 +11,6 @@ test.sage
+ test.spyx
+ /path/to/test.spyx
+ --advanced
+---branch
+ -c
+ --cython
+ --ecl
+@@ -20,7 +19,6 @@ test.spyx
+ --gp
+ -h
+ --help
+---hg
+ --info
+ --ipython
+ --kash
+@@ -185,14 +183,6 @@ def test_executable(args, input="", timeout=50.0, cwd=None):
+         sage: ret
+         0
+ 
+-        sage: (out, err, ret) = test_executable(["sage", "--branch"])
+-        sage: len(out) >= 2   # at least one character + newline
+-        True
+-        sage: err
+-        ''
+-        sage: ret
+-        0
+-
+         sage: (out, err, ret) = test_executable(["sage", "--root"])
+         sage: len(out) >= 2   # at least one character + newline
+         True
+@@ -501,14 +491,6 @@ def test_executable(args, input="", timeout=50.0, cwd=None):
+ 
+     Some programs of which we check functionality using only ``--version``::
+ 
+-        sage: (out, err, ret) = test_executable(["sage", "--hg", "--version"])
+-        sage: out.find("Mercurial Distributed SCM") >= 0
+-        True
+-        sage: err
+-        ''
+-        sage: ret
+-        0
+-
+         sage: (out, err, ret) = test_executable(["sage", "--maxima", "--version"])
+         sage: out.find("Maxima ") >= 0
+         True
+-- 
+1.8.1.5
+
