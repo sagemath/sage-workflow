@@ -82,4 +82,7 @@ apply_patch csage1
 apply_patch sage1
 apply_patch docbuild1
 apply_patch sage_artifacts1
+apply_patch ntl1
+apply_patch singular1
+apply_patch sagenb1
 apply_patch setup1

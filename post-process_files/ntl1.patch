@@ -1,0 +1,32 @@
+From 3b32f945d5cddd129eb7b3c8b5f4b4a3c41adcec Mon Sep 17 00:00:00 2001
+From: "R. Andrew Ohana" <andrew.ohana@gmail.com>
+Date: Thu, 21 Mar 2013 15:04:50 -0700
+Subject: [PATCH] (FIXUP) ntl: move libtool
+
+---
+
+diff --git a/__SAGE_BUILD__/pkgs/ntl/spkg-install b/__SAGE_BUILD__/pkgs/ntl/spkg-install
+index 2c069fe..56d65e5 100755
+--- a/__SAGE_BUILD__/pkgs/ntl/spkg-install
++++ b/__SAGE_BUILD__/pkgs/ntl/spkg-install
+@@ -25,7 +25,7 @@ ntl_libtool()
+ {
+     echo "Generating libtool."
+ 
+-    cd "$CUR/libtool"
++    cd "$CUR/__SAGE_SRC__/libtool"
+ 
+     ./configure
+ 
+@@ -81,7 +81,7 @@ ntl_configure()
+         CXX="$CXX" CXXFLAGS="$CXXFLAGS $SHAREDFLAGS" \
+         LDFLAGS="$LDFLAGS" LIBTOOL_LINK_FLAGS="$LIBTOOL_LINK_FLAGS" \
+         NTL_GMP_LIP=on NTL_STD_CXX=on \
+-        LIBTOOL=../../libtool/libtool
++        LIBTOOL=../libtool/libtool
+ 
+     if [ $? -ne 0 ]; then
+         echo >&2 "Unable to configure NTL."
+-- 
+1.8.1.5
+

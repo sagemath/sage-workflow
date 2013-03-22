@@ -1,0 +1,23 @@
+From 2e5a8651ad497b383ff3272ac4a4aa062b6a3f27 Mon Sep 17 00:00:00 2001
+From: "R. Andrew Ohana" <andrew.ohana@gmail.com>
+Date: Thu, 21 Mar 2013 15:09:07 -0700
+Subject: [PATCH] (FIXUP) singular: move shared
+
+---
+
+diff --git a/__SAGE_BUILD__/pkgs/singular/spkg-install b/__SAGE_BUILD__/pkgs/singular/spkg-install
+index 4e2ca47..fea3bcf 100755
+--- a/__SAGE_BUILD__/pkgs/singular/spkg-install
++++ b/__SAGE_BUILD__/pkgs/singular/spkg-install
+@@ -5,7 +5,7 @@
+ ###########################################
+ 
+ SRC=`pwd`/src
+-SHARED=`pwd`/shared
++SHARED="$SRC/shared"
+ 
+ if [ "$SAGE_LOCAL" = "" ]; then
+     echo >&2 "SAGE_LOCAL undefined ... exiting";
+-- 
+1.8.1.5
+
