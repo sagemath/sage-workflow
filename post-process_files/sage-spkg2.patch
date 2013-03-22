@@ -9,7 +9,7 @@ diff --git a/__SAGE_SCRIPTS_DIR__/sage-spkg b/__SAGE_SCRIPTS_DIR__/sage-spkg
 index 8ea2fe8..7c08edd 100755
 --- a/__SAGE_SCRIPTS_DIR__/sage-spkg
 +++ b/__SAGE_SCRIPTS_DIR__/sage-spkg
-@@ -219,18 +219,40 @@ if [ -f "$PKG_SRC" ]; then
+@@ -219,18 +219,42 @@ if [ -f "$PKG_SRC" ]; then
      fi
  elif [ -z "$PKG_HAS_PATH" ]; then
      # If PKG_SRC is not an existing file and doesn't contain a slash,
