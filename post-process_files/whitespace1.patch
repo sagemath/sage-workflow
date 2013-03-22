@@ -1,0 +1,111 @@
+From 2bae083fadde7964d69b694bb122298a39a25846 Mon Sep 17 00:00:00 2001
+From: "R. Andrew Ohana" <andrew.ohana@gmail.com>
+Date: Fri, 22 Mar 2013 14:18:53 -0700
+Subject: [PATCH] (FIXUP) correct doctests for stripspaced repository
+
+---
+
+diff --git a/__SAGE_SRC__/sage/combinat/ncsf_qsym/tutorial.py b/__SAGE_SRC__/sage/combinat/ncsf_qsym/tutorial.py
+index f224eee..d5b03a8 100644
+--- a/__SAGE_SRC__/sage/combinat/ncsf_qsym/tutorial.py
++++ b/__SAGE_SRC__/sage/combinat/ncsf_qsym/tutorial.py
+@@ -138,7 +138,7 @@ related to the monomial symmetric functions by `m_\lambda =
+ \sum_{sort(c) = \lambda} M_c`::
+ 
+     sage: SymmetricFunctions(QQ).inject_shorthands()
+-    doctest:1075: RuntimeWarning: redefining global value `e`
++    doctest:1074: RuntimeWarning: redefining global value `e`
+     sage: m[2,1]
+     m[2, 1]
+     sage: M(m[2,1])
+diff --git a/__SAGE_SRC__/sage/ext/gen_interpreters.py b/__SAGE_SRC__/sage/ext/gen_interpreters.py
+index 35f5d10..95c1a21 100644
+--- a/__SAGE_SRC__/sage/ext/gen_interpreters.py
++++ b/__SAGE_SRC__/sage/ext/gen_interpreters.py
+@@ -2249,7 +2249,7 @@ class RDFInterpreter(StackInterpreter):
+             sage: instrs['add']
+             add: SS->S = 'o0 = i0 + i1;'
+             sage: instrs['py_call']
+-            py_call: *->S = ' \nPyObject *py_arg...goto error;\n}\n'
++            py_call: *->S = '\nPyObject *py_arg...goto error;\n}\n'
+ 
+         Make sure that pow behaves reasonably::
+ 
+diff --git a/__SAGE_SRC__/sage/misc/abstract_method.py b/__SAGE_SRC__/sage/misc/abstract_method.py
+index ca8a600..955f2bd 100644
+--- a/__SAGE_SRC__/sage/misc/abstract_method.py
++++ b/__SAGE_SRC__/sage/misc/abstract_method.py
+@@ -194,8 +194,7 @@ class AbstractMethod(object):
+             sage: src[0]
+             'def banner():\n'
+             sage: lines
+-            77
+-
++            74
+         """
+         from sage.misc.sageinspect import sage_getsourcelines
+         return sage_getsourcelines(self._f)
+diff --git a/__SAGE_SRC__/sage/misc/lazy_attribute.py b/__SAGE_SRC__/sage/misc/lazy_attribute.py
+index 3cb6bf0..d9fc2d6 100644
+--- a/__SAGE_SRC__/sage/misc/lazy_attribute.py
++++ b/__SAGE_SRC__/sage/misc/lazy_attribute.py
+@@ -495,8 +495,7 @@ class lazy_attribute(object):
+             sage: src[0]
+             'def banner():\n'
+             sage: lines
+-            77
+-
++            74
+         """
+         from sage.misc.sageinspect import sage_getsourcelines
+         return sage_getsourcelines(self.f)
+diff --git a/__SAGE_SRC__/sage/misc/sagedoc.py b/__SAGE_SRC__/sage/misc/sagedoc.py
+index 9061569..56b282c 100644
+--- a/__SAGE_SRC__/sage/misc/sagedoc.py
++++ b/__SAGE_SRC__/sage/misc/sagedoc.py
+@@ -407,9 +407,9 @@ def format(s, embedded=False):
+     EXAMPLES::
+ 
+         sage: from sage.misc.sagedoc import format
+-        sage: identity_matrix(2).rook_vector.__doc__[115:184]
++        sage: identity_matrix(2).rook_vector.__doc__[107:176]
+         'Let `A` be a general `m` by `n`\n        (0,1)-matrix with `m \\le n`. '
+-        sage: format(identity_matrix(2).rook_vector.__doc__[115:184])
++        sage: format(identity_matrix(2).rook_vector.__doc__[107:176])
+         'Let A be a general m by n\n   (0,1)-matrix with m <= n.\n'
+ 
+     If the first line of the string is 'nodetex', remove 'nodetex' but
+diff --git a/__SAGE_SRC__/sage/misc/sageinspect.py b/__SAGE_SRC__/sage/misc/sageinspect.py
+index 3a51b0f..a65ad03 100644
+--- a/__SAGE_SRC__/sage/misc/sageinspect.py
++++ b/__SAGE_SRC__/sage/misc/sageinspect.py
+@@ -1675,7 +1675,7 @@ def sage_getsourcelines(obj, is_binary=False):
+ 
+         sage: from sage.misc.sageinspect import sage_getsourcelines
+         sage: sage_getsourcelines(matrix, True)[1]
+-        731
++        726
+         sage: sage_getsourcelines(matrix, False)[0][0][6:]
+         'MatrixFactory(object):\n'
+ 
+diff --git a/__SAGE_SRC__/sage/plot/plot3d/shapes.pyx b/__SAGE_SRC__/sage/plot/plot3d/shapes.pyx
+index 588bd91..0d7d6e2 100644
+--- a/__SAGE_SRC__/sage/plot/plot3d/shapes.pyx
++++ b/__SAGE_SRC__/sage/plot/plot3d/shapes.pyx
+@@ -342,11 +342,11 @@ cdef class Cylinder(ParametricSurface):
+             sage: from sage.plot.plot3d.shapes import Cylinder
+             sage: C = Cylinder(1/2, 4, closed=False)
+             sage: C.tachyon_repr(C.default_render_params())
+-            'FCylinder \n   Base 0 0 0\n   Apex 0 0 4.0\n   Rad 0.5\n   texture...     '
++            'FCylinder\n   Base 0 0 0\n   Apex 0 0 4.0\n   Rad 0.5\n   texture...     '
+             sage: C = Cylinder(1, 2)
+             sage: C.tachyon_repr(C.default_render_params())
+                 ['Ring Center 0 0 0 Normal 0 0 1 Inner 0 Outer 1.0 texture...',
+-                 'FCylinder \n   Base 0 0 0\n   Apex 0 0 2.0\n   Rad 1.0\n   texture...     ',
++                 'FCylinder\n   Base 0 0 0\n   Apex 0 0 2.0\n   Rad 1.0\n   texture...     ',
+                  'Ring Center 0 0 2.0 Normal 0 0 1 Inner 0 Outer 1.0 texture...']
+         """
+         transform = render_params.transform
+-- 
+1.8.1.5
+
