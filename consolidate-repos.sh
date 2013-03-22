@@ -67,12 +67,7 @@ git init "$TMPDIR"/sage-repo && cd "$TMPDIR"/sage-repo
 # move the base tarballs into $SAGE_TARBALLS
 mkdir -p "$OUTDIR"/$SAGE_TARBALLS
 mkdir "$TMPDIR"/spkg
-for TARBALL in "$SAGEDIR"/spkg/base/*.tar* ; do
-    PKGNAME=$(sed -e 's/.*\/\([^/]*\)-[0-9]\{1,\}.*$/\1/' <<<"$TARBALL")
-    PKGVER=$(sed -e 's/^-\(.*\)\.tar.*$/\1/' <<<"${TARBALL#*${PKGNAME}}")
-    tar x -p -C "$TMPDIR"/spkg -f $TARBALL
-    tar c -f "$OUTDIR"/$SAGE_TARBALLS/$PKGNAME-$PKGVER.tar -C "$TMPDIR"/spkg/ $PKGNAME-$PKGVER
-done
+cp "$SAGEDIR"/spkg/base/*.tar* "$OUTDIR"/$SAGE_TARBALLS
 
 # get the SPKG repos converted to git and pull them into the consolidated repo
 # also tarball the src/ directories of the SPKGs and put them into a $SAGE_TARBALLS/ directory
