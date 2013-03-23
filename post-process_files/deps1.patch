@@ -102,8 +102,8 @@ index 155a1af..c51d18b 100644
  	+$(PIPE) "$(SAGE_SPKG) $(GRAPHS) 2>&1" "tee -a $(SAGE_LOGS)/$(GRAPHS).log"
  
  $(INST)/$(GLPK): $(INST)/$(MPIR) $(INST)/$(ZLIB)
-@@ -244,15 +233,10 @@ $(INST)/$(POLYBORI): $(INST)/$(PYTHON) $(INST)/$(SCONS) \
- 		     $(INST)/$(GD)
+@@ -244,15 +233,10 @@ $(INST)/$(POLYBORI): $(INST)/$(PYTHON) $(INST)/$(IPYTHON) \
+          $(INST)/$(M4RI) $(INST)/$(GD)
  	+$(PIPE) "$(SAGE_SPKG) $(POLYBORI) 2>&1" "tee -a $(SAGE_LOGS)/$(POLYBORI).log"
  
 -# POLYTOPES_DB depends on SAGE_ROOT_REPO because it needs SAGE_SHARE
