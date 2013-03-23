@@ -92,4 +92,5 @@ apply_patch makefile1
 apply_patch whitespace1
 apply_patch makefile2
 apply_patch sage_data1
+apply_patch sage-envpy1
 apply_patch setup1
