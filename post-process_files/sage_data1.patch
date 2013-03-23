@@ -1,0 +1,53 @@
+From 389950fbaf1ebae595fd1bdcd4255a44ac7b837b Mon Sep 17 00:00:00 2001
+From: "R. Andrew Ohana" <andrew.ohana@gmail.com>
+Date: Sat, 23 Mar 2013 14:38:06 -0700
+Subject: [PATCH] (FIXUP) remove SAGE_DATA
+
+---
+
+diff --git a/__SAGE_BUILD__/install b/__SAGE_BUILD__/install
+index 6cd4429..441ed98 100755
+--- a/__SAGE_BUILD__/install
++++ b/__SAGE_BUILD__/install
+@@ -86,11 +86,6 @@ if [ -d "$SAGE_ROOT/data" ] && [ ! -h "$SAGE_ROOT/data" ]; then
+     rm -rf "$SAGE_ROOT/data"
+ fi
+ 
+-# Symlink old SAGE_DATA to SAGE_SHARE for optional/experimental
+-# packages that haven't yet been updated.
+-rm -f "$SAGE_ROOT/data"
+-ln -s local/share "$SAGE_ROOT/data"
+-
+ ###############################################################################
+ # Determine whether to install GCC (gcc, g++, gfortran).
+ ###############################################################################
+diff --git a/__SAGE_SCRIPTS_DIR__/sage-env b/__SAGE_SCRIPTS_DIR__/sage-env
+index 2b2cd7a..3479b5a 100644
+--- a/__SAGE_SCRIPTS_DIR__/sage-env
++++ b/__SAGE_SCRIPTS_DIR__/sage-env
+@@ -246,10 +246,6 @@ export SAGE_SRC="$SAGE_ROOT/src"
+ export SAGE_DOC="$SAGE_SRC/doc"
+ export PATH="$SAGE_SRC/bin:$SAGE_LOCAL/bin:$PATH"
+ 
+-# this is to be compatible with optional packages that haven't
+-# been updated to not use SAGE_DATA
+-export SAGE_DATA="$SAGE_SHARE"
+-
+ # We offer a toolchain option, so if $SAGE_LOCAL/toolchain/toolchain-env exists source it.
+ # Since the user might do something crazy we do not do any checks, but hope for the best.
+ if [ -f $SAGE_LOCAL/toolchain/toolchain-env ]; then
+diff --git a/__SAGE_SCRIPTS_DIR__/sage-spkg b/__SAGE_SCRIPTS_DIR__/sage-spkg
+index 85ad4b7..edc5593 100755
+--- a/__SAGE_SCRIPTS_DIR__/sage-spkg
++++ b/__SAGE_SCRIPTS_DIR__/sage-spkg
+@@ -16,7 +16,6 @@
+ #
+ #      SAGE_ROOT     -- root directory of sage install
+ #      SAGE_LOCAL    -- $SAGE_ROOT/local
+-#      SAGE_DATA     -- $SAGE_ROOT/data
+ #      LIBRARY_PATH, PYTHONPATH, LD_LIBRARY_PATH, DYLD_LIBRARY_PATH
+ #      CC, CXX, CFLAGS, CXXFLAGS, LDFLAGS, MAKE
+ #
+-- 
+1.8.1.5
+
