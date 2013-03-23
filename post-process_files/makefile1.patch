@@ -1,0 +1,23 @@
+From de7022642dc5536d29bba134943cb6aafa915f12 Mon Sep 17 00:00:00 2001
+From: "R. Andrew Ohana" <andrew.ohana@gmail.com>
+Date: Sat, 23 Mar 2013 14:07:02 -0700
+Subject: [PATCH] (FIXUP) Makefile: correct TESTDIRS
+
+---
+
+diff --git a/Makefile b/Makefile
+index 241f9ab..6a5bbb9 100644
+--- a/Makefile
++++ b/Makefile
+@@ -101,7 +101,7 @@ text-collapse:
+ TESTPRELIMS = local/bin/sage-starts
+ # The [a-z][a-z] matches all directories whose names consist of two
+ # lower-case letters, to match the language directories.
+-TESTDIRS = devel/sage/doc/common devel/sage/doc/[a-z][a-z] devel/sage/sage
++TESTDIRS = __SAGE_SRC__/doc/common __SAGE_SRC__/doc/[a-z][a-z] __SAGE_SRC__/sage
+ 
+ test: all # i.e. build and doc
+ 	$(TESTPRELIMS)
+-- 
+1.8.1.5
+
