@@ -6,10 +6,16 @@ Subject: [PATCH] (FIXUP) update sage-starts
 ---
 
 diff --git a/__SAGE_SCRIPTS_DIR__/sage-starts b/__SAGE_SCRIPTS_DIR__/sage-starts
-index d9f034a..6b86750 100755
+index d9f034a..f9781a3 100755
 --- a/__SAGE_SCRIPTS_DIR__/sage-starts
 +++ b/__SAGE_SCRIPTS_DIR__/sage-starts
-@@ -14,7 +14,7 @@ echo "[`date +'%Y-%m-%d %H:%M:%S'`] `cat VERSION.txt 2>/dev/null`" | tee -a star
+@@ -9,18 +9,18 @@ fi
+ 
+ echo
+ echo "Testing that Sage starts..."
+-echo "[`date +'%Y-%m-%d %H:%M:%S'`] `cat VERSION.txt 2>/dev/null`" | tee -a start.log
++echo "[`date +'%Y-%m-%d %H:%M:%S'`] `cat VERSION.txt 2>/dev/null`" | tee -a logs/start.log
+ # This script is run by the top-level Makefile, so may be run by a
  # sysadmin.  We use --nodotsage so we don't force a .sage directory
  # in the sysadmin's HOME directory.
  cmd='sage.all._write_started_file(); print "Yes, Sage starts."'
@@ -18,6 +24,13 @@ index d9f034a..6b86750 100755
  
  if [ $? -ne 0 ]; then
      echo >&2 "Sage failed to start up."
+     echo >&2 "Please email sage-devel (http://groups.google.com/group/sage-devel)"
+     echo >&2 "explaining the problem and send the log file"
+-    echo >&2 "  `pwd`/start.log"
++    echo >&2 "  `pwd`/logs/start.log"
+     echo >&2 "Describe your computer, operating system, etc."
+     rm -f local/etc/sage-started.txt
+     exit 1
 -- 
 1.8.1.5
 
