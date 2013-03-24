@@ -112,6 +112,7 @@ process-spkg () {
             hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/14316/trac14316.patch
 
             hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/14331/trac14331.patch
+            hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/14331/trac14331_missed.patch
         ;;
         sage_scripts)
             REPO=$SAGE_SCRIPTS_DIR
