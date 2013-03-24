@@ -1,0 +1,8 @@
+sage -t src/sage/tests/cmdline.py  # 1 doctest failed
+sage -t src/sage/all.py  # 1 doctest failed
+
+# fix new option to use git instead of mecurial
+sage -t src/sage/doctest/control.py  # 2 doctests failed
+
+# fixed upstream
+sage -t local/lib/python2.7/site-packages/sagenb-0.10.4-py2.7.egg/sagenb/misc/misc.py  # 4 doctests failed

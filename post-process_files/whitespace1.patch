@@ -31,6 +31,19 @@ index 35f5d10..95c1a21 100644
  
          Make sure that pow behaves reasonably::
  
+diff --git a/__SAGE_SRC__/sage/geometry/polyhedron/plot.py b/__SAGE_SRC__/sage/geometry/polyhedron/plot.py
+index 71017f8..ec1f3ac 100644
+--- a/__SAGE_SRC__/sage/geometry/polyhedron/plot.py
++++ b/__SAGE_SRC__/sage/geometry/polyhedron/plot.py
+@@ -956,7 +956,7 @@ class Projection(SageObject):
+             sage: cube = polytopes.n_cube(3)
+             sage: cube_proj = cube.projection()
+             sage: wire = cube_proj.render_wireframe_3d()
+-            sage: print wire.tachyon().split('\n')[77]  # for testing
++            sage: print wire.tachyon().split('\n')[76]  # for testing
+             FCylinder base -1.0 1.0 -1.0 apex -1.0 -1.0 -1.0 rad 0.005 texture...
+         """
+         wireframe = [];
 diff --git a/__SAGE_SRC__/sage/misc/abstract_method.py b/__SAGE_SRC__/sage/misc/abstract_method.py
 index ca8a600..955f2bd 100644
 --- a/__SAGE_SRC__/sage/misc/abstract_method.py
