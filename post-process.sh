@@ -74,6 +74,10 @@ apply_patch () {
 }
 
 apply_patch sage-env1
+cat_workflow_file post-process_files/sage-build > "$SAGE_SCRIPTS_DIR"/sage-build
+chmod 755 "$SAGE_SCRIPTS_DIR"/sage-build
+git add "$SAGE_SCRIPTS_DIR"/sage-build
+git commit -m '(FIXUP) new sage-build script'
 apply_patch install1
 apply_patch prereq-install1
 apply_patch deps1

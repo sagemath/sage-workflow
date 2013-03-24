@@ -6,10 +6,10 @@ Subject: [PATCH] (FIXUP) move __SAGE_BUILD__/install to git layout
 ---
 
 diff --git a/Makefile b/Makefile
-index 740e5c9..bb08931 100644
+index 740e5c9..667e237 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -7,16 +7,16 @@
+@@ -7,12 +7,13 @@
  # See below for targets to build the documentation in other formats,
  # to run various types of test suites, and to remove parts of the build etc.
  
@@ -25,10 +25,6 @@ index 740e5c9..bb08931 100644
  	"../$(PIPE)" \
  		"env SAGE_PARALLEL_SPKG_BUILD='$(SAGE_PARALLEL_SPKG_BUILD)' ./install all 2>&1" \
  		"tee -a ../install.log"
--	./sage -b
- 
- # ssl: build Sage, and also install pyOpenSSL. This is necessary for
- # running the secure notebook. This make target requires internet
 diff --git a/__SAGE_BUILD__/install b/__SAGE_BUILD__/install
 index 58b0a8a..f2aec2e 100755
 --- a/__SAGE_BUILD__/install

@@ -15,9 +15,9 @@ index ab78926..617300c 100644
  		"env SAGE_PARALLEL_SPKG_BUILD='$(SAGE_PARALLEL_SPKG_BUILD)' ./install all 2>&1" \
 -		"tee -a ../install.log"
 +		"tee -a ../logs/install.log"
+ 	./sage -b
  
  # ssl: build Sage, and also install pyOpenSSL. This is necessary for
- # running the secure notebook. This make target requires internet
 @@ -47,16 +47,16 @@ start: build
  doc: doc-html
  
