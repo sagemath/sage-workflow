@@ -185,21 +185,17 @@ if [[ $(command -v notify-send) ]] ; then
     notify-send "$CMD: finished parsing SPKGs"
 fi
 
-
 # Humongous octomerge
-
 # Put together a directory listing for the repo to commit in the merge
 BRANCHES=$(git branch)
 DEVOBJS=""
 PKGOBJS=""
-MERGEOBJS=""
 # Collect directory entries from the various branches
 for BRANCH in $BRANCHES ; do
     case "$BRANCH" in
         base)
-            # Base entries are in the current directory, so we
-            # output them into $MERGEOBJS immediately.
-            MERGEOBJS="${MERGEOBJS}$(git ls-tree $BRANCH .)\n"
+            # Skip for now, we will merge this with the other
+            # trees later
             ;;
         devel/*)
             # We incrementally build a list of stuff in $SAGE_SRC/ ;
@@ -245,22 +241,54 @@ done
 flatten-tree () {
     TREE="$1"
     TREE_DIR="$2"
-    while [[ "$TREE_DIR" == *"/"* ]]
+    while true
     do
         TREE=$(echo -e "040000 tree $TREE\t${TREE_DIR##*/}" | git mktree --missing)
+        if [[ "${TREE_DIR}" != *"/"* ]]; then
+            echo -n "$TREE"
+            return 0
+        fi
         TREE_DIR="${TREE_DIR%/*}"
     done
-    echo -n "040000 tree $TREE\t$TREE_DIR"
 }
 export -f flatten-tree
 
+get-object () {
+    git ls-tree $1 $2 | cut -f3 -d' ' | cut -f1
+}
+export -f get-object
+
+merge-tree () {
+    local TREE_ONE=$1
+    local TREE_TWO=$2
+    local LS_ONE LS_TWO LS_NEW ITEM
+    LS_ONE="$(git ls-tree --name-only $TREE_ONE)"
+    LS_TWO="$(git ls-tree --name-only $TREE_TWO)"
+    LS_NEW="$(printf '%s\n%s\n' "$LS_ONE" "$LS_TWO"| sort -u)"
+
+    # all duplicates are assumed to be trees
+    for ITEM in $LS_NEW; do
+        if echo "$LS_ONE" | egrep "^$ITEM$" >/dev/null; then
+            if echo "$LS_TWO" | egrep "^$ITEM$" >/dev/null; then
+                echo -e "040000 tree $(merge-tree $(get-object $TREE_ONE "$ITEM") $(get-object $TREE_TWO "$ITEM"))\t$ITEM"
+            else
+                git ls-tree $TREE_ONE "$ITEM"
+            fi
+        else
+            git ls-tree $TREE_TWO "$ITEM"
+        fi
+    done | git mktree --missing
+}
+export -f merge-tree
+
 DEVTREE=$(echo -e "$DEVOBJS" | git mktree --missing --batch)
 PKGTREE=$(echo -e "$PKGOBJS" | git mktree --missing --batch)
-MERGEOBJS="${MERGEOBJS}$(flatten-tree "$DEVTREE" "$SAGE_SRC")\n"
-MERGEOBJS="${MERGEOBJS}$(flatten-tree "$PKGTREE" "$SAGE_PKGS")"
+DEVTREE=$(flatten-tree $DEVTREE "$SAGE_SRC")
+PKGTREE=$(flatten-tree $PKGTREE "$SAGE_PKGS")
 
-# Actually make the directory listing into a git object
-MERGETREE=$(echo -e "$MERGEOBJS" | git mktree --missing)
+MERGETREE=$(merge-tree base $DEVTREE)
+MERGETREE=$(merge-tree $MERGETREE $PKGTREE)
+
 # Commit the new fully consolidated file tree
 MERGECOMMIT=$(
     {
