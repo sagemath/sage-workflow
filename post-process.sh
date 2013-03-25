@@ -27,6 +27,7 @@ git rm $(find $SAGE_SRC -name spkg-dist)
 git rm $(find $SAGE_SRC -name spkg-delauto)
 for file in $(cat <<FILES
   $SAGE_SRC/bundle
+  $SAGE_SRC/README.txt
   $SAGE_SRC/export
   $SAGE_SRC/install
   $SAGE_SRC/pull
