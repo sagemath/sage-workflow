@@ -7,6 +7,7 @@ import json
 import os
 import re
 import requests
+import time
 from sagedev import TracInterface
 
 # Settings
@@ -21,22 +22,30 @@ GITHUB_URL = "https://api.github.com/"
 GITHUB_REPO = "testsage"
 
 trac_to_github_user_mapping = {
-  'was': 'williamstein',
-  'swenson': 'swenson'
+#  'was': 'williamstein',
+#  'swenson': 'swenson'
 }
+
+github_rate_limit_per_hour = 5000.0
+github_sleep = 1.0 / (github_rate_limit_per_hour / 60.0 / 60.0)
+
+# Poor programmer's rate limit
+def rate_limit():
+  time.sleep(github_sleep)
+
 
 
 trac = TracInterface(UI=TRAC_UI, realm=TRAC_REALM, trac=TRAC_HTTP, username=TRAC_USERNAME, password=TRAC_PASSWORD)
 #print trac._tracserver.system.listMethods()
 
 # This grabs all tickets
-#tickets = sorted(trac._tracserver.ticket.query('max=0'))
-tickets = range(13000, 13010)
+tickets = sorted(trac._tracserver.ticket.query('max=0'))
 
 
 # Milestones
 
 def github_get_milestones():
+  rate_limit()
   resp = requests.get(GITHUB_URL + 'repos/%s/%s/milestones?state=open' % (GITHUB_USERNAME, GITHUB_REPO),
     auth=(GITHUB_USERNAME, GITHUB_PASSWORD)).json() + \
     requests.get(GITHUB_URL + 'repos/%s/%s/milestones?state=closed' % (GITHUB_USERNAME, GITHUB_REPO),
@@ -47,6 +56,7 @@ def github_get_milestones():
   return milestones
 
 def github_create_milestone(title):
+  rate_limit()
   data = { 'title': title }
   resp = requests.post(GITHUB_URL + 'repos/%s/%s/milestones' % (GITHUB_USERNAME, GITHUB_REPO),
     data=json.dumps(data),
@@ -58,12 +68,14 @@ def github_create_milestone(title):
 # Labels
 
 def github_get_labels():
+  rate_limit()
   resp = requests.get(GITHUB_URL + 'repos/%s/%s/labels' % (GITHUB_USERNAME, GITHUB_REPO),
     auth=(GITHUB_USERNAME, GITHUB_PASSWORD))
   resp = resp.json()
   return set([r['name'] for r in resp])
 
 def github_create_label(name):
+  rate_limit()
   data = { 'name': name }
   resp = requests.post(GITHUB_URL + 'repos/%s/%s/labels' % (GITHUB_USERNAME, GITHUB_REPO),
     data=json.dumps(data),
@@ -74,6 +86,7 @@ def github_create_label(name):
 # Issues
 
 def github_create_issue(title, body, assignee=None, milestone=None, labels=None):
+  rate_limit()
   data = {
     'title': title,
     'body': body
@@ -89,7 +102,22 @@ def github_create_issue(title, body, assignee=None, milestone=None, labels=None)
     auth=(GITHUB_USERNAME, GITHUB_PASSWORD))
   return resp
 
+
+def github_create_empty_issue():
+  rate_limit()
+  data = {
+    'title': 'empty',
+    'body': 'empty'
+  }
+  resp = requests.post(GITHUB_URL + 'repos/%s/%s/issues' % (GITHUB_USERNAME, GITHUB_REPO),
+    data=json.dumps(data),
+    auth=(GITHUB_USERNAME, GITHUB_PASSWORD))
+  github_close_issue(resp.json()['number'])
+  return
+
+
 def github_close_issue(num):
+  rate_limit()
   data = {
     'state': 'closed',
   }
@@ -129,19 +157,19 @@ def convert(trac_ticket, attachments, milestones, all_labels):
   cc = props['cc']
   typ = props['type'] # e.g., enhancement
   milestone = props['milestone']
-  author = props['author']
+  author = props.get('author', '?')
   component = props['component']
   summary = props['summary']
   priority = props['priority']
   owner = props['owner']
-  dependencies = props['dependencies']
+  dependencies = props.get('dependencies', '')
   time = props['time']
   keywords = props['keywords']
-  reviewer = props['reviewer']
-  upstream = props['upstream']
+  reviewer = props.get('reviewer', '')
+  upstream = props.get('upstream', '')
   resolution = props['resolution']
-  merged = props['merged']
-  work_issues = props['work_issues']
+  merged = props.get('merged', '')
+  work_issues = props.get('work_issues', '')
 
   # Fix labels
   labels = set()
@@ -162,10 +190,12 @@ def convert(trac_ticket, attachments, milestones, all_labels):
   labels = list(labels)
 
   # Fix milestone
-  if milestone not in milestones:
-    milestones[milestone] = github_create_milestone(milestone)
-
-  milestone_num = milestones[milestone]
+  if milestone:
+    if milestone not in milestones:
+      milestones[milestone] = github_create_milestone(milestone)
+    milestone_num = milestones[milestone]
+  else:
+    milestone_num = None
 
   # Fix description
   description = fix_wiki_syntax(description, num)
@@ -189,14 +219,14 @@ def convert(trac_ticket, attachments, milestones, all_labels):
   # Construct attachments blob
   attachments_html = "<ol>"
   for attachment in attachments:
-    fname, description, _, date, author = attachment
-    if author in trac_to_github_user_mapping:
-      author = '@' + trac_to_github_user_mapping[author]
+    fname, description, _, date, attachment_author = attachment
+    if attachment_author in trac_to_github_user_mapping:
+      attachment_author = '@' + trac_to_github_user_mapping[attachment_author]
 
     attachments_html += "<li>"
     attachments_html += '<a href="http://trac.sagemath.org/sage_trac/attachment/ticket/%d/%s">' % (num, fname)
     attachments_html += '%s: %s' % (fname, description)
-    attachments_html += '</a> by %s at %s' % (author, date)
+    attachments_html += '</a> by %s at %s' % (attachment_author, date)
     attachments_html += '</li>'
   attachments_html += '</ol>'
 
@@ -238,13 +268,23 @@ Attachments: %s""" % (num, num, description, reporter, component, cc, upstream, 
 
 all_labels = github_get_labels()
 milestones = github_get_milestones()
-milestones = github_get_milestones()
 
-for ticket in tickets:
+import traceback
+tickets = set([int(x) for x in tickets])
+max_ticket = max(tickets)
+bad = []
+for ticket in xrange(1, max_ticket + 1):
   print "Converting trac %d ->" % ticket,
-  trac_ticket = trac._tracserver.ticket.get(ticket)
-  attachments = trac._tracserver.ticket.listAttachments(ticket)
-  issue = convert(trac_ticket, attachments, milestones, all_labels)
-  print issue
+  try:
+    trac_ticket = trac._tracserver.ticket.get(ticket)
+    attachments = trac._tracserver.ticket.listAttachments(ticket)
+    issue = convert(trac_ticket, attachments, milestones, all_labels)
+    print issue
+  except Exception as e:
+
+    traceback.print_exc()
+    print "Bad ticket found", ticket, "... creating empty issue"
+    bad.append(ticket)
+    github_create_empty_issue()
 
 
