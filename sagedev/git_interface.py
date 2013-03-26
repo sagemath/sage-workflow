@@ -1,4 +1,5 @@
 from subprocess import call
+import types
 
 class GitInterface(object):
     def __init__(self, UI, username, gitcmd='git'):
@@ -36,16 +37,6 @@ class GitInterface(object):
         else:
             return call(s, shell=True)
 
-    def _local_branchname(self, ticketnum):
-        if ticketnum is None:
-            return self._unstable
-        return str(ticketnum)
-
-    def _remote_branchname(self, ticketnum):
-        if ticketnum is None:
-            return self._unstable
-        return "%s/%s"(self._username, ticketnum)
-
     def has_uncommitted_changes(self):
         # Returns True if there are uncommitted changes or non-added files
         raise NotImplementedError
@@ -55,14 +46,6 @@ class GitInterface(object):
         # them, there might be no changes being committed here....
         kwds['a'] = True
         self.execute("commit", *args, **kwds)
-
-    def exists(self, ticketnum):
-        # Returns True if ticket exists
-        raise NotImplementedError
-
-    def stash(self):
-        # Should stash changes
-        raise NotImplementedError
 
     def files_added(self):
         # Should return a list of filenames of files that the user
@@ -86,34 +69,23 @@ class GitInterface(object):
         msg = self.UI.get_input("Please enter a commit message:")
         self.commit_all(m=msg)
 
-    def create_branch(self, ticketnum, at_unstable=False):
+    def create_branch(self, branchname, at_unstable=False):
         if at_unstable:
-            self.execute("branch", self._local_branchname(ticketnum),
-                     self._local_branchname(None))
+            self.execute("branch", branchname, self._get_unstable())
         else:
-            self.execute("branch", self._local_branchname(ticketnum))
+            self.execute("branch", branchname)
 
-    def fetch_branch(self, ticketnum):
+    def fetch_branch(self, branchname):
         # fetches a branch from remote, including dependencies if
         # necessary. Doesn't switch
         raise NotImplementedError
 
-    def switch(self, ticketnum):
+    def switch_branch(self, branchname):
         # switches to another ticket
         raise NotImplementedError
 
-    def move_uncommited_changes(self, ticketnum):
+    def move_uncommited_changes(self, branchname):
         # create temp branch, commit chanes, rebase, fast-forward....
-        raise NotImplementedError
-
-    def needs_update(self, ticketnum):
-        # returns True if there are changes in the ticket on trac that
-        # aren't included in the current ticket
-        raise NotImplementedError
-
-    def sync(self, ticketnum=None):
-        # pulls in changes from trac and rebases the current branch to
-        # them. ticketnum=None syncs unstable.
         raise NotImplementedError
 
     def vanilla(self, release=False):
@@ -121,14 +93,19 @@ class GitInterface(object):
         # given named release
         raise NotImplementedError
 
-    def review(self, ticketnum, user):
-        # download a remote branch to review
-        raise NotImplementedError
-
-    def prune(self):
-        # gets rid of branches that have been merged into unstable
-        raise NotImplementedError
-
-    def abandon(self, ticketnum):
+    def abandon(self, branchname):
         # deletes the branch
         raise NotImplementedError
+
+def git_cmd_wrapper(git_cmd, interface):
+    def f(self, *args, **kwds):
+        return self.execute(git_cmd, *args, **kwds)
+    return type.MethodType(f, interface, interface)
+
+for git_cmd in ["add","bisect","branch","checkout",
+               "clone","commit","diff","fetch",
+               "grep","init","log","merge",
+               "mv","pull","push","rebase",
+               "reset","rm","show","stash",
+               "status","tag"]:
+    setattr(GitInterface, git_cmd, git_cmd_wrapper(git_cmd, GitInterface))
