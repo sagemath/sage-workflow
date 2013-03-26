@@ -58,8 +58,15 @@ class SageDev(object):
                     has_ssh_key = False
         return username, passwd, has_ssh_key
 
+    def current_ticket(self):
+        curbranch = self.git.current_branch()
+        if curbranch is not None and curbranch.startswith("t/"):
+            return curbranch[2:]
+        else:
+            return None
+
     def start(self, ticketnum = None):
-        curticket = self.git.current_ticket()
+        curticket = self.current_ticket()
         if ticketnum is None:
             # User wants to create a ticket
             ticketnum = self.trac.create_ticket_interactive()
@@ -83,7 +90,7 @@ class SageDev(object):
                 self.git.stash()
             elif dest == str(curticket):
                 self.git.save()
-        if self.git.exists(ticketnum):
+        if self.exists(ticketnum):
             if dest == str(ticketnum):
                 self.git.move_uncommited_changes(ticketnum)
             else:
@@ -106,7 +113,7 @@ class SageDev(object):
             ticketnum = self.git.current_ticket()
             if not self.UI.confirm("Are you sure you want to upload your changes to ticket #%s?"%(ticketnum)):
                 return
-        elif not self.git.exists(ticketnum):
+        elif not self.exists(ticketnum):
             print "You don't have a branch for ticket %s"%(ticketnum)
             return
         elif not self.UI.confirm("Are you sure you want to upload your changes to ticket #%s?"%(ticketnum)):
@@ -195,8 +202,8 @@ class SageDev(object):
         raise NotImplementedError
 
     def exists(self, ticketnum):
-        # Determines whether ticket exists
-        raise NotImplementedError
+        # Determines whether ticket exists locally
+        return self.git.branch_exists("t/" + str(ticketnum))
 
     def _local_branchname(self, ticketnum):
         if ticketnum is None:
