@@ -10,7 +10,7 @@ DOT_SAGE = os.eviron.get('DOT_SAGE',os.path.join(os.environ['HOME'], '.sage'))
 class SageDev(object):
     def __init__(self, devrc=os.path.join(DOT_SAGE, 'devrc'), gitcmd='git',
                  realm='sage.math.washington.edu',
-                 trac='http://trac.sagemath.org/experimental/',
+                 trac='http://boxen.math.washington.edu:8888/sage_trac/',
                  server='boxen.math.washington.edu',
                  ssh_pubkey_file=None,
                  ssh_passphrase="",
