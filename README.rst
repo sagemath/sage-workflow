@@ -67,6 +67,15 @@ Functionality includes:
 .. _Trac server: http://trac.sagemath.org/sage_trac/
 
 
+issue_export.py
+---------------
+
+A file to assist in moving tickets from trac to GitHub.
+Run it with ``./run issue_export.py`` -- the ``run`` file
+constructs a ``virtualenv`` directory so that it can
+install some dependencies.
+
+
 directory structure
 -------------------
 
