@@ -145,7 +145,7 @@ class GitInterface(object):
 
     def _validate_atomic_name(self, name):
         if '/' in name: raise ValueError("No slashes allowed in atomic name")
-        if name in ["t", "u", "g", "me", "ticket"]:
+        if name in ["t", "u", "g", "me", "ticket", "trash"]:
             raise ValueError("Invalid atomic name")
 
     def _validate_local_name(self, x):
@@ -189,6 +189,9 @@ class GitInterface(object):
             raise RuntimeError # should never reach here
 
     def branch_exists(self, branch):
+        """
+        Returns the commit id of the local branch, or None if branch does not exist.
+        """
         raise NotImplementedError
 
     def ref_exists(self, ref):
@@ -206,6 +209,7 @@ class GitInterface(object):
             self.UI.show("Branch not created: %s does not exist"%location)
 
     def rename_branch(self, oldname, newname):
+        self._validate_local_name(newname)
         self.execute("branch", oldname, newname, m=True)
 
     def fetch_ticket(self, ticketnum, user=None):
@@ -245,8 +249,11 @@ class GitInterface(object):
         """
         Move to trash/
         """
-        # deletes the branch
-        raise NotImplementedError
+        trashname = "trash/" + branchname
+        oldtrash = self.branch_exists(trashname)
+        if oldtrash:
+            self.UI.show("Overwriting %s in trash"(oldtrash))
+        self.execute("branch", branchname, trashname, M=True)
 
 def git_cmd_wrapper(git_cmd, interface):
     def f(self, *args, **kwds):

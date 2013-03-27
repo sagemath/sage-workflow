@@ -45,7 +45,7 @@ class SageDev(object):
         self.trac = TracInterface(self.UI, realm, trac, username, password)
         self.tmp_dir = None
         if not has_ssh_key:
-            self._send_ssh_key(username, password, devrc, ssh_pubkey_file, ssh_passphrase)
+            self._send_ssh_key(username, password, devrc, ssh_pubkey_file, ssh_passphrase, ssh_comment)
 
     def _get_tmp_dir(self):
         if self.tmp_dir is None:
@@ -60,18 +60,30 @@ class SageDev(object):
         return username, passwd
 
     def _send_ssh_key(self, username, passwd, devrc, ssh_pubkey_file, ssh_passphrase, comment):
-        if ssh_pubkey_file is None:
-            ssh_pubkey_file = os.path.join(os.environ['HOME'], '.ssh', 'id_rsa.pub')
-        if not os.path.exists(ssh_pubkey_file):
-            if not ssh_pubkey_file.endswith(".pub"):
-                raise ValueError("public key filename must end with .pub")
-            ssh_prikey_file = ssh_pubkey_file[:-4]
-            cmd = ["ssh-keygen", "-q", "-t", "rsa", "-f", ssh_prikey_file, "-N", ssh_passphrase]
-            if comment is not None:
-                cmd.extend(["-C", comment])
-            call(cmd)
-        with open(devrc, "w") as F:
-            F.write("v0\n%s\n%s\nssh_sent"%(username, passwd))
+        if self.UI.confirm("You have not yet uploaded an ssh key to the server." +
+                           "Would you like to upload one now?"):
+            if ssh_pubkey_file is None:
+                ssh_pubkey_file = os.path.join(os.environ['HOME'], '.ssh', 'id_rsa.pub')
+            if not os.path.exists(ssh_pubkey_file):
+                self.UI.show("Generating ssh key....")
+                if not ssh_pubkey_file.endswith(".pub"):
+                    raise ValueError("public key filename must end with .pub")
+                ssh_prikey_file = ssh_pubkey_file[:-4]
+                cmd = ["ssh-keygen", "-q", "-t", "rsa", "-f", ssh_prikey_file, "-N", ssh_passphrase]
+                if comment is not None:
+                    cmd.extend(["-C", comment])
+                success = call(cmd)
+                if success == 0:
+                    self.UI.show("Ssh key successfully generated")
+                else:
+                    raise RuntimeError("Ssh key generation failed.  Please create a key in %s and retry"%(ssh_pubkey_file))
+            with open(devrc, "w") as F:
+                F.write("v0\n%s\n%s\nssh_sent"%(username, passwd))
+            os.chmod(devrc, 0600)
+        else:
+            with open(devrc, "w") as F:
+                F.write("v0\n%s\n%s"%(username, passwd))
+            os.chmod(devrc, 0600)
 
     def _process_rc(self, devrc):
         if not os.path.exists(devrc):
