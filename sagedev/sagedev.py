@@ -10,24 +10,63 @@ DOT_SAGE = os.eviron.get('DOT_SAGE',os.path.join(os.environ['HOME'], '.sage'))
 class SageDev(object):
     def __init__(self, devrc=os.path.join(DOT_SAGE, 'devrc'), gitcmd='git',
                  realm='sage.math.washington.edu',
-                 trac='http://trac.sagemath.org/experimental/',
-                 server='boxen.math.washington.edu'):
-        devrc = os.path.expanduser(devrc)
-        username, password = self.process_rc(devrc)
+                 trac='http://boxen.math.washington.edu:8888/sage_trac/',
+                 server='boxen.math.washington.edu',
+                 ssh_pubkey_file=None,
+                 ssh_passphrase="",
+                 ssh_comment=None):
         self.UI = CmdLineInterface()
+        username, password, has_ssh_key = self._process_rc(devrc)
         self.git = GitInterface(self.UI, username, server, gitcmd)
         self.trac = TracInterface(self.UI, realm, trac, username, password)
+        if not has_ssh_key:
+            self._send_ssh_key(username, passwd, devrc, ssh_pubkey_file, ssh_passphrase)
 
-    def process_rc(self, devrc):
-        if os.path.
-        with open(devrc) as F:
-            L = list(F)
-            username = L[0].strip()
-            passwd = L[1].strip()
-            return username, passwd
+    def _get_user_info(self):
+        username = self.UI.get_input("Please enter your trac username: ")
+        # we should eventually use a password entering mechanism (ie *s or blanks when typing)
+        passwd = self.UI.get_input("Please enter your trac password (stored in plaintext on your filesystem): ")
+        return username, passwd
+
+    def _send_ssh_key(self, username, passwd, devrc, ssh_pubkey_file, ssh_passphrase, comment):
+        if ssh_pubkey_file is None:
+            ssh_pubkey_file = os.path.join(os.environ['HOME'], '.ssh', 'id_rsa.pub')
+        if not os.path.exists(ssh_pubkey_file):
+            if not ssh_pubkey_file.endswith(".pub"):
+                raise ValueError("public key filename must end with .pub")
+            ssh_prikey_file = ssh_pubkey_file[:-4]
+            cmd = ["ssh-keygen", "-q", "-t", "rsa", "-f", ssh_prikey_file, "-N", ssh_passphrase]
+            if comment is not None:
+                cmd.extend(["-C", comment])
+            call(cmd)
+        with open(devrc, "w") as F:
+            F.write("%s %s ssh_sent"%(username, passwd))
+
+    def _process_rc(self, devrc):
+        if not os.path.exists(devrc):
+            username, passwd = self._get_user_info()
+            has_ssh_key = False
+        else:
+            with open(devrc) as F:
+                L = list(F)
+                if len(L) < 2:
+                    username, passwd = self._get_user_info()
+                    has_ssh_key = False
+                else:
+                    username, passwd = L[0].strip(), L[1].strip()
+                if len(L) < 3:
+                    has_ssh_key = False
+        return username, passwd, has_ssh_key
+
+    def current_ticket(self):
+        curbranch = self.git.current_branch()
+        if curbranch is not None and curbranch.startswith("t/"):
+            return curbranch[2:]
+        else:
+            return None
 
     def start(self, ticketnum = None):
-        curticket = self.git.current_ticket()
+        curticket = self.current_ticket()
         if ticketnum is None:
             # User wants to create a ticket
             ticketnum = self.trac.create_ticket_interactive()
@@ -51,7 +90,7 @@ class SageDev(object):
                 self.git.stash()
             elif dest == str(curticket):
                 self.git.save()
-        if self.git.exists(ticketnum):
+        if self.exists(ticketnum):
             if dest == str(ticketnum):
                 self.git.move_uncommited_changes(ticketnum)
             else:
@@ -74,7 +113,7 @@ class SageDev(object):
             ticketnum = self.git.current_ticket()
             if not self.UI.confirm("Are you sure you want to upload your changes to ticket #%s?"%(ticketnum)):
                 return
-        elif not self.git.exists(ticketnum):
+        elif not self.exists(ticketnum):
             print "You don't have a branch for ticket %s"%(ticketnum)
             return
         elif not self.UI.confirm("Are you sure you want to upload your changes to ticket #%s?"%(ticketnum)):
@@ -112,11 +151,11 @@ class SageDev(object):
             if self.UI.confirm("Would you like to rebuild Sage?"):
                 call("sage -b", shell=True)
 
-    def status(self):
-        self.git.execute("status")
+    #def status(self):
+    #    self.git.execute("status")
 
-    def list(self):
-        self.git.execute("branch")
+    #def list(self):
+    #    self.git.execute("branch")
 
     def diff(self, vs_unstable=False):
         if vs_unstable:
@@ -126,8 +165,12 @@ class SageDev(object):
 
     def prune_merged(self):
         # gets rid of branches that have been merged into unstable
-        if self.UI.confirm("Are you sure you want to delete all branches that have been merged into unstable?"):
-            self.git.prune()
+        # Do we need this confirmation?  This is pretty harmless....
+        if self.UI.confirm("Are you sure you want to abandon all branches that have been merged into master?"):
+            for branch in self.git.local_branches()
+                if self.git.is_ancestor_of(branch, "master"):
+                    print "Abandoning %s"("#%s"%(branch[2:]) if branch.startswith("t/") else branch)
+                    self.git.abandon(branch)
 
     def abandon(self, ticketnum):
         if self.UI.confirm("Are you sure you want to delete your work on #%s?"%(ticketnum), default_yes=False):
@@ -159,8 +202,8 @@ class SageDev(object):
         raise NotImplementedError
 
     def exists(self, ticketnum):
-        # Determines whether ticket exists
-        raise NotImplementedError
+        # Determines whether ticket exists locally
+        return self.git.branch_exists("t/" + str(ticketnum))
 
     def _local_branchname(self, ticketnum):
         if ticketnum is None:
