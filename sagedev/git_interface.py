@@ -99,21 +99,50 @@ class GitInterface(object):
         except CalledProcessError:
             return None
 
-    def branch_exists(self, branch):
-        return NotImplementedError
-
-    def create_branch(self, branchname, at_unstable=False):
-        if at_unstable:
-            self.execute("branch", branchname, self._get_unstable())
+    def _branch_printname(self, branchname):
+        if branchname[:2] == 't/':
+            return '#' + branchname[2:]
         else:
-            self.execute("branch", branchname)
+            return branchname
 
-    def fetch_branch(self, branchname):
+    def branch_exists(self, branch):
+        raise NotImplementedError
+
+    def ref_exists(self, ref):
+        raise NotImplementedError
+
+    def create_branch(self, branchname, location=None):
+        if location is None:
+            self.execute("branch", branchname)
+        elif self.ref_exists(location):
+            self.execute("branch", branchname, location)
+        else:
+            self.UI.show("Branch not created: %s does not exist"%location)
+
+    def rename_branch(self, oldname, newname):
+        self.execute("branch", olname, newname, m=True)
+
+    def fetch_ticket(self, ticketnum):
         # fetches a branch from remote, including dependencies if
         # necessary. Doesn't switch
         raise NotImplementedError
 
+    def fetch_project(self, group, branchname):
+        raise NotImplementedError
+
     def switch_branch(self, branchname):
+        if self.has_uncommitted_changes():
+            curbranch = self.current_branch()
+            if curbranch is None:
+                options = ["new branch", "stash"]
+            else:
+                options = ["current branch", "new branch", "stash"]
+            dest = self.UI.get_input("Where do you want to commit your changes?", options)
+            if dest == "stash":
+                self.stash()
+            elif dest == "current branch":
+                self.save()
+        
         # switches to another ticket
         raise NotImplementedError
 

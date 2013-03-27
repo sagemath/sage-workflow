@@ -32,6 +32,7 @@ class TracInterface(object):
             trac += '/'
         trac += 'login/xmlrpc'
         transport = DigestTransport(realm, trac, username, password)
+        self._tracsite = trac
         self._tracserver = ServerProxy(trac, transport=transport)
 
     def create_ticket(self, summary, description, type, component,
@@ -84,8 +85,19 @@ class TracInterface(object):
         # makes the trac ticket for new_ticket depend on the old_ticket
         raise NotImplementedError
 
-    def dependencies(self, curticket):
+    def _get_attributes(self, ticketnum):
+        ticketnum = int(ticketnum)
+        return self._tracserver.ticket.get(ticketnum)[3]
+
+    def dependencies(self, ticketnum):
         # returns the list of all ticket dependencies that have not
         # been merged into unstable. Earlier elements should be
         # 'older'.
-        raise NotImplementedError
+        data = self._get_attributes(ticketnum)
+        dependencies = [a.strip(" #\n") for a in data['dependencies'].split(',')]
+        return dependencies
+
+    def attachment_names(self, ticketnum):
+        ticketnum = int(ticketnum)
+        attachments = self._tracserver.ticket.listAttachments(ticketnum)
+        return [a[0] for a in attachments]
