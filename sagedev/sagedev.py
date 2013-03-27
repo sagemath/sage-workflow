@@ -568,7 +568,15 @@ class SageDev(object):
             ....: diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi'''.splitlines()
             sage: s._rewrite_patch_header(lines, 'hg') == lines
             True
-            sage: s._rewrite_patch_header(lines, 'git')
+            sage: lines = s._rewrite_patch_header(lines, 'git'); lines
+            ['From: David Roe <roed@math.harvard.edu>',
+             'Subject: #12555: fixed modulus templates',
+             'Date: Sun, 04 Mar 2012 05:08:43 -0000',
+             '',
+             'diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi']
+            sage: s._rewrite_patch_header(lines, 'git') == lines
+            True
+            sage: s._rewrite_patch_header(lines, 'hg')
 
         """
         if not lines:
@@ -603,7 +611,7 @@ class SageDev(object):
                 ret = []
                 ret.append('# HG changeset')
                 ret.append('# User %s'%GIT_FROM_REGEX.match(lines[0]).groups()[0])
-                ret.append('# Date %s 00000'%datetime.strptime(GIT_DATE_REGEX.match(lines[2]).groups()[0], "%a %b %d %H:%M:%S %Z %Y").strftime("%s")) # this is not portable and the time zone is wrong
+                ret.append('# Date %s 00000'%time.mktime(email.utils.parsedate(GIT_DATE_REGEX.match(lines[2]).groups()[0]))) # this is not portable and the time zone is wrong
                 ret.append('# Node ID 0000000000000000000000000000000000000000')
                 ret.append('# Parent  0000000000000000000000000000000000000000')
                 ret.append(GIT_SUBJECT_REGEX.match(lines[1]).groups()[0])
@@ -615,7 +623,7 @@ class SageDev(object):
             ret = []
             ret.append('From: "Unknown User" <unknown@sagemath.org>')
             ret.append('Subject: No Subject')
-            ret.append('Date: %s'%datetime.today().ctime())
+            ret.append('Date: %s'%email.utils.formatdate(time.time()))
             ret.extend(lines)
             return self._rewrite_patch_header(ret, to_format=to_format, from_format="git")
         elif from_format == "hg":
