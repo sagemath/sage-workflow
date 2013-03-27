@@ -36,6 +36,7 @@ GIT_PATH_REGEX = re.compile(r"^(?=src/)")
 
 class SageDev(object):
     def __init__(self, devrc=os.path.join(DOT_SAGE, 'devrc'), gitcmd='git',
+                 dot_git=None,
                  realm='sage.math.washington.edu',
                  trac='http://boxen.math.washington.edu:8888/sage_trac/',
                  ssh_pubkey_file=None,
@@ -44,7 +45,7 @@ class SageDev(object):
         self.UI = CmdLineInterface()
         username, password, has_ssh_key = self._process_rc(devrc)
         self._username = username
-        self.git = GitInterface(self.UI, username, gitcmd)
+        self.git = GitInterface(self.UI, username, dot_git, gitcmd)
         self.trac = TracInterface(self.UI, realm, trac, username, password)
         self.tmp_dir = None
         if not has_ssh_key:

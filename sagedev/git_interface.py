@@ -1,11 +1,21 @@
 import functools
+import os.path
 from subprocess import call, check_output, CalledProcessError
 import types
 
 class GitInterface(object):
-    def __init__(self, UI, username, gitcmd='git'):
+    def __init__(self, UI, username, dot_git=None, gitcmd='git'):
         self._gitcmd = gitcmd
         self._username = username
+        if not dot_git:
+            import os
+            if os.environ.has_key("SAGE_DOT_GIT"):
+                dot_git = os.environ.get("SAGE_DOT_GIT")
+            else:
+                raise ValueError("`dot_git` not specified and `SAGE_DOT_GIT` not set.")
+        if not os.path.exists(dot_git):
+            raise ValueError("`%s` does not point to an existing directory."%dot_git)
+        self._dot_git = dot_git
         self.UI = UI
 
     def released_sage_ver(self):
