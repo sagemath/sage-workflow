@@ -18,7 +18,7 @@ HG_USER_REGEX = re.compile(r"^# User (.*)$")
 HG_DATE_REGEX = re.compile(r"^# Date (\d+) (\d+)$")
 HG_NODE_REGEX = re.compile(r"^# Node ID ([0-9a-f]+)$")
 HG_PARENT_REGEX = re.compile(r"^# Parent  ([0-9a-f]+)$")
-HG_DIFF_REGEX = re.compile(r"^diff -r \d+ -r \d+ (.*)$")
+HG_DIFF_REGEX = re.compile(r"^diff -r [0-9a-f]+ -r [0-9a-f]+ (.*)$")
 
 # regular expressions to parse git patches -- at least those created by us
 GIT_FROM_REGEX = re.compile(r"^From: (.*)$")
@@ -307,16 +307,22 @@ class SageDev(object):
 
         EXAMPLES::
 
-            sage: from sagedev import _detect_patch_diff_format as detect
-            >>> detect(["diff -r 1492e39aff50 -r 5803166c5b11 sage/schemes/elliptic_curves/ell_rational_field.py"])
-            "hg"
-            >>> detect(["diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi"])
-            "git"
+            sage: s = SageDev()
+            sage: s._detect_patch_diff_format(["diff -r 1492e39aff50 -r 5803166c5b11 sage/schemes/elliptic_curves/ell_rational_field.py"])
+            'hg'
+            sage: s._detect_patch_diff_format(["diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi"])
+            'git'
 
         TESTS::
 
-            >>> detect(["# HG changeset patch"])
-            >>> detect(["diff -r 1492e39aff50 -r 5803166c5b11 sage/schemes/elliptic_curves/ell_rational_field.py", "diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi"])
+            sage: s._detect_patch_diff_format(["# HG changeset patch"])
+            Traceback (most recent call last):
+            ...
+            NotImplementedError: Failed to detect diff format.
+            sage: s._detect_patch_diff_format(["diff -r 1492e39aff50 -r 5803166c5b11 sage/schemes/elliptic_curves/ell_rational_field.py", "diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi"])
+            Traceback (most recent call last):
+            ...
+            ValueError: File appears to have mixed diff formats.
 
         """
         format = None
