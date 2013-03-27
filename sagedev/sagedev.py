@@ -35,13 +35,13 @@ class SageDev(object):
     def __init__(self, devrc=os.path.join(DOT_SAGE, 'devrc'), gitcmd='git',
                  realm='sage.math.washington.edu',
                  trac='http://boxen.math.washington.edu:8888/sage_trac/',
-                 server='boxen.math.washington.edu',
                  ssh_pubkey_file=None,
                  ssh_passphrase="",
                  ssh_comment=None):
         self.UI = CmdLineInterface()
         username, password, has_ssh_key = self._process_rc(devrc)
-        self.git = GitInterface(self.UI, username, server, gitcmd)
+        self._username = username
+        self.git = GitInterface(self.UI, username, gitcmd)
         self.trac = TracInterface(self.UI, realm, trac, username, password)
         self.tmp_dir = None
         if not has_ssh_key:
@@ -71,7 +71,7 @@ class SageDev(object):
                 cmd.extend(["-C", comment])
             call(cmd)
         with open(devrc, "w") as F:
-            F.write("%s %s ssh_sent"%(username, passwd))
+            F.write("v0\n%s\n%s\nssh_sent"%(username, passwd))
 
     def _process_rc(self, devrc):
         if not os.path.exists(devrc):
@@ -80,13 +80,11 @@ class SageDev(object):
         else:
             with open(devrc) as F:
                 L = list(F)
-                if len(L) < 2:
-                    username, passwd = self._get_user_info()
-                    has_ssh_key = False
-                else:
-                    username, passwd = L[0].strip(), L[1].strip()
                 if len(L) < 3:
-                    has_ssh_key = False
+                    username, passwd = self._get_user_info()
+                else:
+                    username, passwd = L[1].strip(), L[2].strip()
+                has_ssh_key = len(L) >= 4
         return username, passwd, has_ssh_key
 
     def current_ticket(self):
@@ -109,26 +107,10 @@ class SageDev(object):
                     self.git.create_branch(self, ticketnum)
                     self.trac.add_dependency(self, ticketnum, curticket)
                 else:
-                    self.git.create_branch(self, ticketnum, at_unstable=True)
-        dest = None
-        if self.git.has_uncommitted_changes():
-            if curticket is None:
-                options = ["#%s"%ticketnum, "stash"]
-            else:
-                options = ["#%s"%ticketnum, "#%s"%curticket, "stash"]
-            dest = self.UI.get_input("Where do you want to commit your changes?", options)
-            if dest == "stash":
-                self.git.stash()
-            elif dest == str(curticket):
-                self.git.save()
-        if self.exists(ticketnum):
-            if dest == str(ticketnum):
-                self.git.move_uncommited_changes(ticketnum)
-            else:
-                self.git.switch(ticketnum)
-        else:
-            self.git.fetch_branch(self, ticketnum)
-            self.git.switch(ticketnum)
+                    self.git.create_branch(self, ticketnum, at_master=True)
+        if not self.exists(ticketnum):
+            self.git.fetch_ticket(ticketnum)
+        self.git.switch("t/" + ticketnum)
 
     def save(self):
         curticket = self.git.current_ticket()
@@ -145,7 +127,7 @@ class SageDev(object):
             if not self.UI.confirm("Are you sure you want to upload your changes to ticket #%s?"%(ticketnum)):
                 return
         elif not self.exists(ticketnum):
-            print "You don't have a branch for ticket %s"%(ticketnum)
+            self.UI.show("You don't have a branch for ticket %s"%(ticketnum))
             return
         elif not self.UI.confirm("Are you sure you want to upload your changes to ticket #%s?"%(ticketnum)):
             return
@@ -200,7 +182,7 @@ class SageDev(object):
         if self.UI.confirm("Are you sure you want to abandon all branches that have been merged into master?"):
             for branch in self.git.local_branches():
                 if self.git.is_ancestor_of(branch, "master"):
-                    print "Abandoning %s"("#%s"%(branch[2:]) if branch.startswith("t/") else branch)
+                    self.UI.show("Abandoning %s"("#%s"%(branch[2:]) if branch.startswith("t/") else branch))
                     self.git.abandon(branch)
 
     def abandon(self, ticketnum):
@@ -212,7 +194,19 @@ class SageDev(object):
 
     def gather(self, branchname, *inputs):
         # Creates a join of inputs and stores that in a branch, switching to it.
-        raise NotImplementedError
+        if len(inputs) == 0:
+            self.UI.show("Please include at least one input branch")
+            return
+        if self.git.branch_exists(branchname):
+            if not self.UI.confirm("The %s branch already exists; do you want to merge into it?", default_yes=False):
+                return
+        else:
+            self.git.execute_silent("branch", branchname, inputs[0])
+            inputs = inputs[1:]
+        # The following will deal with outstanding changes
+        self.git.switch_branch(branchname)
+        if len(inputs) > 1:
+            self.git.execute("merge", *inputs, q=True, m="Gathering %s into branch %s"%(", ".join(inputs), branchname))
 
     def show_dependencies(self, ticketnum=None, all=True):
         raise NotImplementedError
@@ -532,12 +526,12 @@ class SageDev(object):
 
     def _local_branchname(self, ticketnum):
         if ticketnum is None:
-            return self._unstable
-        return str(ticketnum)
+            return "master"
+        return "t/" + str(ticketnum)
 
     def _remote_branchname(self, ticketnum):
         if ticketnum is None:
-            return self._unstable
+            return "master"
         return "%s/%s"(self._username, ticketnum)
 
     def needs_update(self, ticketnum):

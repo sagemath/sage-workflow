@@ -1,7 +1,7 @@
 
 
 class CmdLineInterface(object):
-    def get_input(self, prompt, options=None, default=None, dryrun=False):
+    def get_input(self, prompt, options=None, default=None, dryrun=False, strip=None):
         """
         Get input from the developer.
 
@@ -10,6 +10,7 @@ class CmdLineInterface(object):
         - ``promt`` -- a string
         - ``options`` -- a list of strings or None
         - ``default`` -- a string or None
+        - ``strip`` -- a string to strip off the beginning of options
         - ``dryrun`` -- boolean
 
         EXAMPLES::
@@ -35,7 +36,12 @@ class CmdLineInterface(object):
                     else:
                         options[i] = str(options[i]).lower()
                 prompt += " [" + "/".join(options) + "] "
-                options[default] = options[default].lower()
+                if default is not None:
+                    options[default] = options[default].lower()
+                if strip is not None:
+                    for i in range(len(options)):
+                        if options[i].startswith(strip):
+                            options[i] = options[i][len(strip):]
             else:
                 prompt += " "
                 options = None
@@ -43,6 +49,8 @@ class CmdLineInterface(object):
             return prompt
         while True:
             s = raw_input(prompt)
+            if strip is not None and s.startswith(strip):
+                s = s[len(strip):]
             if options is None:
                 return s
             if len(s.strip()) == 0:
@@ -70,3 +78,6 @@ class CmdLineInterface(object):
         ok = self.get_input(question, ["yes","no"],
                             "yes" if default_yes else "no")
         return ok == "yes"
+
+    def show(self, message):
+        print message
