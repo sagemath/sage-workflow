@@ -135,6 +135,14 @@ class GitInterface(object):
         except CalledProcessError:
             return None
 
+    def _branch_to_ticketnum(self, branchname):
+        x = branchname.split('/')
+        self._validate_local_name(x)
+        if x[0] == 'me' or x[0] == 'ticket':
+            return x[1]
+        else:
+            return None
+
     def _branch_printname(self, branchname):
         if branchname[:2] == 't/':
             return '#' + branchname[2:]
@@ -236,7 +244,6 @@ class GitInterface(object):
     def create_branch(self, branchname, location=None):
         if branchname in ["t", "u", "me", "u/" + self._username, "ticket"]:
             raise ValueError("Bad branchname")
-                                
         if location is None:
             self.execute("branch", branchname)
         elif self.ref_exists(location):
@@ -273,23 +280,33 @@ class GitInterface(object):
         raise NotImplementedError
 
     def move_uncommited_changes(self, branchname):
-        # create temp branch, commit chanes, rebase, fast-forward....
+        # create temp branch, commit changes, rebase, fast-forward....
         raise NotImplementedError
 
     def vanilla(self, release=False):
         # switch to unstable branch in the past (release=False) or a
         # given named release
-        raise NotImplementedError
+        if release is False:
+            self.switch_branch("master")
+        elif release is True:
+            raise NotImplementedError
+        else:
+            release = self._validate_release_name(release)
+            if not self.branch_exists(release):
+                self.fetch_release(release)
+            self.switch_branch(release)
 
     def abandon(self, branchname):
         """
         Move to trash/
         """
+        remotename = self._local_to_remote_name(branchname)
         trashname = "trash/" + branchname
         oldtrash = self.branch_exists(trashname)
         if oldtrash:
             self.UI.show("Overwriting %s in trash"(oldtrash))
         self.execute("branch", branchname, trashname, M=True)
+        # Need to delete remote branch (and have a hook move it to /g/abandoned/ and update the trac symlink)
 
 def git_cmd_wrapper(git_cmd, interface):
     def f(self, *args, **kwds):

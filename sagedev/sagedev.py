@@ -101,10 +101,8 @@ class SageDev(object):
 
     def current_ticket(self):
         curbranch = self.git.current_branch()
-        if curbranch is not None and curbranch.startswith("t/"):
-            return curbranch[2:]
-        else:
-            return None
+        if curbranch is None: return None
+        return self.git._branch_to_ticketnum(curbranch)
 
     def start(self, ticketnum = None):
         curticket = self.current_ticket()
@@ -122,7 +120,7 @@ class SageDev(object):
                     self.git.create_branch(self, ticketnum, at_master=True)
         if not self.exists(ticketnum):
             self.git.fetch_ticket(ticketnum)
-        self.git.switch("t/" + ticketnum)
+        self.git.switch_branch("t/" + ticketnum)
 
     def save(self):
         curticket = self.git.current_ticket()
@@ -152,6 +150,8 @@ class SageDev(object):
             self.git.switch(oldticket)
 
     def sync(self):
+        # pulls in changes from trac and rebases the current branch to
+        # them. ticketnum=None syncs unstable.
         curticket = self.git.current_ticket()
         if self.UI.confirm("Are you sure you want to save your changes and sync to the most recent development version of Sage?"):
             self.git.save()
@@ -555,7 +555,3 @@ class SageDev(object):
         # aren't included in the current ticket
         raise NotImplementedError
 
-    def sync(self, ticketnum=None):
-        # pulls in changes from trac and rebases the current branch to
-        # them. ticketnum=None syncs unstable.
-        raise NotImplementedError
