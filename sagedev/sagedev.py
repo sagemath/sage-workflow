@@ -306,7 +306,7 @@ class SageDev(object):
             outfile = os.path.join(self._get_tmp_dir(), "patch_new")
             open(outfile, 'w').writelines("\n".join(lines)+"\n")
             print "Trying to apply reformatted patch `%s` ..."%outfile
-            am_args = ["--ignore-whitespace","--inaccurate-eof","--verbose","--resolvemsg=''",outfile]
+            am_args = ["--ignore-whitespace","--verbose","--resolvemsg=''",outfile]
             am = self.git.am(*am_args)
             if am: # apply failed
                 if not self.UI.confirm("The patch does not apply cleanly. Would you like to apply it anyway and create reject files for the parts that do not apply?", default_yes=False):
@@ -314,7 +314,7 @@ class SageDev(object):
                     self.git.reset_to_clean_state(interactive=False)
                     return
 
-                apply_args = am_args + ["--index","--reject"]
+                apply_args = am_args + ["--index","--reject","--inaccurate-eof"]
                 apply = self.git.apply(*apply_args)
                 if apply: # apply failed
                     if self.UI.get_input("The patch did not apply cleanly. Please integrate the `.rej` files that were created and resolve conflicts. When you did, type `resolved`. If you want to abort this process, type `abort`.",["resolved","abort"]) == "abort":
