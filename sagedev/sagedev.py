@@ -404,12 +404,59 @@ class SageDev(object):
         else:
            return path_format
 
-    def _rewrite_diff_paths(self, lines, to_format, from_format=None, diff_format=None):
+    def _rewrite_patch_diff_paths(self, lines, to_format, from_format=None, diff_format=None):
+        """
+        Rewrite the ``diff`` lines in ``lines`` to use ``to_format``.
+
+        INPUT:
+
+        - ``lines`` -- a list of strings
+
+        - ``to_format`` -- ``'old'`` or ``'new'``
+
+        - ``from_format`` -- ``'old'``, ``'new'``, or ``None`` (default:
+          ``None``), the current formatting of the paths; detected
+          automatically if ``None``
+
+        - ``diff_format`` -- ``'git'``, ``'hg'``, or ``None`` (default:
+          ``None``), the format of the ``diff`` lines; detected automatically
+          if ``None``
+
+        OUTPUT:
+
+        A list of string, ``lines`` rewritten to conform to ``lines``.
+
+        EXAMPLES:
+
+        Paths in the old format::
+
+            sage: s = SageDev()
+            sage: s._rewrite_patch_diff_paths(['diff -r 1492e39aff50 -r 5803166c5b11 sage/schemes/elliptic_curves/ell_rational_field.py'], to_format="old")
+            ['diff -r 1492e39aff50 -r 5803166c5b11 sage/schemes/elliptic_curves/ell_rational_field.py']
+            sage: s._rewrite_patch_diff_paths(['diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi'], to_format="old")
+            ['diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi']
+            sage: s._rewrite_patch_diff_paths(['diff -r 1492e39aff50 -r 5803166c5b11 sage/schemes/elliptic_curves/ell_rational_field.py'], to_format="new")
+            ['diff -r 1492e39aff50 -r 5803166c5b11 src/sage/schemes/elliptic_curves/ell_rational_field.py']
+            sage: s._rewrite_patch_diff_paths(['diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi'], to_format="new")
+            ['diff --git a/src/sage/rings/padics/FM_template.pxi b/src/sage/rings/padics/FM_template.pxi']
+
+        Paths in the new format::
+
+            sage: s._rewrite_patch_diff_paths(['diff -r 1492e39aff50 -r 5803166c5b11 src/sage/schemes/elliptic_curves/ell_rational_field.py'], to_format="old")
+            ['diff -r 1492e39aff50 -r 5803166c5b11 sage/schemes/elliptic_curves/ell_rational_field.py']
+            sage: s._rewrite_patch_diff_paths(['diff --git a/src/sage/rings/padics/FM_template.pxi b/src/sage/rings/padics/FM_template.pxi'], to_format="old")
+            ['diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi']
+            sage: s._rewrite_patch_diff_paths(['diff -r 1492e39aff50 -r 5803166c5b11 src/sage/schemes/elliptic_curves/ell_rational_field.py'], to_format="new")
+            ['diff -r 1492e39aff50 -r 5803166c5b11 src/sage/schemes/elliptic_curves/ell_rational_field.py']
+            sage: s._rewrite_patch_diff_paths(['diff --git a/src/sage/rings/padics/FM_template.pxi b/src/sage/rings/padics/FM_template.pxi'], to_format="new")
+            ['diff --git a/src/sage/rings/padics/FM_template.pxi b/src/sage/rings/padics/FM_template.pxi']
+
+        """
         if diff_format is None:
-            diff_format = self._determine_diff_format(lines)
+            diff_format = self._detect_patch_diff_format(lines)
 
         if from_format is None:
-            from_format = self._determine_path_format(lines)
+            from_format = self._detect_patch_path_format(lines)
 
         if to_format == from_format:
             return lines
@@ -420,7 +467,7 @@ class SageDev(object):
             else:
                 raise NotImplementedError("mapping hg path `%s`"%path)
 
-        def git_path_to_hg_path(git_path):
+        def git_path_to_hg_path(path):
             if any([path.startswith(p) for p in "src/module_list.py","src/setup.py","src/c_lib/","src/sage/","src/doc/"]):
                 return path[4:]
             else:
@@ -431,8 +478,7 @@ class SageDev(object):
             for line in lines:
                 m = diff_regex.match(line)
                 if m:
-                    for path in m.groups():
-                        line = line.replace(path,replacement(path))
+                    line = line[:m.start(1)] + ("".join([ line[m.end(i-1):m.start(i)]+replacement(m.group(i)) for i in range(1,m.lastindex+1) ])) + line[m.end(m.lastindex):]
                 ret.append(line)
 
             return ret
@@ -445,11 +491,11 @@ class SageDev(object):
         else:
             raise NotImplementedError(diff_format)
 
-        if from_format == "hg":
-            self._rewrite_diff_paths(self, apply_replacements(lines, diff_regex, hg_path_to_git_path), from_format="git", to_format=to_format, diff_format=diff_format)
-        elif from_format == "git":
-            if to_format == "hg":
-                return apply_replacements(lines, diff_format, git_path_to_hg_path)
+        if from_format == "old":
+            return self._rewrite_patch_diff_paths(apply_replacements(lines, diff_regex, hg_path_to_git_path), from_format="new", to_format=to_format, diff_format=diff_format)
+        elif from_format == "new":
+            if to_format == "old":
+                return apply_replacements(lines, diff_regex, git_path_to_hg_path)
             else:
                 raise NotImplementedError(to_format)
         else:
