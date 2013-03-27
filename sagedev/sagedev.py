@@ -32,16 +32,16 @@ HG_PATH_REGEX = re.compile(r"^(?=sage/)|(?=module_list.py)|(?=setup.py)|(?=c_lib
 GIT_PATH_REGEX = re.compile(r"^(?=src/)")
 
 class SageDev(object):
-    def __init__(self, devrc=os.path.join(DOT_SAGE, 'devrc'), gitcmd='git',
-                 realm='sage.math.washington.edu',
+    def __init__(self, devrc=os.path.join(DOT_SAGE, 'devrc'),
+                 ticket_file=os.path.join(DOT_SAGE, 'branch_to_ticket'),
+                 branch_file=os.path.join(DOT_SAGE, 'branch_to_ticket'),
+                 gitcmd='git', realm='sage.math.washington.edu',
                  trac='http://boxen.math.washington.edu:8888/sage_trac/',
-                 ssh_pubkey_file=None,
-                 ssh_passphrase="",
-                 ssh_comment=None):
+                 ssh_pubkey_file=None, ssh_passphrase="", ssh_comment=None):
         self.UI = CmdLineInterface(interactive)
         username, password, has_ssh_key = self._process_rc(devrc)
         self._username = username
-        self.git = GitInterface(self.UI, username, gitcmd)
+        self.git = GitInterface(self.UI, username, ticket_file, branch_file, gitcmd)
         self.trac = TracInterface(self.UI, realm, trac, username, password)
         self.tmp_dir = None
         if not has_ssh_key:
