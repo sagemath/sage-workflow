@@ -38,14 +38,14 @@ class SageDev(object):
                  ssh_pubkey_file=None,
                  ssh_passphrase="",
                  ssh_comment=None):
-        self.UI = CmdLineInterface()
+        self.UI = CmdLineInterface(interactive)
         username, password, has_ssh_key = self._process_rc(devrc)
         self._username = username
         self.git = GitInterface(self.UI, username, gitcmd)
         self.trac = TracInterface(self.UI, realm, trac, username, password)
         self.tmp_dir = None
         if not has_ssh_key:
-            self._send_ssh_key(username, passwd, devrc, ssh_pubkey_file, ssh_passphrase)
+            self._send_ssh_key(username, password, devrc, ssh_pubkey_file, ssh_passphrase)
 
     def _get_tmp_dir(self):
         if self.tmp_dir is None:
@@ -118,6 +118,8 @@ class SageDev(object):
             self.git.save()
             if self.UI.confirm("Would you like to upload the changes?"):
                 self.git.upload()
+        else:
+            self.UI.show("If you want to commit these changes to another ticket use the start() method")
 
     def upload(self, ticketnum=None):
         oldticket = self.git.current_ticket()
@@ -160,6 +162,8 @@ class SageDev(object):
 
     def review(self, ticketnum, user=None):
         if self.UI.confirm("Are you sure you want to download and review #%s"%(ticketnum)):
+            self.git.fetch_ticket(ticketnum, user)
+            branch = "t/" + str(ticketnum)
             raise NotImplementedError
             if self.UI.confirm("Would you like to rebuild Sage?"):
                 call("sage -b", shell=True)
