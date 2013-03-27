@@ -3,6 +3,8 @@
 # Requires libgit2 installed. In OS X, this is as easy as:
 #  brew install libgit2
 #
+# On ubuntu: https://gist.github.com/Problematic/1794222
+#
 # Run with:
 #  ./run pr_export.py
 
