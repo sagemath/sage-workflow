@@ -3,9 +3,8 @@ from subprocess import call
 from trac_interface import TracInterface
 from git_interface import GitInterface
 from user_interface import CmdLineInterface
-from gitolite_interface import GitoliteInterface
 
-DOT_SAGE = os.eviron.get('DOT_SAGE',os.path.join(os.environ['HOME'], '.sage'))
+DOT_SAGE = os.environ.get('DOT_SAGE',os.path.join(os.environ['HOME'], '.sage'))
 
 class SageDev(object):
     def __init__(self, devrc=os.path.join(DOT_SAGE, 'devrc'), gitcmd='git',
@@ -167,7 +166,7 @@ class SageDev(object):
         # gets rid of branches that have been merged into unstable
         # Do we need this confirmation?  This is pretty harmless....
         if self.UI.confirm("Are you sure you want to abandon all branches that have been merged into master?"):
-            for branch in self.git.local_branches()
+            for branch in self.git.local_branches():
                 if self.git.is_ancestor_of(branch, "master"):
                     print "Abandoning %s"("#%s"%(branch[2:]) if branch.startswith("t/") else branch)
                     self.git.abandon(branch)
