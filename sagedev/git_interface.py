@@ -23,6 +23,26 @@ class GitInterface(object):
         # of Sage (in this branch's past?)
         raise NotImplementedError
 
+    def get_state(self):
+        ret = []
+        if os.path.exists(os.path.join(self._dot_git,"rebase-apply")):
+            ret.append("am")
+
+    def reset_to_clean_state(self, interactive=True):
+        state = self.get_state()
+        if not state:
+            return
+        if state:
+            state = state[0]
+        if state == "am":
+            if interactive and not self.UI.confirm("Your repository is in an unclean state. It seems you are in the middle of a merge of some sort. To run this command you have to reset your respository to a clean state. Do you want me to reset your respository? (This will discard any changes which are not commited.)"):
+                return False
+
+            self.am("--abort")
+            return self.reset_to_clean_state(interactive=interactive)
+        else:
+            raise NotImplementedError(state)
+
     def _clean_str(self, s):
         # for now, no error checking
         return str(s)
