@@ -291,6 +291,8 @@ class SageDev(object):
 
         - ``local_file`` -- a string or ``None`` (default: ``None``)
         """
+        if not self.git.reset_to_clean_state(): return
+
         if not local_file:
             return self.import_patch(local_file = self.download_patch(ticketnum = ticketnum, patchname = patchname, url = url), diff_format=diff_format, header_format=header_format, path_format=path_format)
         else:
@@ -299,8 +301,25 @@ class SageDev(object):
             lines = open(local_file).read().splitlines()
             lines = self._rewrite_patch(lines, to_header_format="git", to_path_format="new", from_diff_format=diff_format, from_header_format=header_format, from_path_format=path_format)
             outfile = os.path.join(self._get_tmp_dir(), "patch_new")
-            print "Writing reformatted patch to %s"%outfile
             open(outfile, 'w').writelines("\n".join(lines)+"\n")
+            print "Trying to apply reformatted patch `%s` ..."%outfile
+            am_args = ["--ignore-whitespace","--inaccurate-eof","--verbose","--resolvemsg=''",outfile]
+            am = self.git.am(*am_args)
+            if am: # apply failed
+                if not self.UI.confirm("The patch does not apply cleanly. Would you like to apply it anyway and create reject files for the parts that do not apply?", default_yes=False):
+                    print "Not applying patch."
+                    self.git.reset_to_clean_state(interactive=False)
+                    return
+
+                apply_args = am_args + ["--index","--reject"]
+                apply = self.git.apply(*apply_args)
+                if apply: # apply failed
+                    if self.UI.get_input("The patch did not apply cleanly. Please integrate the `.rej` files that were created and resolve conflicts. When you did, type `resolved`. If you want to abort this process, type `abort`.",["resolved","abort"]) == "abort":
+                        self.git.reset_to_clean_state()
+                        return
+
+                    self.git.add("--update")
+                    self.git.am("--resolved")
 
     def _detect_patch_diff_format(self, lines):
         """

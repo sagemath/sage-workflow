@@ -284,7 +284,7 @@ def git_cmd_wrapper(git_cmd):
         return self.execute(git_cmd, *args, **kwds)
     return f
 
-for git_cmd in ["add","bisect","branch","checkout",
+for git_cmd in ["add","am","apply","bisect","branch","checkout",
                "clone","commit","diff","fetch",
                "grep","init","log","merge",
                "mv","pull","push","rebase",
