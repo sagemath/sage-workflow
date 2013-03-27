@@ -6,8 +6,6 @@ class GitInterface(object):
         self._gitcmd = gitcmd
         self._username = username
         self.UI = UI
-        # Need to set unstable
-        raise NotImplementedError
 
     def released_sage_ver(self):
         # should return a string with the most recent released version
