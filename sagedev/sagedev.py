@@ -17,10 +17,11 @@ DOT_SAGE = os.environ.get('DOT_SAGE',os.path.join(os.environ['HOME'], '.sage'))
 # regular expressions to parse mercurial patches
 HG_HEADER_REGEX = re.compile(r"^# HG changeset patch$")
 HG_USER_REGEX = re.compile(r"^# User (.*)$")
-HG_DATE_REGEX = re.compile(r"^# Date (\d+) (\d+)$")
+HG_DATE_REGEX = re.compile(r"^# Date (\d+) (-?\d+)$")
 HG_NODE_REGEX = re.compile(r"^# Node ID ([0-9a-f]+)$")
 HG_PARENT_REGEX = re.compile(r"^# Parent  ([0-9a-f]+)$")
 HG_DIFF_REGEX = re.compile(r"^diff -r [0-9a-f]+ -r [0-9a-f]+ (.*)$")
+PM_DIFF_REGEX = re.compile(r"^(?:(?:\+\+\+)|(?:---)) [ab]/([^ ]*)(?: .*)?$")
 
 # regular expressions to parse git patches -- at least those created by us
 GIT_FROM_REGEX = re.compile(r"^From: (.*)$")
@@ -387,24 +388,25 @@ class SageDev(object):
         path_format = None
 
         if diff_format == "git":
-            regex = GIT_DIFF_REGEX
+            diff_regexs = (GIT_DIFF_REGEX, PM_DIFF_REGEX)
         elif diff_format == "hg":
-            regex = HG_DIFF_REGEX
+            diff_regexs = (HG_DIFF_REGEX, PM_DIFF_REGEX)
         else:
             raise NotImplementedError(diff_format)
 
         regexs = { "old" : HG_PATH_REGEX, "new" : GIT_PATH_REGEX }
 
         for line in lines:
-            match = regex.match(line)
-            if match:
-                for group in match.groups():
-                    for name, regex in regexs.items():
-                        if regex.match(group):
-                            if path_format is None:
-                                path_format = name
-                            if path_format != name:
-                                raise ValueError("File appears to have mixed path formats.")
+            for regex in diff_regexs:
+                match = regex.match(line)
+                if match:
+                    for group in match.groups():
+                        for name, regex in regexs.items():
+                            if regex.match(group):
+                                if path_format is None:
+                                    path_format = name
+                                if path_format != name:
+                                    raise ValueError("File appears to have mixed path formats.")
 
         if path_format is None:
             raise NotImplementedError("Failed to detect path format.")
@@ -437,15 +439,22 @@ class SageDev(object):
 
         Paths in the old format::
 
+
             sage: s = SageDev()
             sage: s._rewrite_patch_diff_paths(['diff -r 1492e39aff50 -r 5803166c5b11 sage/schemes/elliptic_curves/ell_rational_field.py'], to_format="old")
             ['diff -r 1492e39aff50 -r 5803166c5b11 sage/schemes/elliptic_curves/ell_rational_field.py']
             sage: s._rewrite_patch_diff_paths(['diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi'], to_format="old")
             ['diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi']
+            sage: s._rewrite_patch_diff_paths(['--- a/sage/rings/padics/pow_computer_ext.pxd','+++ b/sage/rings/padics/pow_computer_ext.pxd'], to_format="old", diff_format="git")
+            ['--- a/sage/rings/padics/pow_computer_ext.pxd',
+             '+++ b/sage/rings/padics/pow_computer_ext.pxd']
             sage: s._rewrite_patch_diff_paths(['diff -r 1492e39aff50 -r 5803166c5b11 sage/schemes/elliptic_curves/ell_rational_field.py'], to_format="new")
             ['diff -r 1492e39aff50 -r 5803166c5b11 src/sage/schemes/elliptic_curves/ell_rational_field.py']
             sage: s._rewrite_patch_diff_paths(['diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi'], to_format="new")
             ['diff --git a/src/sage/rings/padics/FM_template.pxi b/src/sage/rings/padics/FM_template.pxi']
+            sage: s._rewrite_patch_diff_paths(['--- a/sage/rings/padics/pow_computer_ext.pxd','+++ b/sage/rings/padics/pow_computer_ext.pxd'], to_format="new", diff_format="git")
+            ['--- a/src/sage/rings/padics/pow_computer_ext.pxd',
+             '+++ b/src/sage/rings/padics/pow_computer_ext.pxd']
 
         Paths in the new format::
 
@@ -453,17 +462,23 @@ class SageDev(object):
             ['diff -r 1492e39aff50 -r 5803166c5b11 sage/schemes/elliptic_curves/ell_rational_field.py']
             sage: s._rewrite_patch_diff_paths(['diff --git a/src/sage/rings/padics/FM_template.pxi b/src/sage/rings/padics/FM_template.pxi'], to_format="old")
             ['diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi']
+            sage: s._rewrite_patch_diff_paths(['--- a/src/sage/rings/padics/pow_computer_ext.pxd','+++ b/src/sage/rings/padics/pow_computer_ext.pxd'], to_format="old", diff_format="git")
+            ['--- a/sage/rings/padics/pow_computer_ext.pxd',
+             '+++ b/sage/rings/padics/pow_computer_ext.pxd']
             sage: s._rewrite_patch_diff_paths(['diff -r 1492e39aff50 -r 5803166c5b11 src/sage/schemes/elliptic_curves/ell_rational_field.py'], to_format="new")
             ['diff -r 1492e39aff50 -r 5803166c5b11 src/sage/schemes/elliptic_curves/ell_rational_field.py']
             sage: s._rewrite_patch_diff_paths(['diff --git a/src/sage/rings/padics/FM_template.pxi b/src/sage/rings/padics/FM_template.pxi'], to_format="new")
             ['diff --git a/src/sage/rings/padics/FM_template.pxi b/src/sage/rings/padics/FM_template.pxi']
+            sage: s._rewrite_patch_diff_paths(['--- a/src/sage/rings/padics/pow_computer_ext.pxd','+++ b/src/sage/rings/padics/pow_computer_ext.pxd'], to_format="new", diff_format="git")
+            ['--- a/src/sage/rings/padics/pow_computer_ext.pxd',
+             '+++ b/src/sage/rings/padics/pow_computer_ext.pxd']
 
         """
         if diff_format is None:
             diff_format = self._detect_patch_diff_format(lines)
 
         if from_format is None:
-            from_format = self._detect_patch_path_format(lines)
+            from_format = self._detect_patch_path_format(lines, diff_format=diff_format)
 
         if to_format == from_format:
             return lines
@@ -480,21 +495,21 @@ class SageDev(object):
             else:
                 raise NotImplementedError("mapping git path `%s`"%path)
 
-        def apply_replacements(lines, diff_regex, replacement):
+        def apply_replacements(lines, diff_regexs, replacement):
             ret = []
             for line in lines:
-                m = diff_regex.match(line)
-                if m:
-                    line = line[:m.start(1)] + ("".join([ line[m.end(i-1):m.start(i)]+replacement(m.group(i)) for i in range(1,m.lastindex+1) ])) + line[m.end(m.lastindex):]
+                for diff_regex in diff_regexs:
+                    m = diff_regex.match(line)
+                    if m:
+                        line = line[:m.start(1)] + ("".join([ line[m.end(i-1):m.start(i)]+replacement(m.group(i)) for i in range(1,m.lastindex+1) ])) + line[m.end(m.lastindex):]
                 ret.append(line)
-
             return ret
 
         diff_regex = None
         if diff_format == "hg":
-            diff_regex = HG_DIFF_REGEX
+            diff_regex = (HG_DIFF_REGEX, PM_DIFF_REGEX)
         elif diff_format == "git":
-            diff_regex = GIT_DIFF_REGEX
+            diff_regex = (GIT_DIFF_REGEX, PM_DIFF_REGEX)
         else:
             raise NotImplementedError(diff_format)
 
