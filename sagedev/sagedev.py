@@ -286,14 +286,15 @@ class SageDev(object):
         - ``local_file`` -- a string or ``None`` (default: ``None``)
         """
         if not local_file:
+            return self.import_patch(local_file = self.download_patch(ticketnum = ticketnum, patchname = patchname, url = url), diff_format=diff_format, header_format=header_format, path_format=path_format)
+        else:
             if ticketnum or patchname or url:
                 raise ValueError("If `local_file` is specified, `ticketnum`, `patchname`, and `url` must not be specified.")
-            return self.import_patch(local_file = self.download_patch(ticketnum = ticketnum, patchname = patchname, url = url), **kwargs)
-        else:
             lines = open(local_file).read().splitlines()
-            lines = self._rewrite_patch(lines, to_format="git", from_diff_format=diff_format, from_header_format=header_format, from_path_format=path_format)
-            #TODO: strip whitespace
-            raise NotImplementedError
+            lines = self._rewrite_patch(lines, to_header_format="git", to_path_format="new", from_diff_format=diff_format, from_header_format=header_format, from_path_format=path_format)
+            outfile = os.path.join(self._get_tmp_dir(), "patch_new")
+            print "Writing reformatted patch to %s"%outfile
+            open(outfile, 'w').writelines("\n".join(lines)+"\n")
 
     def _detect_patch_diff_format(self, lines):
         """
@@ -631,15 +632,15 @@ class SageDev(object):
             ret = []
             ret.append('From: %s'%HG_USER_REGEX.match(lines[1]).groups()[0])
             ret.append('Subject: %s'%("No Subject" if not message else message[0]))
-            ret.append('Date: %s'%(datetime.utcfromtimestamp(int(HG_DATE_REGEX.match(lines[2]).groups()[0])).ctime()))
+            ret.append('Date: %s'%email.utils.formatdate(int(HG_DATE_REGEX.match(lines[2]).groups()[0])))
             ret.extend(message[1:])
             ret.extend(diff)
             return self._rewrite_patch_header(ret, to_format=to_format, from_format="git")
         else:
             raise NotImplementedError(from_format)
 
-    def _rewrite_patch(self, lines, to_format, from_diff_format=None, from_path_format=None, from_header_format=None):
-        return self._rewrite_diff_paths(self._rewrite_patch_header(lines, to_format=to_format, from_format=from_header_format), to_format=to_format, from_diff_format=from_diff_format, from_path_format=from_path_format)
+    def _rewrite_patch(self, lines, to_path_format, to_header_format, from_diff_format=None, from_path_format=None, from_header_format=None):
+        return self._rewrite_patch_diff_paths(self._rewrite_patch_header(lines, to_format=to_header_format, from_format=from_header_format), to_format=to_path_format, diff_format=from_diff_format, from_format=from_path_format)
 
     def dependency_join(self, ticketnum=None):
         raise NotImplementedError
