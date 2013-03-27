@@ -4,6 +4,8 @@ import shutil
 import atexit
 import re
 import time
+import tempfile
+import email.utils
 from datetime import datetime
 from subprocess import call, check_call
 from trac_interface import TracInterface
@@ -15,10 +17,11 @@ DOT_SAGE = os.environ.get('DOT_SAGE',os.path.join(os.environ['HOME'], '.sage'))
 # regular expressions to parse mercurial patches
 HG_HEADER_REGEX = re.compile(r"^# HG changeset patch$")
 HG_USER_REGEX = re.compile(r"^# User (.*)$")
-HG_DATE_REGEX = re.compile(r"^# Date (\d+) (\d+)$")
+HG_DATE_REGEX = re.compile(r"^# Date (\d+) (-?\d+)$")
 HG_NODE_REGEX = re.compile(r"^# Node ID ([0-9a-f]+)$")
 HG_PARENT_REGEX = re.compile(r"^# Parent  ([0-9a-f]+)$")
 HG_DIFF_REGEX = re.compile(r"^diff -r [0-9a-f]+ -r [0-9a-f]+ (.*)$")
+PM_DIFF_REGEX = re.compile(r"^(?:(?:\+\+\+)|(?:---)) [ab]/([^ ]*)(?: .*)?$")
 
 # regular expressions to parse git patches -- at least those created by us
 GIT_FROM_REGEX = re.compile(r"^From: (.*)$")
@@ -38,7 +41,7 @@ class SageDev(object):
                  ssh_pubkey_file=None,
                  ssh_passphrase="",
                  ssh_comment=None):
-        self.UI = CmdLineInterface(interactive)
+        self.UI = CmdLineInterface()
         username, password, has_ssh_key = self._process_rc(devrc)
         self._username = username
         self.git = GitInterface(self.UI, username, gitcmd)
@@ -49,9 +52,9 @@ class SageDev(object):
 
     def _get_tmp_dir(self):
         if self.tmp_dir is None:
-            from tmpfile import mkdtemp
-            self.tmp_dir = mkdtemp()
+            self.tmp_dir = tempfile.mkdtemp()
             atexit.register(lambda: shutil.rmtree(self.tmp_dir))
+        return self.tmp_dir
 
     def _get_user_info(self):
         username = self.UI.get_input("Please enter your trac username: ")
@@ -253,13 +256,13 @@ class SageDev(object):
                 raise ValueError("If `url` is specifed, `ticketnum` and `patchname` must not be specified.")
             tmp_dir = self._get_tmp_dir()
             ret = os.path.join(tmp_dir,"patch")
-            check_call("wget","-r","-O",ret)
+            check_call(["wget","-r","-O",ret,url])
             return ret
         elif ticketnum:
             if patchname:
-                return self.download_patch(url = self.trac._tracsite+"/raw-attachment/ticket/%s/%s"%(ticketnum,patchname))
+                return self.download_patch(url = self.trac._tracsite+"raw-attachment/ticket/%s/%s"%(ticketnum,patchname))
             else:
-                attachments = self.trac.attachment_names()
+                attachments = self.trac.attachment_names(ticketnum)
                 if len(attachments) == 0:
                     raise ValueError("Ticket #%s has no attachments."%ticketnum)
                 if len(attachments) == 1:
@@ -288,14 +291,15 @@ class SageDev(object):
         - ``local_file`` -- a string or ``None`` (default: ``None``)
         """
         if not local_file:
+            return self.import_patch(local_file = self.download_patch(ticketnum = ticketnum, patchname = patchname, url = url), diff_format=diff_format, header_format=header_format, path_format=path_format)
+        else:
             if ticketnum or patchname or url:
                 raise ValueError("If `local_file` is specified, `ticketnum`, `patchname`, and `url` must not be specified.")
-            return self.import_patch(local_file = self.download_patch(ticketnum = ticketnum, patchname = patchname, url = url), **kwargs)
-        else:
             lines = open(local_file).read().splitlines()
-            lines = self._rewrite_patch(lines, to_format="git", from_diff_format=diff_format, from_header_format=header_format, from_path_format=path_format)
-            #TODO: strip whitespace
-            raise NotImplementedError
+            lines = self._rewrite_patch(lines, to_header_format="git", to_path_format="new", from_diff_format=diff_format, from_header_format=header_format, from_path_format=path_format)
+            outfile = os.path.join(self._get_tmp_dir(), "patch_new")
+            print "Writing reformatted patch to %s"%outfile
+            open(outfile, 'w').writelines("\n".join(lines)+"\n")
 
     def _detect_patch_diff_format(self, lines):
         """
@@ -384,24 +388,25 @@ class SageDev(object):
         path_format = None
 
         if diff_format == "git":
-            regex = GIT_DIFF_REGEX
+            diff_regexs = (GIT_DIFF_REGEX, PM_DIFF_REGEX)
         elif diff_format == "hg":
-            regex = HG_DIFF_REGEX
+            diff_regexs = (HG_DIFF_REGEX, PM_DIFF_REGEX)
         else:
             raise NotImplementedError(diff_format)
 
         regexs = { "old" : HG_PATH_REGEX, "new" : GIT_PATH_REGEX }
 
         for line in lines:
-            match = regex.match(line)
-            if match:
-                for group in match.groups():
-                    for name, regex in regexs.items():
-                        if regex.match(group):
-                            if path_format is None:
-                                path_format = name
-                            if path_format != name:
-                                raise ValueError("File appears to have mixed path formats.")
+            for regex in diff_regexs:
+                match = regex.match(line)
+                if match:
+                    for group in match.groups():
+                        for name, regex in regexs.items():
+                            if regex.match(group):
+                                if path_format is None:
+                                    path_format = name
+                                if path_format != name:
+                                    raise ValueError("File appears to have mixed path formats.")
 
         if path_format is None:
             raise NotImplementedError("Failed to detect path format.")
@@ -434,15 +439,22 @@ class SageDev(object):
 
         Paths in the old format::
 
+
             sage: s = SageDev()
             sage: s._rewrite_patch_diff_paths(['diff -r 1492e39aff50 -r 5803166c5b11 sage/schemes/elliptic_curves/ell_rational_field.py'], to_format="old")
             ['diff -r 1492e39aff50 -r 5803166c5b11 sage/schemes/elliptic_curves/ell_rational_field.py']
             sage: s._rewrite_patch_diff_paths(['diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi'], to_format="old")
             ['diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi']
+            sage: s._rewrite_patch_diff_paths(['--- a/sage/rings/padics/pow_computer_ext.pxd','+++ b/sage/rings/padics/pow_computer_ext.pxd'], to_format="old", diff_format="git")
+            ['--- a/sage/rings/padics/pow_computer_ext.pxd',
+             '+++ b/sage/rings/padics/pow_computer_ext.pxd']
             sage: s._rewrite_patch_diff_paths(['diff -r 1492e39aff50 -r 5803166c5b11 sage/schemes/elliptic_curves/ell_rational_field.py'], to_format="new")
             ['diff -r 1492e39aff50 -r 5803166c5b11 src/sage/schemes/elliptic_curves/ell_rational_field.py']
             sage: s._rewrite_patch_diff_paths(['diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi'], to_format="new")
             ['diff --git a/src/sage/rings/padics/FM_template.pxi b/src/sage/rings/padics/FM_template.pxi']
+            sage: s._rewrite_patch_diff_paths(['--- a/sage/rings/padics/pow_computer_ext.pxd','+++ b/sage/rings/padics/pow_computer_ext.pxd'], to_format="new", diff_format="git")
+            ['--- a/src/sage/rings/padics/pow_computer_ext.pxd',
+             '+++ b/src/sage/rings/padics/pow_computer_ext.pxd']
 
         Paths in the new format::
 
@@ -450,17 +462,23 @@ class SageDev(object):
             ['diff -r 1492e39aff50 -r 5803166c5b11 sage/schemes/elliptic_curves/ell_rational_field.py']
             sage: s._rewrite_patch_diff_paths(['diff --git a/src/sage/rings/padics/FM_template.pxi b/src/sage/rings/padics/FM_template.pxi'], to_format="old")
             ['diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi']
+            sage: s._rewrite_patch_diff_paths(['--- a/src/sage/rings/padics/pow_computer_ext.pxd','+++ b/src/sage/rings/padics/pow_computer_ext.pxd'], to_format="old", diff_format="git")
+            ['--- a/sage/rings/padics/pow_computer_ext.pxd',
+             '+++ b/sage/rings/padics/pow_computer_ext.pxd']
             sage: s._rewrite_patch_diff_paths(['diff -r 1492e39aff50 -r 5803166c5b11 src/sage/schemes/elliptic_curves/ell_rational_field.py'], to_format="new")
             ['diff -r 1492e39aff50 -r 5803166c5b11 src/sage/schemes/elliptic_curves/ell_rational_field.py']
             sage: s._rewrite_patch_diff_paths(['diff --git a/src/sage/rings/padics/FM_template.pxi b/src/sage/rings/padics/FM_template.pxi'], to_format="new")
             ['diff --git a/src/sage/rings/padics/FM_template.pxi b/src/sage/rings/padics/FM_template.pxi']
+            sage: s._rewrite_patch_diff_paths(['--- a/src/sage/rings/padics/pow_computer_ext.pxd','+++ b/src/sage/rings/padics/pow_computer_ext.pxd'], to_format="new", diff_format="git")
+            ['--- a/src/sage/rings/padics/pow_computer_ext.pxd',
+             '+++ b/src/sage/rings/padics/pow_computer_ext.pxd']
 
         """
         if diff_format is None:
             diff_format = self._detect_patch_diff_format(lines)
 
         if from_format is None:
-            from_format = self._detect_patch_path_format(lines)
+            from_format = self._detect_patch_path_format(lines, diff_format=diff_format)
 
         if to_format == from_format:
             return lines
@@ -477,21 +495,21 @@ class SageDev(object):
             else:
                 raise NotImplementedError("mapping git path `%s`"%path)
 
-        def apply_replacements(lines, diff_regex, replacement):
+        def apply_replacements(lines, diff_regexs, replacement):
             ret = []
             for line in lines:
-                m = diff_regex.match(line)
-                if m:
-                    line = line[:m.start(1)] + ("".join([ line[m.end(i-1):m.start(i)]+replacement(m.group(i)) for i in range(1,m.lastindex+1) ])) + line[m.end(m.lastindex):]
+                for diff_regex in diff_regexs:
+                    m = diff_regex.match(line)
+                    if m:
+                        line = line[:m.start(1)] + ("".join([ line[m.end(i-1):m.start(i)]+replacement(m.group(i)) for i in range(1,m.lastindex+1) ])) + line[m.end(m.lastindex):]
                 ret.append(line)
-
             return ret
 
         diff_regex = None
         if diff_format == "hg":
-            diff_regex = HG_DIFF_REGEX
+            diff_regex = (HG_DIFF_REGEX, PM_DIFF_REGEX)
         elif diff_format == "git":
-            diff_regex = GIT_DIFF_REGEX
+            diff_regex = (GIT_DIFF_REGEX, PM_DIFF_REGEX)
         else:
             raise NotImplementedError(diff_format)
 
@@ -570,7 +588,15 @@ class SageDev(object):
             ....: diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi'''.splitlines()
             sage: s._rewrite_patch_header(lines, 'hg') == lines
             True
-            sage: s._rewrite_patch_header(lines, 'git')
+            sage: lines = s._rewrite_patch_header(lines, 'git'); lines
+            ['From: David Roe <roed@math.harvard.edu>',
+             'Subject: #12555: fixed modulus templates',
+             'Date: Sun, 04 Mar 2012 05:08:43 -0000',
+             '',
+             'diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi']
+            sage: s._rewrite_patch_header(lines, 'git') == lines
+            True
+            sage: s._rewrite_patch_header(lines, 'hg')
 
         """
         if not lines:
@@ -605,7 +631,7 @@ class SageDev(object):
                 ret = []
                 ret.append('# HG changeset')
                 ret.append('# User %s'%GIT_FROM_REGEX.match(lines[0]).groups()[0])
-                ret.append('# Date %s 00000'%datetime.strptime(GIT_DATE_REGEX.match(lines[2]).groups()[0], "%a %b %d %H:%M:%S %Z %Y").strftime("%s")) # this is not portable and the time zone is wrong
+                ret.append('# Date %s 00000'%time.mktime(email.utils.parsedate(GIT_DATE_REGEX.match(lines[2]).groups()[0]))) # this is not portable and the time zone is wrong
                 ret.append('# Node ID 0000000000000000000000000000000000000000')
                 ret.append('# Parent  0000000000000000000000000000000000000000')
                 ret.append(GIT_SUBJECT_REGEX.match(lines[1]).groups()[0])
@@ -617,7 +643,7 @@ class SageDev(object):
             ret = []
             ret.append('From: "Unknown User" <unknown@sagemath.org>')
             ret.append('Subject: No Subject')
-            ret.append('Date: %s'%datetime.today().ctime())
+            ret.append('Date: %s'%email.utils.formatdate(time.time()))
             ret.extend(lines)
             return self._rewrite_patch_header(ret, to_format=to_format, from_format="git")
         elif from_format == "hg":
@@ -625,15 +651,15 @@ class SageDev(object):
             ret = []
             ret.append('From: %s'%HG_USER_REGEX.match(lines[1]).groups()[0])
             ret.append('Subject: %s'%("No Subject" if not message else message[0]))
-            ret.append('Date: %s'%(datetime.utcfromtimestamp(int(HG_DATE_REGEX.match(lines[2]).groups()[0])).ctime()))
+            ret.append('Date: %s'%email.utils.formatdate(int(HG_DATE_REGEX.match(lines[2]).groups()[0])))
             ret.extend(message[1:])
             ret.extend(diff)
             return self._rewrite_patch_header(ret, to_format=to_format, from_format="git")
         else:
             raise NotImplementedError(from_format)
 
-    def _rewrite_patch(self, lines, to_format, from_diff_format=None, from_path_format=None, from_header_format=None):
-        return self._rewrite_diff_paths(self._rewrite_patch_header(lines, to_format=to_format, from_format=from_header_format), to_format=to_format, from_diff_format=from_diff_format, from_path_format=from_path_format)
+    def _rewrite_patch(self, lines, to_path_format, to_header_format, from_diff_format=None, from_path_format=None, from_header_format=None):
+        return self._rewrite_patch_diff_paths(self._rewrite_patch_header(lines, to_format=to_header_format, from_format=from_header_format), to_format=to_path_format, diff_format=from_diff_format, from_format=from_path_format)
 
     def dependency_join(self, ticketnum=None):
         raise NotImplementedError
