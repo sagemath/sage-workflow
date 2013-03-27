@@ -40,7 +40,7 @@ class SageDev(object):
                  ssh_pubkey_file=None,
                  ssh_passphrase="",
                  ssh_comment=None):
-        self.UI = CmdLineInterface(interactive)
+        self.UI = CmdLineInterface()
         username, password, has_ssh_key = self._process_rc(devrc)
         self._username = username
         self.git = GitInterface(self.UI, username, gitcmd)
