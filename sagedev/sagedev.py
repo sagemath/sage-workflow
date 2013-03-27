@@ -341,9 +341,41 @@ class SageDev(object):
         else:
             return format
 
-    def _determine_path_format(self, lines, diff_format = None):
+    def _detect_patch_path_format(self, lines, diff_format = None):
+        """
+        Determine the format of the paths in the patch given in ``lines``.
+
+        INPUT:
+
+        - ``lines`` -- a list of strings
+
+        - ``diff_format`` -- ``'hg'``,``'git'``, or ``None`` (default:
+          ``None``), the format of the ``diff`` lines in the patch. If
+          ``None``, the format will be determined by
+          :meth:`_detect_patch_diff_format`.
+
+        OUTPUT:
+
+        A string, ``'new'`` (new repository layout) or ``'old'`` (old
+        repository layout).
+
+        EXAMPLES::
+
+            sage: s = SageDev()
+            sage: s._detect_patch_path_format(["diff -r 1492e39aff50 -r 5803166c5b11 sage/schemes/elliptic_curves/ell_rational_field.py"])
+            'old'
+            sage: s._detect_patch_path_format(["diff -r 1492e39aff50 -r 5803166c5b11 sage/schemes/elliptic_curves/ell_rational_field.py"], diff_format="git")
+            Traceback (most recent call last):
+            ...
+            NotImplementedError: Failed to detect path format.
+            sage: s._detect_patch_path_format(["diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi"])
+            'old'
+            sage: s._detect_patch_path_format(["diff --git a/src/sage/rings/padics/FM_template.pxi b/src/sage/rings/padics/FM_template.pxi"])
+            'new'
+
+        """
         if diff_format is None:
-            diff_format = self._determine_diff_format(lines)
+            diff_format = self._detect_patch_diff_format(lines)
 
         path_format = None
 
@@ -354,14 +386,14 @@ class SageDev(object):
         else:
             raise NotImplementedError(diff_format)
 
-        regexs = { "hg" : HG_PATH_REGEX, "git" : GIT_PATH_REGEX }
+        regexs = { "old" : HG_PATH_REGEX, "new" : GIT_PATH_REGEX }
 
         for line in lines:
             match = regex.match(line)
             if match:
                 for group in match.groups():
-                    for name, regex in regexs:
-                        if regex.match(line):
+                    for name, regex in regexs.items():
+                        if regex.match(group):
                             if path_format is None:
                                 path_format = name
                             if path_format != name:
