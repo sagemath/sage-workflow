@@ -4,6 +4,8 @@ import shutil
 import atexit
 import re
 import time
+import tempfile
+import email.utils
 from datetime import datetime
 from subprocess import call, check_call
 from trac_interface import TracInterface
@@ -49,9 +51,9 @@ class SageDev(object):
 
     def _get_tmp_dir(self):
         if self.tmp_dir is None:
-            from tmpfile import mkdtemp
-            self.tmp_dir = mkdtemp()
+            self.tmp_dir = tempfile.mkdtemp()
             atexit.register(lambda: shutil.rmtree(self.tmp_dir))
+        return self.tmp_dir
 
     def _get_user_info(self):
         username = self.UI.get_input("Please enter your trac username: ")
