@@ -19,7 +19,7 @@ HG_HEADER_REGEX = re.compile(r"^# HG changeset patch$")
 HG_USER_REGEX = re.compile(r"^# User (.*)$")
 HG_DATE_REGEX = re.compile(r"^# Date (\d+) (-?\d+)$")
 HG_NODE_REGEX = re.compile(r"^# Node ID ([0-9a-f]+)$")
-HG_PARENT_REGEX = re.compile(r"^# Parent  ([0-9a-f]+)$")
+HG_PARENT_REGEX = re.compile(r"^# Parent +([0-9a-f]+)$")
 HG_DIFF_REGEX = re.compile(r"^diff -r [0-9a-f]+ -r [0-9a-f]+ (.*)$")
 PM_DIFF_REGEX = re.compile(r"^(?:(?:\+\+\+)|(?:---)) [ab]/([^ ]*)(?: .*)?$")
 
@@ -296,8 +296,11 @@ class SageDev(object):
         if not local_file:
             return self.import_patch(local_file = self.download_patch(ticketnum = ticketnum, patchname = patchname, url = url), diff_format=diff_format, header_format=header_format, path_format=path_format)
         else:
-            if ticketnum or patchname or url:
-                raise ValueError("If `local_file` is specified, `ticketnum`, `patchname`, and `url` must not be specified.")
+            if patchname or url:
+                raise ValueError("If `local_file` is specified, `patchname`, and `url` must not be specified.")
+            if ticketnum:
+                self.git.branch("t/%s"%ticketnum)
+                self.git.checkout("t/%s"%ticketnum)
             lines = open(local_file).read().splitlines()
             lines = self._rewrite_patch(lines, to_header_format="git", to_path_format="new", from_diff_format=diff_format, from_header_format=header_format, from_path_format=path_format)
             outfile = os.path.join(self._get_tmp_dir(), "patch_new")
