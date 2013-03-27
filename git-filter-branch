@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Rewrite revision history
 # Copyright (c) Petr Baudis, 2006
