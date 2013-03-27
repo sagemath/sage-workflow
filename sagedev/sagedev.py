@@ -1,10 +1,35 @@
 import os
-from subprocess import call
+import os.path
+import shutil
+import atexit
+import re
+import time
+from datetime import datetime
+from subprocess import call, check_call
 from trac_interface import TracInterface
 from git_interface import GitInterface
 from user_interface import CmdLineInterface
 
 DOT_SAGE = os.environ.get('DOT_SAGE',os.path.join(os.environ['HOME'], '.sage'))
+
+# regular expressions to parse mercurial patches
+HG_HEADER_REGEX = re.compile(r"^# HG changeset patch$")
+HG_USER_REGEX = re.compile(r"^# User (.*)$")
+HG_DATE_REGEX = re.compile(r"^# Date (\d+) (\d+)$")
+HG_NODE_REGEX = re.compile(r"^# Node ID ([0-9a-f]+)$")
+HG_PARENT_REGEX = re.compile(r"^# Parent  ([0-9a-f]+)$")
+HG_DIFF_REGEX = re.compile(r"^diff -r \d+ -r \d+ (.*)$")
+
+# regular expressions to parse git patches -- at least those created by us
+GIT_FROM_REGEX = re.compile(r"^From: (.*)$")
+GIT_SUBJECT_REGEX = re.compile(r"^Subject: (.*)$")
+GIT_DATE_REGEX = re.compile(r"^Date: (.*)$")
+GIT_DIFF_REGEX = re.compile(r"^diff --git a/(.*) b/(.*)$") # this regex should work for our patches since we do not have spaces in file names
+
+# regular expressions to determine whether a path was written for the new git
+# repository of for the old hg repository
+HG_PATH_REGEX = re.compile(r"^(?=sage/)|(?=module_list.py)|(?=setup.py)|(?=c_lib/)") # TODO: add more patterns
+GIT_PATH_REGEX = re.compile(r"^(?=src/)")
 
 class SageDev(object):
     def __init__(self, devrc=os.path.join(DOT_SAGE, 'devrc'), gitcmd='git',
@@ -18,8 +43,15 @@ class SageDev(object):
         self._username = username
         self.git = GitInterface(self.UI, username, gitcmd)
         self.trac = TracInterface(self.UI, realm, trac, username, password)
+        self.tmp_dir = None
         if not has_ssh_key:
             self._send_ssh_key(username, passwd, devrc, ssh_pubkey_file, ssh_passphrase)
+
+    def _get_tmp_dir(self):
+        if self.tmp_dir is None:
+            from tmpfile import mkdtemp
+            self.tmp_dir = mkdtemp()
+            atexit.register(lambda: shutil.rmtree(self.tmp_dir))
 
     def _get_user_info(self):
         username = self.UI.get_input("Please enter your trac username: ")
@@ -187,9 +219,303 @@ class SageDev(object):
         # Do we want to do this?
         raise NotImplementedError
 
-    def import_patch(self, ticketnum, patchname=None, url=None):
-        # Import a patch from trac, in either new or old repo structure
-        raise NotImplementedError
+    def download_patch(self, ticketnum=None, patchname=None, url=None):
+        """
+        Download a patch to a temporary directory.
+
+        If only ``ticketnum`` is specified and the ticket has only one attachment, download the patch attached to ``ticketnum``.
+
+        If ``ticketnum`` and ``patchname`` are specified, download the patch ``patchname`` attached to ``ticketnum``.
+
+        If ``url`` is specified, download ``url``.
+
+        Raise an error on any other combination of parameters.
+
+        INPUT:
+
+        - ``ticketnum`` -- an int or an Integer or ``None`` (default: ``None``)
+
+        - ``patchname`` -- a string or ``None`` (default: ``None``)
+
+        - ``url`` -- a string or ``None`` (default: ``None``)
+
+        OUTPUT:
+
+        Returns the absolute file name of the returned file.
+
+        """
+        if url:
+            if ticketnum or patchname:
+                raise ValueError("If `url` is specifed, `ticketnum` and `patchname` must not be specified.")
+            tmp_dir = self._get_tmp_dir()
+            ret = os.path.join(tmp_dir,"patch")
+            check_call("wget","-r","-O",ret)
+            return ret
+        elif ticketnum:
+            if patchname:
+                return self.download_patch(url = self.trac._tracsite+"/raw-attachment/ticket/%s/%s"%(ticketnum,patchname))
+            else:
+                attachments = self.trac.attachment_names()
+                if len(attachments) == 0:
+                    raise ValueError("Ticket #%s has no attachments."%ticketnum)
+                if len(attachments) == 1:
+                    return self.download_patch(ticketnum = ticketnum, patchname = attachments[0])
+                else:
+                    raise ValueError("Ticket #%s has more than one attachment but parameter `patchname` is not present."%ticketnum)
+        else:
+            raise ValueError("If `url` is not specified, `ticketnum` must be specified")
+
+    def import_patch(self, ticketnum=None, patchname=None, url=None, local_file=None, diff_format=None, header_format=None, path_format=None):
+        """
+        Import a patch to your working copy.
+
+        If ``local_file`` is specified, apply the file it points to.
+
+        Otherwise, apply the patch using :meth:`download_patch` and apply it.
+
+        INPUT:
+
+        - ``ticketnum`` -- an int or an Integer or ``None`` (default: ``None``)
+
+        - ``patchname`` -- a string or ``None`` (default: ``None``)
+
+        - ``url`` -- a string or ``None`` (default: ``None``)
+
+        - ``local_file`` -- a string or ``None`` (default: ``None``)
+        """
+        if not local_file:
+            if ticketnum or patchname or url:
+                raise ValueError("If `local_file` is specified, `ticketnum`, `patchname`, and `url` must not be specified.")
+            return self.import_patch(local_file = self.download_patch(ticketnum = ticketnum, patchname = patchname, url = url), **kwargs)
+        else:
+            lines = open(local_file).read().splitlines()
+            lines = self._rewrite_patch(lines, to_format="git", from_diff_format=diff_format, from_header_format=header_format, from_path_format=path_format)
+            #TODO: strip whitespace
+            raise NotImplementedError
+
+    def _detect_patch_diff_format(self, lines):
+        """
+        Determine the format of the ``diff`` lines in ``lines``.
+
+        INPUT:
+
+        - ``lines`` -- a list of strings
+
+        OUTPUT:
+
+        Either ``git`` (for ``diff --git`` lines) or ``hg`` (for ``diff -r`` lines).
+
+        EXAMPLES::
+
+            sage: from sagedev import _detect_patch_diff_format as detect
+            >>> detect(["diff -r 1492e39aff50 -r 5803166c5b11 sage/schemes/elliptic_curves/ell_rational_field.py"])
+            "hg"
+            >>> detect(["diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi"])
+            "git"
+
+        TESTS::
+
+            >>> detect(["# HG changeset patch"])
+            >>> detect(["diff -r 1492e39aff50 -r 5803166c5b11 sage/schemes/elliptic_curves/ell_rational_field.py", "diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi"])
+
+        """
+        format = None
+        regexs = { "hg" : HG_DIFF_REGEX, "git" : GIT_DIFF_REGEX }
+
+        for line in lines:
+            for name,regex in regexs.items():
+                if regex.match(line):
+                    if format is None:
+                        format = name
+                    if format != name:
+                        raise ValueError("File appears to have mixed diff formats.")
+
+        if format is None:
+            raise NotImplementedError("Failed to detect diff format.")
+        else:
+            return format
+
+    def _determine_path_format(self, lines, diff_format = None):
+        if diff_format is None:
+            diff_format = self._determine_diff_format(lines)
+
+        path_format = None
+
+        if diff_format == "git":
+            regex = GIT_DIFF_REGEX
+        elif diff_format == "hg":
+            regex = HG_DIFF_REGEX
+        else:
+            raise NotImplementedError(diff_format)
+
+        regexs = { "hg" : HG_PATH_REGEX, "git" : GIT_PATH_REGEX }
+
+        for line in lines:
+            match = regex.match(line)
+            if match:
+                for group in match.groups():
+                    for name, regex in regexs:
+                        if regex.match(line):
+                            if path_format is None:
+                                path_format = name
+                            if path_format != name:
+                                raise ValueError("File appears to have mixed path formats.")
+
+        if path_format is None:
+            raise NotImplementedError("Failed to detect path format.")
+        else:
+           return path_format
+
+    def _rewrite_diff_paths(self, lines, to_format, from_format=None, diff_format=None):
+        if diff_format is None:
+            diff_format = self._determine_diff_format(lines)
+
+        if from_format is None:
+            from_format = self._determine_path_format(lines)
+
+        if to_format == from_format:
+            return lines
+
+        def hg_path_to_git_path(path):
+            if any([path.startswith(p) for p in "module_list.py","setup.py","c_lib/","sage/","doc/"]):
+                return "src/%s"%path
+            else:
+                raise NotImplementedError("mapping hg path `%s`"%path)
+
+        def git_path_to_hg_path(git_path):
+            if any([path.startswith(p) for p in "src/module_list.py","src/setup.py","src/c_lib/","src/sage/","src/doc/"]):
+                return path[4:]
+            else:
+                raise NotImplementedError("mapping git path `%s`"%path)
+
+        def apply_replacements(lines, diff_regex, replacement):
+            ret = []
+            for line in lines:
+                m = diff_regex.match(line)
+                if m:
+                    for path in m.groups():
+                        line = line.replace(path,replacement(path))
+                ret.append(line)
+
+            return ret
+
+        diff_regex = None
+        if diff_format == "hg":
+            diff_regex = HG_DIFF_REGEX
+        elif diff_format == "git":
+            diff_regex = GIT_DIFF_REGEX
+        else:
+            raise NotImplementedError(diff_format)
+
+        if from_format == "hg":
+            self._rewrite_diff_paths(self, apply_replacements(lines, diff_regex, hg_path_to_git_path), from_format="git", to_format=to_format, diff_format=diff_format)
+        elif from_format == "git":
+            if to_format == "hg":
+                return apply_replacements(lines, diff_format, git_path_to_hg_path)
+            else:
+                raise NotImplementedError(to_format)
+        else:
+            raise NotImplementedError(from_format)
+
+    def _determine_patch_header_format(self, lines):
+        if not lines:
+            raise ValueError
+
+        if lines[0] == "# HG changeset patch":
+            for line in lines:
+                if line.startswith("diff -"):
+                    if line.startswith("diff --git "):
+                        return "hg-git"
+                    else:
+                        return "hg"
+        elif lines[0].startswith("From: "):
+            return "git"
+        else:
+            raise NotImplementedError
+
+    def __parse_header(self, lines, regexs):
+        if len(lines) < len(regexs):
+            raise ValueError("patch files must have at least %s lines"%len(regexs))
+
+        for i,regex in enumerate(regexs):
+            if not regex.match(lines[i]):
+                raise ValueError("Malformatted patch. Line `%s` does not match regular expression `%s`."%(lines[i],regex.pattern))
+
+        message = []
+        for i in range(len(regexs),len(lines)):
+            if not lines[i].startswith("diff -"):
+                message.append(lines[i])
+            else: break
+
+        return message, lines[i:]
+
+    def _rewrite_patch_header(self, lines, to_format, from_format = None):
+        """
+        Reformat the patch whose ``lines`` are given to apply to the
+        repository.
+
+        INPUT:
+
+        - ``lines`` -- a list of strings, the lines of the patch file (without
+          the trailing newline)
+
+        - ``from_format`` -- one of ``None``, ``'hg'``, ``'diff'``, ``'git'``
+          (default: ``None``), the format of the patch file.  The format is
+          determined automatically if ``format`` is ``None``.
+
+        - ``to_format`` -- one of ``'hg'``, ``'diff'``, ``'git'`` (default:
+          ``git``), the format of the resulting patch file.
+
+        OUTPUT:
+
+        A list of lines, in the format specified by ``to_format``.
+
+        """
+        if not lines:
+            raise ValueError("empty patch file")
+
+        if from_format is None:
+            from_format = self._determine_patch_format(lines)
+
+        if from_format == to_fromat:
+            return lines
+
+        if from_format == "git":
+            message, diff = self.__parse_header(lines, (GIT_FROM_REGEX, GIT_SUBJECT_REGEX, GIT_DATE_REGEX))
+
+            if to_format == "hg":
+                ret = []
+                ret.append('# HG changeset')
+                ret.append('# User %s'%GIT_FROM_REGEX.match(lines[0]).groups()[0])
+                ret.append('# Date %s 00000'%datetime.strptime(GIT_DATE_REGEX.match(lines[2]).groups()[0], "%a %b %d %H:%M:%S %Z %Y").strftime("%s")) # this is not portable and the time zone is wrong
+                ret.append('# Node ID 0000000000000000000000000000000000000000')
+                ret.append('# Parent  0000000000000000000000000000000000000000')
+                ret.append(GIT_SUBJECT_REGEX.match(lines[1]).groups()[0])
+                ret.extend(message)
+                ret.extend(diff)
+            else:
+                raise NotImplementedError(to_format)
+        elif from_format == "diff":
+            ret = []
+            ret.append('From: "Unknown User" <unknown@sagemath.org>')
+            ret.append('Subject: No Subject')
+            ret.append('Date: %s'%datetime.today().ctime())
+            ret.extend(lines)
+            return self._rewrite_patch_header(ret, to_format=to_format, from_format="git")
+        elif from_format == "hg":
+            message, diff = self.__parse_header(lines, (HG_HEADER_REGEX, HG_USER_REGEX, HG_DATE_REGEX, HG_NODE_REGEX, HG_PARENT_REGEX))
+            ret = []
+            ret.append('From: %s'%HG_USER_REGEX.match(lines[1]).groups()[0])
+            ret.append('Subject: %s'%("No Subject" if not message else message[0]))
+            ret.append('Date: %s'%datetime.utcfromtimestamp(HG_DATE_REGEX.match(lines[2]).groups()[0].ctime()))
+            ret.extend(message[1:])
+            ret.extend(diff)
+            return self._rewrite_patch_header(ret, to_format=to_format, from_format="git")
+        else:
+            raise NotImplementedError(from_format)
+
+    def _rewrite_patch(self, lines, to_format, from_diff_format=None, from_path_format=None, from_header_format=None):
+        return self._rewrite_diff_paths(self._rewrite_patch_header(lines, to_format=to_format, from_format=from_header_format), to_format=to_format, from_diff_format=from_diff_format, from_path_format=from_path_format)
 
     def dependency_join(self, ticketnum=None):
         raise NotImplementedError
