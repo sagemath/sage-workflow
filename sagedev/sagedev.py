@@ -511,7 +511,7 @@ class SageDev(object):
 
         OUTPUT:
 
-        A string, ``'hg'`` (mercurial header), ``'git'`` (git mailbox header), ``'patch'`` (no header)
+        A string, ``'hg'`` (mercurial header), ``'git'`` (git mailbox header), ``'diff'`` (no header)
 
         EXAMPLES::
 
@@ -530,59 +530,72 @@ class SageDev(object):
         elif GIT_FROM_REGEX.match(lines[0]):
             return "git"
         elif lines[0].startswith("diff -"):
-            return "patch"
+            return "diff"
         else:
             raise NotImplementedError("Failed to determine patch header format.")
 
-    def __parse_header(self, lines, regexs):
-        if len(lines) < len(regexs):
-            raise ValueError("patch files must have at least %s lines"%len(regexs))
-
-        for i,regex in enumerate(regexs):
-            if not regex.match(lines[i]):
-                raise ValueError("Malformatted patch. Line `%s` does not match regular expression `%s`."%(lines[i],regex.pattern))
-
-        message = []
-        for i in range(len(regexs),len(lines)):
-            if not lines[i].startswith("diff -"):
-                message.append(lines[i])
-            else: break
-
-        return message, lines[i:]
-
     def _rewrite_patch_header(self, lines, to_format, from_format = None):
         """
-        Reformat the patch whose ``lines`` are given to apply to the
-        repository.
+        Rewrite ``lines`` to match ``to_format``.
 
         INPUT:
 
-        - ``lines`` -- a list of strings, the lines of the patch file (without
-          the trailing newline)
+        - ``lines`` -- a list of strings, the lines of the patch file
+
+        - ``to_format`` -- one of ``'hg'``, ``'diff'``, ``'git'``, the format
+          of the resulting patch file.
 
         - ``from_format`` -- one of ``None``, ``'hg'``, ``'diff'``, ``'git'``
           (default: ``None``), the format of the patch file.  The format is
           determined automatically if ``format`` is ``None``.
 
-        - ``to_format`` -- one of ``'hg'``, ``'diff'``, ``'git'`` (default:
-          ``git``), the format of the resulting patch file.
-
         OUTPUT:
 
         A list of lines, in the format specified by ``to_format``.
+
+        EXAMPLES::
+
+            sage: s = SageDev()
+            sage: lines = r'''# HG changeset patch
+            ....: # User David Roe <roed@math.harvard.edu>
+            ....: # Date 1330837723 28800
+            ....: # Node ID 264dcd0442d217ff8762bcc068fbb6fc12cf5367
+            ....: # Parent  05fca316b08fe56c8eec85151d9a6dde6f435d46
+            ....: #12555: fixed modulus templates
+            ....:
+            ....: diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi'''.splitlines()
+            sage: s._rewrite_patch_header(lines, 'hg') == lines
+            True
+            sage: s._rewrite_patch_header(lines, 'git')
 
         """
         if not lines:
             raise ValueError("empty patch file")
 
         if from_format is None:
-            from_format = self._determine_patch_format(lines)
+            from_format = self._detect_patch_header_format(lines)
 
-        if from_format == to_fromat:
+        if from_format == to_format:
             return lines
 
+        def parse_header(lines, regexs):
+            if len(lines) < len(regexs):
+                raise ValueError("patch files must have at least %s lines"%len(regexs))
+
+            for i,regex in enumerate(regexs):
+                if not regex.match(lines[i]):
+                    raise ValueError("Malformatted patch. Line `%s` does not match regular expression `%s`."%(lines[i],regex.pattern))
+
+            message = []
+            for i in range(len(regexs),len(lines)):
+                if not lines[i].startswith("diff -"):
+                    message.append(lines[i])
+                else: break
+
+            return message, lines[i:]
+
         if from_format == "git":
-            message, diff = self.__parse_header(lines, (GIT_FROM_REGEX, GIT_SUBJECT_REGEX, GIT_DATE_REGEX))
+            message, diff = parse_header(lines, (GIT_FROM_REGEX, GIT_SUBJECT_REGEX, GIT_DATE_REGEX))
 
             if to_format == "hg":
                 ret = []
@@ -604,11 +617,11 @@ class SageDev(object):
             ret.extend(lines)
             return self._rewrite_patch_header(ret, to_format=to_format, from_format="git")
         elif from_format == "hg":
-            message, diff = self.__parse_header(lines, (HG_HEADER_REGEX, HG_USER_REGEX, HG_DATE_REGEX, HG_NODE_REGEX, HG_PARENT_REGEX))
+            message, diff = parse_header(lines, (HG_HEADER_REGEX, HG_USER_REGEX, HG_DATE_REGEX, HG_NODE_REGEX, HG_PARENT_REGEX))
             ret = []
             ret.append('From: %s'%HG_USER_REGEX.match(lines[1]).groups()[0])
             ret.append('Subject: %s'%("No Subject" if not message else message[0]))
-            ret.append('Date: %s'%datetime.utcfromtimestamp(HG_DATE_REGEX.match(lines[2]).groups()[0].ctime()))
+            ret.append('Date: %s'%(datetime.utcfromtimestamp(int(HG_DATE_REGEX.match(lines[2]).groups()[0])).ctime()))
             ret.extend(message[1:])
             ret.extend(diff)
             return self._rewrite_patch_header(ret, to_format=to_format, from_format="git")
