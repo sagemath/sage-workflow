@@ -30,9 +30,9 @@ class TracInterface(object):
         self.UI = UI
         if trac[-1] != '/':
             trac += '/'
+        self._tracsite = trac
         trac += 'login/xmlrpc'
         transport = DigestTransport(realm, trac, username, password)
-        self._tracsite = trac
         self._tracserver = ServerProxy(trac, transport=transport)
 
     def create_ticket(self, summary, description, type, component,

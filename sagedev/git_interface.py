@@ -1,3 +1,4 @@
+import functools
 from subprocess import call, check_output, CalledProcessError
 import types
 import cPickle
@@ -308,10 +309,10 @@ class GitInterface(object):
         self.execute("branch", branchname, trashname, M=True)
         # Need to delete remote branch (and have a hook move it to /g/abandoned/ and update the trac symlink)
 
-def git_cmd_wrapper(git_cmd, interface):
+def git_cmd_wrapper(git_cmd):
     def f(self, *args, **kwds):
         return self.execute(git_cmd, *args, **kwds)
-    return types.MethodType(f, interface, interface)
+    return f
 
 for git_cmd in ["add","bisect","branch","checkout",
                "clone","commit","diff","fetch",
@@ -319,4 +320,4 @@ for git_cmd in ["add","bisect","branch","checkout",
                "mv","pull","push","rebase",
                "reset","rm","show","stash",
                "status","tag"]:
-    setattr(GitInterface, git_cmd, git_cmd_wrapper(git_cmd, GitInterface))
+    setattr(GitInterface, git_cmd, git_cmd_wrapper(git_cmd))

@@ -157,8 +157,8 @@ process-spkg () {
     # convert the SPKG's hg repo to git
     git init --bare "$TMPDIR"/spkg-git/$PKGNAME
     pushd "$TMPDIR"/spkg-git/$PKGNAME > /dev/null
-    hg -R "$TMPDIR"/spkg/$PKGNAME-$PKGVER push . ; # hg-git returns non-zero exit code upon warnings (!?)
-        rm -rf "$TMPDIR"/spkg/$PKGNAME-$PKGVER
+    $WORKFLOW_DIR/fast-export/hg-fast-export.sh -r "$TMPDIR"/spkg/$PKGNAME-$PKGVER -M master
+    rm -rf "$TMPDIR"/spkg/$PKGNAME-$PKGVER
 
     # rewrite paths
     # hacked into git-filter-branch so that we can use a bash array across
