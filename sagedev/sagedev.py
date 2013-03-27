@@ -501,21 +501,38 @@ class SageDev(object):
         else:
             raise NotImplementedError(from_format)
 
-    def _determine_patch_header_format(self, lines):
-        if not lines:
-            raise ValueError
+    def _detect_patch_header_format(self, lines):
+        """
+        Detect the format of the patch header in ``lines``.
 
-        if lines[0] == "# HG changeset patch":
-            for line in lines:
-                if line.startswith("diff -"):
-                    if line.startswith("diff --git "):
-                        return "hg-git"
-                    else:
-                        return "hg"
-        elif lines[0].startswith("From: "):
+        INPUT:
+
+        - ``lines`` -- a list of strings
+
+        OUTPUT:
+
+        A string, ``'hg'`` (mercurial header), ``'git'`` (git mailbox header), ``'patch'`` (no header)
+
+        EXAMPLES::
+
+            sage: s = SageDev()
+            sage: s._detect_patch_header_format(['# HG changeset patch'])
+            'hg'
+            sage: s._detect_patch_header_format(['From: foo@bar'])
+            'git'
+
+        """
+        if not lines:
+            raise ValueError("patch is empty")
+
+        if HG_HEADER_REGEX.match(lines[0]):
+            return "hg"
+        elif GIT_FROM_REGEX.match(lines[0]):
             return "git"
+        elif lines[0].startswith("diff -"):
+            return "patch"
         else:
-            raise NotImplementedError
+            raise NotImplementedError("Failed to determine patch header format.")
 
     def __parse_header(self, lines, regexs):
         if len(lines) < len(regexs):
