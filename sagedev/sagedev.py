@@ -28,7 +28,7 @@ GIT_DIFF_REGEX = re.compile(r"^diff --git a/(.*) b/(.*)$") # this regex should w
 
 # regular expressions to determine whether a path was written for the new git
 # repository of for the old hg repository
-HG_PATH_REGEX = re.compile(r"^(?=sage/)|(?=module_list.py)|(?=setup.py)|(?=c_lib/)") # TODO: add more patterns
+HG_PATH_REGEX = re.compile(r"^(?=sage/)|(?=module_list\.py)|(?=setup\.py)|(?=c_lib/)") # TODO: add more patterns
 GIT_PATH_REGEX = re.compile(r"^(?=src/)")
 
 class SageDev(object):
