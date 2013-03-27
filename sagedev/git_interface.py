@@ -31,7 +31,7 @@ class GitInterface(object):
     def reset_to_clean_state(self, interactive=True):
         state = self.get_state()
         if not state:
-            return
+            return True
         if state:
             state = state[0]
         if state == "am":
