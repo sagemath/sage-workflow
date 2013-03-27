@@ -37,6 +37,7 @@ for file in $(cat <<FILES
   $SAGE_BUILD/root-spkg-install
   $SAGE_BUILD/gen_html
   $SAGE_BUILD/standard
+  $SAGE_BUILD/README.txt
 FILES
 )
 do
@@ -93,10 +94,12 @@ apply_patch ntl1
 apply_patch singular1
 apply_patch sagenb1
 apply_patch hg1
+apply_patch gcc1
 apply_patch makefile1
 apply_patch whitespace1
 apply_patch devel_doctests1
 apply_patch makefile2
 apply_patch sage_data1
 apply_patch sage-envpy1
+apply_patch long_doctests1
 apply_patch setup1
