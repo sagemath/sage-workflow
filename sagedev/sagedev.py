@@ -78,7 +78,7 @@ class SageDev(object):
                     self.git.create_branch(self, ticketnum, at_master=True)
         if not self.exists(ticketnum):
             self.git.fetch_ticket(ticketnum)
-        self.git.switch(ticketnum)
+        self.git.switch("t/" + ticketnum)
 
     def save(self):
         curticket = self.git.current_ticket()
