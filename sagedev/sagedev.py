@@ -251,13 +251,13 @@ class SageDev(object):
                 raise ValueError("If `url` is specifed, `ticketnum` and `patchname` must not be specified.")
             tmp_dir = self._get_tmp_dir()
             ret = os.path.join(tmp_dir,"patch")
-            check_call("wget","-r","-O",ret)
+            check_call(["wget","-r","-O",ret,url])
             return ret
         elif ticketnum:
             if patchname:
-                return self.download_patch(url = self.trac._tracsite+"/raw-attachment/ticket/%s/%s"%(ticketnum,patchname))
+                return self.download_patch(url = self.trac._tracsite+"raw-attachment/ticket/%s/%s"%(ticketnum,patchname))
             else:
-                attachments = self.trac.attachment_names()
+                attachments = self.trac.attachment_names(ticketnum)
                 if len(attachments) == 0:
                     raise ValueError("Ticket #%s has no attachments."%ticketnum)
                 if len(attachments) == 1:
