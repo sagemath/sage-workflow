@@ -108,12 +108,12 @@ class GitInterface(object):
     def save(self):
         diff = self.UI.confirm("Would you like to see a diff of the changes?",
                                default_yes=False)
-        if diff == "yes":
+        if diff:
             self.execute("diff")
         added = self.files_added()
         for F in added:
             toadd = self.UI.confirm("Would you like to start tracking %s?"%F)
-            if toadd == "yes":
+            if toadd:
                 self.add_file(F)
         msg = self.UI.get_input("Please enter a commit message:")
         self.commit_all(m=msg)
