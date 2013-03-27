@@ -1,11 +1,47 @@
 from subprocess import call, check_output, CalledProcessError
 import types
+import cPickle
+from cStringIO import StringIO
+import random
+
+class SavingDict(dict):
+    def __init__(self, filename, **kwds):
+        self._filename = filename
+        dict.__init__(self, **kwds)
+
+    def __setitem__(self, key, value):
+        dict.__setitem__(self, key, value)
+        tmpfile = self._filename + '%016x'%(random.randrange(256**8))
+        s = cPickle.dumps(self, protocol=2)
+        with open(tmpfile, 'wb') as F:
+            F.write(s)
+        # This move is atomic
+        os.rename(tmpfile, self._filename)
+        os.unlink(tmpfile)
 
 class GitInterface(object):
-    def __init__(self, UI, username, gitcmd='git'):
+    def __init__(self, UI, username, ticket_file, branch_file, gitcmd='git'):
         self._gitcmd = gitcmd
         self._username = username
         self.UI = UI
+        self._ticket, self._branch = self._load_ticket_branches(ticket_file, branch_file)
+
+    def _load_ticket_branches(self, ticket_file, branch_file):
+        if os.path.exists(ticket_file):
+            with open(ticket_file) as F:
+                s = F.read()
+                unpickler = cPickle.Unpickler(StringIO(s))
+                ticket_dict = unpickle.load()
+        else:
+            ticket_dict = {}
+        if os.path.exists(branch_file):
+            with open(branch_file) as F:
+                s = F.read()
+                unpickler = cPickle.Unpickler(StringIO(s))
+                branch_dict = unpickle.load()
+        else:
+            branch_dict = {}
+        return SavingDict(ticket_file, **ticket_dict), SavingDict(branch_file, **branch_dict)
 
     def released_sage_ver(self):
         # should return a string with the most recent released version
