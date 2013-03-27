@@ -12,7 +12,7 @@ class GitInterface(object):
             if os.environ.has_key("SAGE_DOT_GIT"):
                 dot_git = os.environ.get("SAGE_DOT_GIT")
             else:
-                raise ValueError("`dot_git` not specified and `SAGE_DOT_GIT` not set.")
+                dot_git = ".git"
         if not os.path.exists(dot_git):
             raise ValueError("`%s` does not point to an existing directory."%dot_git)
         self._dot_git = dot_git
