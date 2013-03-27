@@ -306,7 +306,7 @@ class SageDev(object):
             outfile = os.path.join(self._get_tmp_dir(), "patch_new")
             open(outfile, 'w').writelines("\n".join(lines)+"\n")
             print "Trying to apply reformatted patch `%s` ..."%outfile
-            am_args = ["--ignore-whitespace","--verbose","--resolvemsg=''",outfile]
+            am_args = ["--ignore-whitespace","--resolvemsg=''",outfile]
             am = self.git.am(*am_args)
             if am: # apply failed
                 if not self.UI.confirm("The patch does not apply cleanly. Would you like to apply it anyway and create reject files for the parts that do not apply?", default_yes=False):
