@@ -131,7 +131,17 @@ class GitInterface(object):
         self.commit_all(m=msg)
 
     def local_branches(self):
-        raise NotImplementedError
+        """
+        Return the list of the local branches
+
+        EXAMPLES::
+
+            sage: git.local_branches()
+            ['master', 't/13624', 't/13838']
+        """
+        result = self._run_git("stdout", "show-ref", ["--heads"], {}).split()
+        result = [result[2*i+1][11:] for i in range(len(result)/2)]
+        return result
 
     def current_branch(self):
         try:
@@ -232,7 +242,18 @@ class GitInterface(object):
             raise RuntimeError # should never reach here
 
     def branch_exists(self, branch):
-        raise NotImplementedError
+        """
+        EXAMPLES::
+
+            sage: import sagedev
+            sage: cd ..
+            sage: git = sagedev.SageDev().git
+            sage: git.branch_exists("master")
+            True
+            sage: git.branch_exists("asdlkfjasdlf")
+            False
+        """
+        return not self.execute("show-ref", "--quiet", "--verify", "refs/heads/%s"%branch)
 
     def ref_exists(self, ref):
         raise NotImplementedError
