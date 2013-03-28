@@ -32,10 +32,11 @@ class DigestTransport(Transport):
 
         return self.parse_response(response)
 
-class TracInterface(ServerProxy):
+class TracInterface(object):
     def __init__(self, UI, config):
         self._UI = UI
         self._config = config
+        # Caches for the analogous single-underscore properties
         self.__anonymous_server_proxy = None
         self.__authenticated_server_proxy = None
 
