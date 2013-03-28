@@ -1316,6 +1316,14 @@ class SageDev(object):
             sage: s._rewrite_patch_header(lines, 'git') == lines
             True
             sage: s._rewrite_patch_header(lines, 'hg-export')
+            ['# HG changeset',
+             '# User David Roe <roed@math.harvard.edu>',
+             '# Date 1330834123.0 00000',
+             '# Node ID 0000000000000000000000000000000000000000',
+             '# Parent  0000000000000000000000000000000000000000',
+             '#12555: fixed modulus templates',
+             '',
+             'diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi']
 
         """
         if not lines:
