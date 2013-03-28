@@ -92,29 +92,52 @@ def download(ticket=None, force=False):
 
     INPUT:
 
-    - ``ticket`` -- an integer or ``None`` (default: ``None``), if ``None`` 
+    - ``ticket`` -- an integer or ``None`` (default: ``None``), if an integer,
+      then merge the branch associated to the trac ticket ``ticket`` into the
+      current branch. The same happens if ``ticket`` is ``None`` and this
+      branch is associated to a ticket and it is not following a non-user
+      remote branch. If this branch is following a non-user remote branch, then
+      this branch will be merged.
 
+    - ``force`` -- a boolean (default: ``False``), if ``False``, try to merge
+      the remote branch into this branch; if ``False``, do not merge, but make
+      this branch equal to the remote branch.
 
-    force - dont merge, just take the upstream version
     """
+    raise NotImplementedError
 
 def remote_status(ticket=None):
     """
-    Show the remote status of a ticket or a branch.
+    Show the remote status of ``ticket``.
 
-    If ``ticket`` is ``None`` and we're currently on a branch associated to a
-    ticket, then show the log and difference of the upstream ticket.
+    For tickets and remote branches, this shows the commit log of the branch on
+    the trac ticket a summary of their difference to your related branches, and
+    an overview of patchbot results (where applicable).
 
-    ... Show the log of ``tickets`` or of the current ticket if ``None``. + Possibly some more info
-    ... If not a ticket, then the remote tracking branch.
-    ... Of all your tickets if ``'all'``.
-    ... patchbot status
+    INPUT:
+
+    - ``ticket`` -- an integer, a string, a list of integers and strings, or
+      ``None`` (default: ``None``); if ``None`` and the current branch is
+      associated to a ticket, show the information for that ticket branch; if
+      its not associated to aticket, show the information for its remote
+      tracking branch.
+
     """
+    raise NotImplementedError
 
 def diff(base="master/dependencies/'commit default'/..."):
     """
+    Show how the current file system differs from ``base``.
+
+    INPUT:
+
+    - ``base`` -- show the differences against the latest ``'commit'`` (the
+      default), against the branch ``'master'`` (or any other branch name), or
+      the merge of the ``'dependencies'`` of the current ticket (if the
+      dependencies merge cleanly)
 
     """
+    raise NotImplementedError
 
 def prune_closed_tickets():
     """
@@ -581,8 +604,10 @@ class SageDev(object):
             if patchname or url:
                 raise ValueError("If `local_file` is specified, `patchname`, and `url` must not be specified.")
             if ticketnum:
-                self.git.branch("t/%s"%ticketnum)
-                self.git.checkout("t/%s"%ticketnum)
+                branch="t/%s"%ticketnum
+                if not self.git.branch_exists(branch):
+                    self.git.branch(branch)
+                self.git.checkout(branch)
             lines = open(local_file).read().splitlines()
             lines = self._rewrite_patch(lines, to_header_format="git", to_path_format="new", from_diff_format=diff_format, from_header_format=header_format, from_path_format=path_format)
             outfile = os.path.join(self._get_tmp_dir(), "patch_new")
