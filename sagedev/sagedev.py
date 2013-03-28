@@ -434,6 +434,10 @@ class SageDev(object):
         """
         raise NotImplementedError
 
+    ##
+    ## Everything below this line should probably not be part of the public interface
+    ##
+
     def _get_tmp_dir(self):
         if self.tmp_dir is None:
             self.tmp_dir = tempfile.mkdtemp()
