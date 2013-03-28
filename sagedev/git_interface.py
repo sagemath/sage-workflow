@@ -1,4 +1,5 @@
 import functools
+import os.path
 from subprocess import call, check_output, CalledProcessError
 import types
 import cPickle
@@ -24,6 +25,7 @@ class SavingDict(dict):
 class GitInterface(object):
     def __init__(self, UI, config):
         self._config = config
+        self._dot_git = config['dot_git']
         self.UI = UI
         ssh_git = 'ssh -i "%s"' % config['sshkeyfile']
         ssh_git = 'GIT_SSH="%s" ' % ssh_git
@@ -51,6 +53,38 @@ class GitInterface(object):
         # should return a string with the most recent released version
         # of Sage (in this branch's past?)
         raise NotImplementedError
+
+    def get_state(self):
+        ret = []
+        if os.path.exists(os.path.join(self._dot_git,"rebase-apply")):
+            ret.append("am")
+        return ret
+
+    def reset_to_clean_state(self, interactive=True):
+        state = self.get_state()
+        if not state:
+            return True
+        if state:
+            state = state[0]
+        if state == "am":
+            if interactive and not self.UI.confirm("Your repository is in an unclean state. It seems you are in the middle of a merge of some sort. To run this command you have to reset your respository to a clean state. Do you want me to reset your respository? (This will discard any changes which are not commited.)"):
+                return False
+
+            self.am("--abort")
+            return self.reset_to_clean_state(interactive=interactive)
+        else:
+            raise NotImplementedError(state)
+
+    def reset_to_clean_working_directory(self, interactive=True):
+        if not self.has_uncommitted_changes():
+            return True
+
+        if interactive and not self.UI.confirm("You have uncommited changes in your working directory. To run this command you have to discard your changes. Do you want me to discard any changes which are not commited?"):
+            return False
+
+        self.reset("--hard")
+
+        return True
 
     def _clean_str(self, s):
         # for now, no error checking
@@ -117,12 +151,12 @@ class GitInterface(object):
     def save(self):
         diff = self.UI.confirm("Would you like to see a diff of the changes?",
                                default_yes=False)
-        if diff == "yes":
+        if diff:
             self.execute("diff")
         added = self.files_added()
         for F in added:
             toadd = self.UI.confirm("Would you like to start tracking %s?"%F)
-            if toadd == "yes":
+            if toadd:
                 self.add_file(F)
         msg = self.UI.get_input("Please enter a commit message:")
         self.commit_all(m=msg)
@@ -317,7 +351,7 @@ def git_cmd_wrapper(git_cmd):
         return self.execute(git_cmd, *args, **kwds)
     return f
 
-for git_cmd in ["add","bisect","branch","checkout",
+for git_cmd in ["add","am","apply","bisect","branch","checkout",
                "clone","commit","diff","fetch",
                "grep","init","log","merge",
                "mv","pull","push","rebase",

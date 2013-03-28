@@ -96,7 +96,7 @@ apply_patch sagenb1
 apply_patch hg1
 apply_patch gcc1
 apply_patch makefile1
-apply_patch whitespace1
+#apply_patch whitespace1
 apply_patch devel_doctests1
 apply_patch makefile2
 apply_patch sage_data1

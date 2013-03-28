@@ -20,7 +20,7 @@ HG_HEADER_REGEX = re.compile(r"^# HG changeset patch$")
 HG_USER_REGEX = re.compile(r"^# User (.*)$")
 HG_DATE_REGEX = re.compile(r"^# Date (\d+) (-?\d+)$")
 HG_NODE_REGEX = re.compile(r"^# Node ID ([0-9a-f]+)$")
-HG_PARENT_REGEX = re.compile(r"^# Parent  ([0-9a-f]+)$")
+HG_PARENT_REGEX = re.compile(r"^# Parent +([0-9a-f]+)$")
 HG_DIFF_REGEX = re.compile(r"^diff -r [0-9a-f]+ -r [0-9a-f]+ (.*)$")
 PM_DIFF_REGEX = re.compile(r"^(?:(?:\+\+\+)|(?:---)) [ab]/([^ ]*)(?: .*)?$")
 
@@ -86,6 +86,11 @@ class SageDev(object):
             cfg.set('git','ticketfile',os.path.join(DOT_SAGE, 'branch_to_ticket'))
         if not cfg.has_option('git','branchfile'):
             cfg.set('git','branchfile',os.path.join(DOT_SAGE, 'ticket_to_branch'))
+        if not cfg.has_option('git','dot_git'):
+            dot_git = os.environ.get("SAGE_DOT_GIT", ".git")
+            if not os.path.exists(dot_git):
+                raise ValueError("`%s` does not point to an existing directory."%dot_git)
+            cfg.set('git','dot_git',dot_git)
         cfg.set('git','username',cfg['trac']['username'])
         if not cfg.has_option('git', 'sshkeyfile'):
             cfg.set('git','sshkeyfile',os.path.join(os.environ['HOME'], '.ssh', 'id_rsa'))
@@ -352,16 +357,43 @@ class SageDev(object):
 
         - ``local_file`` -- a string or ``None`` (default: ``None``)
         """
+        if not self.git.reset_to_clean_state(): return
+        if not self.git.reset_to_clean_working_directory(): return
+
         if not local_file:
             return self.import_patch(local_file = self.download_patch(ticketnum = ticketnum, patchname = patchname, url = url), diff_format=diff_format, header_format=header_format, path_format=path_format)
         else:
-            if ticketnum or patchname or url:
-                raise ValueError("If `local_file` is specified, `ticketnum`, `patchname`, and `url` must not be specified.")
+            if patchname or url:
+                raise ValueError("If `local_file` is specified, `patchname`, and `url` must not be specified.")
+            if ticketnum:
+                self.git.branch("t/%s"%ticketnum)
+                self.git.checkout("t/%s"%ticketnum)
             lines = open(local_file).read().splitlines()
             lines = self._rewrite_patch(lines, to_header_format="git", to_path_format="new", from_diff_format=diff_format, from_header_format=header_format, from_path_format=path_format)
             outfile = os.path.join(self._get_tmp_dir(), "patch_new")
-            print "Writing reformatted patch to %s"%outfile
             open(outfile, 'w').writelines("\n".join(lines)+"\n")
+            print "Trying to apply reformatted patch `%s` ..."%outfile
+            shared_args = ["--ignore-whitespace",outfile]
+            am_args = shared_args+["--resolvemsg=''"]
+            am = self.git.am(*am_args)
+            if am: # apply failed
+                if not self.UI.confirm("The patch does not apply cleanly. Would you like to apply it anyway and create reject files for the parts that do not apply?", default_yes=False):
+                    print "Not applying patch."
+                    self.git.reset_to_clean_state(interactive=False)
+                    return
+
+                apply_args = shared_args + ["--reject"]
+                apply = self.git.apply(*apply_args)
+                if apply: # apply failed
+                    if self.UI.get_input("The patch did not apply cleanly. Please integrate the `.rej` files that were created and resolve conflicts. When you did, type `resolved`. If you want to abort this process, type `abort`.",["resolved","abort"]) == "abort":
+                        self.git.reset_to_clean_state(interactive=False)
+                        self.git.reset_to_clean_working_directory(interactive=False)
+                        return
+                else:
+                    print "It seemed that the patch would not apply, but in fact it did."
+
+                self.git.add("--update")
+                self.git.am("--resolved")
 
     def _detect_patch_diff_format(self, lines):
         """
@@ -595,13 +627,17 @@ class SageDev(object):
 
         OUTPUT:
 
-        A string, ``'hg'`` (mercurial header), ``'git'`` (git mailbox header), ``'diff'`` (no header)
+        A string, ``'hg-export'`` (mercurial export header), ``'hg'``
+        (mercurial header), ``'git'`` (git mailbox header), ``'diff'`` (no
+        header)
 
         EXAMPLES::
 
             sage: s = SageDev()
-            sage: s._detect_patch_header_format(['# HG changeset patch'])
+            sage: s._detect_patch_header_format(['# HG changeset patch','# Parent 05fca316b08fe56c8eec85151d9a6dde6f435d46'])
             'hg'
+            sage: s._detect_patch_header_format(['# HG changeset patch','# User foo@bar.com'])
+            'hg-export'
             sage: s._detect_patch_header_format(['From: foo@bar'])
             'git'
 
@@ -610,13 +646,16 @@ class SageDev(object):
             raise ValueError("patch is empty")
 
         if HG_HEADER_REGEX.match(lines[0]):
-            return "hg"
+            if HG_USER_REGEX.match(lines[1]):
+                return "hg-export"
+            elif HG_PARENT_REGEX.match(lines[1]):
+                return "hg"
         elif GIT_FROM_REGEX.match(lines[0]):
             return "git"
         elif lines[0].startswith("diff -"):
             return "diff"
-        else:
-            raise NotImplementedError("Failed to determine patch header format.")
+
+        raise NotImplementedError("Failed to determine patch header format.")
 
     def _rewrite_patch_header(self, lines, to_format, from_format = None):
         """
@@ -626,8 +665,8 @@ class SageDev(object):
 
         - ``lines`` -- a list of strings, the lines of the patch file
 
-        - ``to_format`` -- one of ``'hg'``, ``'diff'``, ``'git'``, the format
-          of the resulting patch file.
+        - ``to_format`` -- one of ``'hg'``, ``'hg-export'``, ``'diff'``,
+          ``'git'``, the format of the resulting patch file.
 
         - ``from_format`` -- one of ``None``, ``'hg'``, ``'diff'``, ``'git'``
           (default: ``None``), the format of the patch file.  The format is
@@ -648,7 +687,7 @@ class SageDev(object):
             ....: #12555: fixed modulus templates
             ....:
             ....: diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi'''.splitlines()
-            sage: s._rewrite_patch_header(lines, 'hg') == lines
+            sage: s._rewrite_patch_header(lines, 'hg-export') == lines
             True
             sage: lines = s._rewrite_patch_header(lines, 'git'); lines
             ['From: David Roe <roed@math.harvard.edu>',
@@ -658,7 +697,7 @@ class SageDev(object):
              'diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi']
             sage: s._rewrite_patch_header(lines, 'git') == lines
             True
-            sage: s._rewrite_patch_header(lines, 'hg')
+            sage: s._rewrite_patch_header(lines, 'hg-export')
 
         """
         if not lines:
@@ -689,7 +728,7 @@ class SageDev(object):
         if from_format == "git":
             message, diff = parse_header(lines, (GIT_FROM_REGEX, GIT_SUBJECT_REGEX, GIT_DATE_REGEX))
 
-            if to_format == "hg":
+            if to_format == "hg-export":
                 ret = []
                 ret.append('# HG changeset')
                 ret.append('# User %s'%GIT_FROM_REGEX.match(lines[0]).groups()[0])
@@ -699,6 +738,7 @@ class SageDev(object):
                 ret.append(GIT_SUBJECT_REGEX.match(lines[1]).groups()[0])
                 ret.extend(message)
                 ret.extend(diff)
+                return ret
             else:
                 raise NotImplementedError(to_format)
         elif from_format == "diff":
@@ -709,6 +749,15 @@ class SageDev(object):
             ret.extend(lines)
             return self._rewrite_patch_header(ret, to_format=to_format, from_format="git")
         elif from_format == "hg":
+            message, diff = parse_header(lines, (HG_HEADER_REGEX, HG_PARENT_REGEX))
+            ret = []
+            ret.append('From: "Unknown User" <unknown@sagemath.org>')
+            ret.append('Subject: No Subject')
+            ret.append('Date: %s'%email.utils.formatdate(time.time()))
+            ret.extend(message[1:])
+            ret.extend(diff)
+            return self._rewrite_patch_header(ret, to_format=to_format, from_format="git")
+        elif from_format == "hg-export":
             message, diff = parse_header(lines, (HG_HEADER_REGEX, HG_USER_REGEX, HG_DATE_REGEX, HG_NODE_REGEX, HG_PARENT_REGEX))
             ret = []
             ret.append('From: %s'%HG_USER_REGEX.match(lines[1]).groups()[0])
