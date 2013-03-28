@@ -13,320 +13,6 @@ from trac_interface import TracInterface
 from git_interface import GitInterface
 from user_interface import CmdLineInterface
 
-def switch_ticket(ticket, branchname=None, offline=False):
-    """
-    Switch to a branch associated to ``ticket``.
-
-    INPUT:
-
-    - ``ticket`` -- an integer or a string. If a string, then switch to the
-      branch ``ticket`` (``branchname`` must be ``None`` in this case).  If an
-      integer, it must be the number of a ticket. If ``branchname`` is
-      ``None``, then a new name for a ``branch`` is chosen. If ``branchname``
-      is the name of a branch that exists locally, then associate this branch
-      to ``ticket``. Otherwise, switch to a new branch ``branchname``. If
-      ``offline`` is ``False``, merge the branch mentioned on the trac ticket
-      (if there is such a branch) into that branch.
-
-    - ``branchname`` -- a string or ``None`` (default: ``None``)
-
-    - ``offline`` -- a boolean (default: ``False``)
-
-    """
-    raise NotImplementedError
-
-def create_ticket(branchname=None, remote_branch=None):
-    """
-    Create a new ticket on trac.
-
-    INPUT:
-
-    - ``branchname`` -- a string of ``None`` (default: ``None``), the name of
-      the local branch that will used for the new ticket; if ``None``, a name
-      will be chosen automatically.
-
-    - ``remote_branch`` -- a string or ``Neon`` (default: ``None``), if a
-      string, the name of the remote branch this branch should be tracking.
-
-    """
-    raise NotImplementedError
-
-def commit(message=None, interactive=False):
-    """
-    Create a commit from the pending changes on the current branch.
-
-    INPUT:
-
-    - ``message`` -- a string or ``None`` (default: ``None``), the message of
-      the commit; if ``None``, prompt for a message.
-
-    - ``interactive`` -- a boolean (default: ``False``), interactively select
-      which part of the changes should be part of the commit. Prompts for the
-      addition of untracked files even if ``interactive`` is ``False``.
-
-    """
-    raise NotImplementedError
-
-def upload(ticket=None, remote_branch=None, force=False):
-    """
-    Upload the current branch to the sage repository.
-
-    INPUT:
-
-    - ``ticket`` -- an integer or ``None`` (default: ``None``), if an integer
-      or if this branch is associated to a ticket, set the trac ticket to point
-      to this branch.
-
-    - ``remote_branch`` -- a string or ``None`` (default: ``None``), the remote
-      branch to upload to; if ``None``, then a default is chosen (how?)
-
-    - ``force`` -- a boolean (default: ``False``), whether to upload if this is
-      not a fast-forward.
-
-    """
-    raise NotImplementedError
-
-def download(ticket=None, force=False):
-    """
-    Download the changes made to a remote branch into the current branch.
-
-    INPUT:
-
-    - ``ticket`` -- an integer or ``None`` (default: ``None``), if an integer,
-      then merge the branch associated to the trac ticket ``ticket`` into the
-      current branch. The same happens if ``ticket`` is ``None`` and this
-      branch is associated to a ticket and it is not following a non-user
-      remote branch. If this branch is following a non-user remote branch, then
-      this branch will be merged.
-
-    - ``force`` -- a boolean (default: ``False``), if ``False``, try to merge
-      the remote branch into this branch; if ``False``, do not merge, but make
-      this branch equal to the remote branch.
-
-    """
-    raise NotImplementedError
-
-def remote_status(ticket=None):
-    """
-    Show the remote status of ``ticket``.
-
-    For tickets and remote branches, this shows the commit log of the branch on
-    the trac ticket a summary of their difference to your related branches, and
-    an overview of patchbot results (where applicable).
-
-    INPUT:
-
-    - ``ticket`` -- an integer, a string, a list of integers and strings, or
-      ``None`` (default: ``None``); if ``None`` and the current branch is
-      associated to a ticket, show the information for that ticket branch; if
-      its not associated to aticket, show the information for its remote
-      tracking branch.
-
-    """
-    raise NotImplementedError
-
-def import_patch(self, ticketnum=None, patchname=None, url=None, local_file=None, diff_format=None, header_format=None, path_format=None):
-    """
-    Import a patch to your working copy.
-
-    If ``local_file`` is specified, apply the file it points to.
-
-    Otherwise, apply the patch using :meth:`download_patch` and apply it.
-
-    INPUT:
-
-    - ``ticketnum`` -- an int or an Integer or ``None`` (default: ``None``) ## REMOVE
-
-    - ``patchname`` -- a string or ``None`` (default: ``None``)
-
-    - ``url`` -- a string or ``None`` (default: ``None``)
-
-    - ``local_file`` -- a string or ``None`` (default: ``None``)
-    """
-    if not self.git.reset_to_clean_state(): return
-    if not self.git.reset_to_clean_working_directory(): return
-
-    if not local_file:
-        return self.import_patch(local_file = self.download_patch(ticketnum = ticketnum, patchname = patchname, url = url), diff_format=diff_format, header_format=header_format, path_format=path_format)
-    else:
-        if patchname or url:
-            raise ValueError("If `local_file` is specified, `patchname`, and `url` must not be specified.")
-        if ticketnum:
-            branch="t/%s"%ticketnum
-            if not self.git.branch_exists(branch):
-                self.git.branch(branch)
-            self.git.checkout(branch)
-        lines = open(local_file).read().splitlines()
-        lines = self._rewrite_patch(lines, to_header_format="git", to_path_format="new", from_diff_format=diff_format, from_header_format=header_format, from_path_format=path_format)
-        outfile = os.path.join(self._get_tmp_dir(), "patch_new")
-        open(outfile, 'w').writelines("\n".join(lines)+"\n")
-        print "Trying to apply reformatted patch `%s` ..."%outfile
-        shared_args = ["--ignore-whitespace",outfile]
-        am_args = shared_args+["--resolvemsg=''"]
-        am = self.git.am(*am_args)
-        if am: # apply failed
-            if not self.UI.confirm("The patch does not apply cleanly. Would you like to apply it anyway and create reject files for the parts that do not apply?", default_yes=False):
-                print "Not applying patch."
-                self.git.reset_to_clean_state(interactive=False)
-                return
-
-            apply_args = shared_args + ["--reject"]
-            apply = self.git.apply(*apply_args)
-            if apply: # apply failed
-                if self.UI.get_input("The patch did not apply cleanly. Please integrate the `.rej` files that were created and resolve conflicts. When you did, type `resolved`. If you want to abort this process, type `abort`.",["resolved","abort"]) == "abort":
-                    self.git.reset_to_clean_state(interactive=False)
-                    self.git.reset_to_clean_working_directory(interactive=False)
-                    return
-            else:
-                print "It seemed that the patch would not apply, but in fact it did."
-
-            self.git.add("--update")
-            self.git.am("--resolved")
-
-def diff(base="commit"):
-    """
-    Show how the current file system differs from ``base``.
-
-    INPUT:
-
-    - ``base`` -- show the differences against the latest ``'commit'`` (the
-      default), against the branch ``'master'`` (or any other branch name), or
-      the merge of the ``'dependencies'`` of the current ticket (if the
-      dependencies merge cleanly)
-
-    """
-    raise NotImplementedError
-
-def prune_closed_tickets():
-    """
-    Remove branches for tickets that are already merged into master.
-    """
-    raise NotImplementedError
-
-def abandon_ticket(ticket=None):
-    """
-    Abandon a ticket branch.
-
-    INPUT:
-
-    - ``ticket`` -- an integer or ``None`` (default: ``None``), remove the
-      branch for ``ticket`` (or the current branch if ``None``). Also removes
-      the users remote tracking branch.
-
-    """
-    raise NotImplementedError
-
-def gather(branchname, *tickets):
-    """
-    Create a new branch ``branchname`` with ``tickets`` applied.
-
-    INPUT:
-
-    - ``branchname`` -- a string, the name of the new branch
-
-    - ``tickets`` -- a list of integers or strings; for an integer, the branch
-      on the trac ticket gets merged, for a string, that branch (or remote
-      branch) gets merged.
-
-    """
-    raise NotImplementedError
-
-def show_dependencies(ticket=None, all=False): # all = recursive
-    """
-    Show the dependencies of the given ticket.
-
-    INPUT:
-
-    - ``ticket`` -- string, int or None (default ``None``), the ticket
-      for which dependencies are desired.  An int indicates a ticket
-      number while a string indicates a branch name; ``None`` asks for
-      the dependencies of the current ticket.
-
-    - ``all`` -- boolean (default ``True``), whether to recursively
-      list all tickets on which this ticket depends (in depth-first
-      order).
-
-    .. NOTE::
-
-        Ticket dependencies are stored locally and only updated with
-        respect to the remote server during :meth:`upload` and
-        :meth:`download`.
-    """
-
-def merge(self, ticket="master", create_dependency=True, download=False):
-    """
-    Merge changes from another branch into the current branch.
-
-    INPUT:
-
-    - ``ticket`` -- string or int (default ``"master"``), a branch,
-      ticket number or the current set of dependencies (indicated by
-      the string ``"dependencies"``): the source of the changes to be
-      merged.  If ``ticket = "dependencies"`` then each updated
-      dependency is merged in one by one, starting with the one listed
-      first in the dependencies field on trac.  An int indicates a
-      ticket number while a string indicates a branch name.
-
-    - ``create_dependency`` -- boolean (default ``True``), whether to
-      append the other ticket to the list of dependencies.  Listing
-      the other ticket as a dependency has the following consequences:
-
-      - the other ticket must be positively reviewed and merged before
-        this ticket may be merged into master.  The commits included
-        from a dependency don't need to be reviewed in this ticket,
-        whereas commits reviewed in this ticket from a non-dependency
-        may make reviewing the other ticket easier.
-
-      - you can more easily merge in future changes to depdencies.  So
-        if you need a feature from another ticket it may be
-        appropriate to create a dependency to that you may more easily
-        benefit from others' work on that ticket.
-
-      - if you depend on another ticket then you need to worry about
-        the progress on that ticket.  If that ticket is still being
-        actively developed then you may need to make many merges to
-        keep up.
-
-      Note that dependencies are stored locally and only updated with
-      respect to the remote server during :meth:`upload` and
-      :meth:`download`.
-
-    - ``download`` -- boolean (default ``False``), whether to download
-      the most recent version of the other ticket(s) before merging.
-
-    .. SEEALSO::
-
-    - :meth:`show_dependencies` -- see the current dependencies.
-
-    - :meth:`GitInterface.merge` -- git's merge command has more
-      options and can merge multiple branches at once.
-    """
-
-def local_tickets(self, abandoned=False):
-    """
-    Print the tickets currently being worked on in your local
-    repository.
-
-    This function will show the branch names as well as the ticket
-    numbers for all active tickets.  It will also show local branches
-    that are not associated to ticket numbers.
-
-    INPUT:
-
-    - ``abandoned`` -- boolean (default ``False), whether to show abandoned branches.
-
-    .. SEEALSO::
-
-    - :meth:`abandon_ticket` -- hide tickets from this method.
-
-    - :meth:`remote_status` -- also show status compared to the trac
-      server.
-    """
-
-##
-## Everything below this line should probably not be part of the public interface.
-##
-
 DOT_SAGE = os.environ.get('DOT_SAGE',os.path.join(os.environ['HOME'], '.sage'))
 
 # regular expressions to parse mercurial patches
@@ -434,6 +120,319 @@ class SageDev(object):
         self.git = GitInterface(self.UI, cfg['git'])
         self.tmp_dir = None
         self._write_config()
+
+    def switch_ticket(self, ticket, branchname=None, offline=False):
+        """
+        Switch to a branch associated to ``ticket``.
+
+        INPUT:
+
+        - ``ticket`` -- an integer or a string. If a string, then switch to the
+          branch ``ticket`` (``branchname`` must be ``None`` in this case).  If an
+          integer, it must be the number of a ticket. If ``branchname`` is
+          ``None``, then a new name for a ``branch`` is chosen. If ``branchname``
+          is the name of a branch that exists locally, then associate this branch
+          to ``ticket``. Otherwise, switch to a new branch ``branchname``. If
+          ``offline`` is ``False``, merge the branch mentioned on the trac ticket
+          (if there is such a branch) into that branch.
+
+        - ``branchname`` -- a string or ``None`` (default: ``None``)
+
+        - ``offline`` -- a boolean (default: ``False``)
+
+        """
+        raise NotImplementedError
+
+    def create_ticket(self, branchname=None, remote_branch=None):
+        """
+        Create a new ticket on trac.
+
+        INPUT:
+
+        - ``branchname`` -- a string of ``None`` (default: ``None``), the name of
+          the local branch that will used for the new ticket; if ``None``, a name
+          will be chosen automatically.
+
+        - ``remote_branch`` -- a string or ``Neon`` (default: ``None``), if a
+          string, the name of the remote branch this branch should be tracking.
+
+        """
+        raise NotImplementedError
+
+    def commit(self, message=None, interactive=False):
+        """
+        Create a commit from the pending changes on the current branch.
+
+        INPUT:
+
+        - ``message`` -- a string or ``None`` (default: ``None``), the message of
+          the commit; if ``None``, prompt for a message.
+
+        - ``interactive`` -- a boolean (default: ``False``), interactively select
+          which part of the changes should be part of the commit. Prompts for the
+          addition of untracked files even if ``interactive`` is ``False``.
+
+        """
+        raise NotImplementedError
+
+    def upload(self, ticket=None, remote_branch=None, force=False):
+        """
+        Upload the current branch to the sage repository.
+
+        INPUT:
+
+        - ``ticket`` -- an integer or ``None`` (default: ``None``), if an integer
+          or if this branch is associated to a ticket, set the trac ticket to point
+          to this branch.
+
+        - ``remote_branch`` -- a string or ``None`` (default: ``None``), the remote
+          branch to upload to; if ``None``, then a default is chosen (how?)
+
+        - ``force`` -- a boolean (default: ``False``), whether to upload if this is
+          not a fast-forward.
+
+        """
+        raise NotImplementedError
+
+    def download(self, ticket=None, force=False):
+        """
+        Download the changes made to a remote branch into the current branch.
+
+        INPUT:
+
+        - ``ticket`` -- an integer or ``None`` (default: ``None``), if an integer,
+          then merge the branch associated to the trac ticket ``ticket`` into the
+          current branch. The same happens if ``ticket`` is ``None`` and this
+          branch is associated to a ticket and it is not following a non-user
+          remote branch. If this branch is following a non-user remote branch, then
+          this branch will be merged.
+
+        - ``force`` -- a boolean (default: ``False``), if ``False``, try to merge
+          the remote branch into this branch; if ``False``, do not merge, but make
+          this branch equal to the remote branch.
+
+        """
+        raise NotImplementedError
+
+    def remote_status(self, ticket=None):
+        """
+        Show the remote status of ``ticket``.
+
+        For tickets and remote branches, this shows the commit log of the branch on
+        the trac ticket a summary of their difference to your related branches, and
+        an overview of patchbot results (where applicable).
+
+        INPUT:
+
+        - ``ticket`` -- an integer, a string, a list of integers and strings, or
+          ``None`` (default: ``None``); if ``None`` and the current branch is
+          associated to a ticket, show the information for that ticket branch; if
+          its not associated to aticket, show the information for its remote
+          tracking branch.
+
+        """
+        raise NotImplementedError
+
+    def import_patch(self, ticketnum=None, patchname=None, url=None, local_file=None, diff_format=None, header_format=None, path_format=None):
+        """
+        Import a patch to your working copy.
+
+        If ``local_file`` is specified, apply the file it points to.
+
+        Otherwise, apply the patch using :meth:`download_patch` and apply it.
+
+        INPUT:
+
+        - ``ticketnum`` -- an int or an Integer or ``None`` (default: ``None``) ## REMOVE
+
+        - ``patchname`` -- a string or ``None`` (default: ``None``)
+
+        - ``url`` -- a string or ``None`` (default: ``None``)
+
+        - ``local_file`` -- a string or ``None`` (default: ``None``)
+        """
+        if not self.git.reset_to_clean_state(): return
+        if not self.git.reset_to_clean_working_directory(): return
+
+        if not local_file:
+            return self.import_patch(local_file = self.download_patch(ticketnum = ticketnum, patchname = patchname, url = url), diff_format=diff_format, header_format=header_format, path_format=path_format)
+        else:
+            if patchname or url:
+                raise ValueError("If `local_file` is specified, `patchname`, and `url` must not be specified.")
+            if ticketnum:
+                branch="t/%s"%ticketnum
+                if not self.git.branch_exists(branch):
+                    self.git.branch(branch)
+                self.git.checkout(branch)
+            lines = open(local_file).read().splitlines()
+            lines = self._rewrite_patch(lines, to_header_format="git", to_path_format="new", from_diff_format=diff_format, from_header_format=header_format, from_path_format=path_format)
+            outfile = os.path.join(self._get_tmp_dir(), "patch_new")
+            open(outfile, 'w').writelines("\n".join(lines)+"\n")
+            print "Trying to apply reformatted patch `%s` ..."%outfile
+            shared_args = ["--ignore-whitespace",outfile]
+            am_args = shared_args+["--resolvemsg=''"]
+            am = self.git.am(*am_args)
+            if am: # apply failed
+                if not self.UI.confirm("The patch does not apply cleanly. Would you like to apply it anyway and create reject files for the parts that do not apply?", default_yes=False):
+                    print "Not applying patch."
+                    self.git.reset_to_clean_state(interactive=False)
+                    return
+
+                apply_args = shared_args + ["--reject"]
+                apply = self.git.apply(*apply_args)
+                if apply: # apply failed
+                    if self.UI.get_input("The patch did not apply cleanly. Please integrate the `.rej` files that were created and resolve conflicts. When you did, type `resolved`. If you want to abort this process, type `abort`.",["resolved","abort"]) == "abort":
+                        self.git.reset_to_clean_state(interactive=False)
+                        self.git.reset_to_clean_working_directory(interactive=False)
+                        return
+                else:
+                    print "It seemed that the patch would not apply, but in fact it did."
+
+                self.git.add("--update")
+                self.git.am("--resolved")
+
+    def diff(self, base="commit"):
+        """
+        Show how the current file system differs from ``base``.
+
+        INPUT:
+
+        - ``base`` -- show the differences against the latest ``'commit'`` (the
+          default), against the branch ``'master'`` (or any other branch name), or
+          the merge of the ``'dependencies'`` of the current ticket (if the
+          dependencies merge cleanly)
+
+        """
+        raise NotImplementedError
+
+    def prune_closed_tickets(self):
+        """
+        Remove branches for tickets that are already merged into master.
+        """
+        raise NotImplementedError
+
+    def abandon_ticket(self, ticket=None):
+        """
+        Abandon a ticket branch.
+
+        INPUT:
+
+        - ``ticket`` -- an integer or ``None`` (default: ``None``), remove the
+          branch for ``ticket`` (or the current branch if ``None``). Also removes
+          the users remote tracking branch.
+
+        """
+        raise NotImplementedError
+
+    def gather(self, branchname, *tickets):
+        """
+        Create a new branch ``branchname`` with ``tickets`` applied.
+
+        INPUT:
+
+        - ``branchname`` -- a string, the name of the new branch
+
+        - ``tickets`` -- a list of integers or strings; for an integer, the branch
+          on the trac ticket gets merged, for a string, that branch (or remote
+          branch) gets merged.
+
+        """
+        raise NotImplementedError
+
+    def show_dependencies(self, ticket=None, all=False): # all = recursive
+        """
+        Show the dependencies of the given ticket.
+
+        INPUT:
+
+        - ``ticket`` -- string, int or None (default ``None``), the ticket
+          for which dependencies are desired.  An int indicates a ticket
+          number while a string indicates a branch name; ``None`` asks for
+          the dependencies of the current ticket.
+
+        - ``all`` -- boolean (default ``True``), whether to recursively
+          list all tickets on which this ticket depends (in depth-first
+          order).
+
+        .. NOTE::
+
+            Ticket dependencies are stored locally and only updated with
+            respect to the remote server during :meth:`upload` and
+            :meth:`download`.
+        """
+        raise NotImplementedError
+
+    def merge(self, ticket="master", create_dependency=True, download=False):
+        """
+        Merge changes from another branch into the current branch.
+
+        INPUT:
+
+        - ``ticket`` -- string or int (default ``"master"``), a branch,
+          ticket number or the current set of dependencies (indicated by
+          the string ``"dependencies"``): the source of the changes to be
+          merged.  If ``ticket = "dependencies"`` then each updated
+          dependency is merged in one by one, starting with the one listed
+          first in the dependencies field on trac.  An int indicates a
+          ticket number while a string indicates a branch name.
+
+        - ``create_dependency`` -- boolean (default ``True``), whether to
+          append the other ticket to the list of dependencies.  Listing
+          the other ticket as a dependency has the following consequences:
+
+          - the other ticket must be positively reviewed and merged before
+            this ticket may be merged into master.  The commits included
+            from a dependency don't need to be reviewed in this ticket,
+            whereas commits reviewed in this ticket from a non-dependency
+            may make reviewing the other ticket easier.
+
+          - you can more easily merge in future changes to depdencies.  So
+            if you need a feature from another ticket it may be
+            appropriate to create a dependency to that you may more easily
+            benefit from others' work on that ticket.
+
+          - if you depend on another ticket then you need to worry about
+            the progress on that ticket.  If that ticket is still being
+            actively developed then you may need to make many merges to
+            keep up.
+
+          Note that dependencies are stored locally and only updated with
+          respect to the remote server during :meth:`upload` and
+          :meth:`download`.
+
+        - ``download`` -- boolean (default ``False``), whether to download
+          the most recent version of the other ticket(s) before merging.
+
+        .. SEEALSO::
+
+        - :meth:`show_dependencies` -- see the current dependencies.
+
+        - :meth:`GitInterface.merge` -- git's merge command has more
+          options and can merge multiple branches at once.
+        """
+        raise NotImplementedError
+
+    def local_tickets(self, abandoned=False):
+        """
+        Print the tickets currently being worked on in your local
+        repository.
+
+        This function will show the branch names as well as the ticket
+        numbers for all active tickets.  It will also show local branches
+        that are not associated to ticket numbers.
+
+        INPUT:
+
+        - ``abandoned`` -- boolean (default ``False), whether to show abandoned branches.
+
+        .. SEEALSO::
+
+        - :meth:`abandon_ticket` -- hide tickets from this method.
+
+        - :meth:`remote_status` -- also show status compared to the trac
+          server.
+        """
+        raise NotImplementedError
 
     def _get_tmp_dir(self):
         if self.tmp_dir is None:
