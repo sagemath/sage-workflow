@@ -13,6 +13,137 @@ from trac_interface import TracInterface
 from git_interface import GitInterface
 from user_interface import CmdLineInterface
 
+def switch_ticket(ticket, branchname=None, offline=False):
+    """
+    Switch to a branch associated to ``ticket``.
+
+    INPUT:
+
+    - ``ticket`` -- an integer or a string. If a string, then switch to the
+      branch ``ticket`` (``branchname`` must be ``None`` in this case).  If an
+      integer, it must be the number of a ticket. If ``branchname`` is
+      ``None``, then a new name for a ``branch`` is chosen. If ``branchname``
+      is the name of a branch that exists locally, then associate this branch
+      to ``ticket``. Otherwise, switch to a new branch ``branchname``. If
+      ``offline`` is False, download the branch mentioned on the trac ticket
+      (if there is such a branch) to that branch.
+
+    - ``branchname`` -- a string or ``None`` (default: ``None``)
+
+    - ``offline`` -- a boolean (default: ``False``)
+
+    """
+    raise NotImplementedError
+
+def create_ticket(branchname=None, remote_branch=None):
+    """
+    Create a new ticket on trac.
+
+    INPUT:
+
+    - ``branchname`` -- a string of ``None`` (default: ``None``), the name of
+      the local branch that will used for the new ticket; if ``None``, a name
+      will be chosen automatically.
+
+    - ``remote_branch`` -- a string or ``Neon`` (default: ``None``), if a
+      string, the name of the remote branch this branch should be tracking.
+
+    """
+    raise NotImplementedError
+
+def commit(message=None, interactive=False):
+    """
+    Create a commit from the pending changes on the current branch.
+
+    INPUT:
+
+    - ``message`` -- a string or ``None`` (default: ``None``), the message of
+      the commit; if ``None``, prompt for a message.
+
+    - ``interactive`` -- a boolean (default: ``False``), interactively select
+      which part of the changes should be part of the commit. Prompts for the
+      addition of untracked files even if ``interactive`` is ``False``.
+
+    """
+    raise NotImplementedError
+
+def upload(ticket=None, remote_branch=None, force=False):
+    """
+    Upload the current branch to the sage repository.
+
+    INPUT:
+
+    - ``ticket`` -- an integer or ``None`` (default: ``None``), if an integer
+      or if this branch is associated to a ticket, set the trac ticket to point
+      to this branch.
+
+    - ``remote_branch`` -- a string or ``None`` (default: ``None``), the remote
+      branch to upload to; if ``None``, then a default is chosen (how?)
+
+    - ``force`` -- a boolean (default: ``False``), whether to upload if this is
+      not a fast-forward.
+
+    """
+    raise NotImplementedError
+
+def download(ticket=None, force=False):
+    """
+    Download the changes made to a remote branch into the current branch.
+
+    INPUT:
+
+    - ``ticket`` -- an integer or ``None`` (default: ``None``), if ``None`` 
+
+
+    force - dont merge, just take the upstream version
+    """
+
+def remote_status(ticket=None):
+    """
+    Show the remote status of a ticket or a branch.
+
+    If ``ticket`` is ``None`` and we're currently on a branch associated to a
+    ticket, then show the log and difference of the upstream ticket.
+
+    ... Show the log of ``tickets`` or of the current ticket if ``None``. + Possibly some more info
+    ... If not a ticket, then the remote tracking branch.
+    ... Of all your tickets if ``'all'``.
+    ... patchbot status
+    """
+
+def diff(base="master/dependencies/'commit default'/..."):
+    """
+
+    """
+
+def prune_closed_tickets():
+    """
+    Remove tickets that have already been merged...
+    """
+
+def abandon_ticket(ticket=None):
+    """
+    Move to abandoned
+    """
+
+def gather(tickets, branchname):
+    """
+    Create a new brach with all tickets applied.
+    """
+
+def show_dependencies(ticket=None, all=False) # all = recursive
+
+def merge(ticket="master", create_dependency=True, download=False):
+# dependencies --- update dependencies, from the left
+# ticket-num --- uses local version (unless download), creates dependency for tickets
+
+def local_tickets(abandoned=False):
+# 
+
+##
+## Everything below this line should probably not be part of the public interface.
+##
+
 DOT_SAGE = os.environ.get('DOT_SAGE',os.path.join(os.environ['HOME'], '.sage'))
 
 # regular expressions to parse mercurial patches
