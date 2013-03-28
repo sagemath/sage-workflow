@@ -231,14 +231,97 @@ def gather(branchname, *tickets):
     """
     raise NotImplementedError
 
-def show_dependencies(ticket=None, all=False) # all = recursive
+def show_dependencies(ticket=None, all=False): # all = recursive
+    """
+    Show the dependencies of the given ticket.
 
-def merge(ticket="master", create_dependency=True, download=False):
-# dependencies --- update dependencies, from the left
-# ticket-num --- uses local version (unless download), creates dependency for tickets
+    INPUT:
 
-def local_tickets(abandoned=False):
-# 
+    - ``ticket`` -- string, int or None (default ``None``), the ticket
+      for which dependencies are desired.  An int indicates a ticket
+      number while a string indicates a branch name; ``None`` asks for
+      the dependencies of the current ticket.
+
+    - ``all`` -- boolean (default ``True``), whether to recursively
+      list all tickets on which this ticket depends (in depth-first
+      order).
+
+    .. NOTE::
+
+        Ticket dependencies are stored locally and only updated with
+        respect to the remote server during :meth:`upload` and
+        :meth:`download`.
+    """
+
+def merge(self, ticket="master", create_dependency=True, download=False):
+    """
+    Merge changes from another branch into the current branch.
+
+    INPUT:
+
+    - ``ticket`` -- string or int (default ``"master"``), a branch,
+      ticket number or the current set of dependencies (indicated by
+      the string ``"dependencies"``): the source of the changes to be
+      merged.  If ``ticket = "dependencies"`` then each updated
+      dependency is merged in one by one, starting with the one listed
+      first in the dependencies field on trac.  An int indicates a
+      ticket number while a string indicates a branch name.
+
+    - ``create_dependency`` -- boolean (default ``True``), whether to
+      append the other ticket to the list of dependencies.  Listing
+      the other ticket as a dependency has the following consequences:
+
+      - the other ticket must be positively reviewed and merged before
+        this ticket may be merged into master.  The commits included
+        from a dependency don't need to be reviewed in this ticket,
+        whereas commits reviewed in this ticket from a non-dependency
+        may make reviewing the other ticket easier.
+
+      - you can more easily merge in future changes to depdencies.  So
+        if you need a feature from another ticket it may be
+        appropriate to create a dependency to that you may more easily
+        benefit from others' work on that ticket.
+
+      - if you depend on another ticket then you need to worry about
+        the progress on that ticket.  If that ticket is still being
+        actively developed then you may need to make many merges to
+        keep up.
+
+      Note that dependencies are stored locally and only updated with
+      respect to the remote server during :meth:`upload` and
+      :meth:`download`.
+
+    - ``download`` -- boolean (default ``False``), whether to download
+      the most recent version of the other ticket(s) before merging.
+
+    .. SEEALSO::
+
+    - :meth:`show_dependencies` -- see the current dependencies.
+
+    - :meth:`GitInterface.merge` -- git's merge command has more
+      options and can merge multiple branches at once.
+    """
+
+def local_tickets(self, abandoned=False):
+    """
+    Print the tickets currently being worked on in your local
+    repository.
+
+    This function will show the branch names as well as the ticket
+    numbers for all active tickets.  It will also show local branches
+    that are not associated to ticket numbers.
+
+    INPUT:
+
+    - ``abandoned`` -- boolean (default ``False), whether to show abandoned branches.
+
+    .. SEEALSO::
+
+    - :meth:`abandon_ticket` -- hide tickets from this method.
+
+    - :meth:`remote_status` -- also show status compared to the trac
+      server.
+    """
 
 ##
 ## Everything below this line should probably not be part of the public interface.
@@ -343,11 +426,11 @@ class SageDev(object):
         if not cfg.has_option('git','gitcmd'):
             cfg.set('git','gitcmd','git')
         self.trac = TracInterface(self.UI, cfg['trac'])
-        #if not cfg.has_option('trac', 'sshkey_set'):
-        #    if self.UI.confirm("You have not yet uploaded an ssh key to the server." +
-        #                       "Would you like to upload one now?"):
-        #        self.trac.sshkeys.addkey(pubkey)
-        #        cfg.set('trac','sshkey_set')
+        if not cfg.has_option('trac', 'sshkey_set'):
+            if self.UI.confirm("You have not yet uploaded an ssh key to the server." +
+                               "Would you like to upload one now?"):
+                self.trac.sshkeys.addkey(pubkey)
+                cfg.set('trac','sshkey_set')
         self.git = GitInterface(self.UI, cfg['git'])
         self.tmp_dir = None
         self._write_config()
@@ -388,12 +471,13 @@ class SageDev(object):
         # because it may contain the trac password
         os.chmod(self._devrc, 0600)
 
-    def current_ticket(self):
+    def current_ticket(self, error=False):
         curbranch = self.git.current_branch()
-        if curbranch is None: return None
-        return self.git._branch_to_ticketnum(curbranch)
+        if curbranch is not None and curbranch in self.git._ticket:
+            return self.git._ticket[curbranch]
+        if error: raise ValueError("You must specify a ticket")
 
-    def start(self, ticketnum = None, branchname = None):
+    def start(self, ticketnum = None, branchname = None, remote_branch=True):
         curticket = self.current_ticket()
         if ticketnum is None:
             # User wants to create a ticket
@@ -463,9 +547,7 @@ class SageDev(object):
 
     def review(self, ticketnum, user=None):
         if self.UI.confirm("Are you sure you want to download and review #%s"%(ticketnum)):
-            self.git.fetch_ticket(ticketnum, user)
-            branch = "t/" + str(ticketnum)
-            raise NotImplementedError
+            self.git.fetch_ticket(ticketnum, user, switch=True)
             if self.UI.confirm("Would you like to rebuild Sage?"):
                 call("sage -b", shell=True)
 
@@ -475,9 +557,9 @@ class SageDev(object):
     #def list(self):
     #    self.git.execute("branch")
 
-    def diff(self, vs_unstable=False):
-        if vs_unstable:
-            self.git.execute("diff", self.git._unstable)
+    def diff(self, vs_dependencies=False):
+        if vs_dependencies:
+            self.git.execute("diff", self.dependency_join())
         else:
             self.git.execute("diff")
 
@@ -487,7 +569,7 @@ class SageDev(object):
         if self.UI.confirm("Are you sure you want to abandon all branches that have been merged into master?"):
             for branch in self.git.local_branches():
                 if self.git.is_ancestor_of(branch, "master"):
-                    self.UI.show("Abandoning %s"("#%s"%(branch[2:]) if branch.startswith("t/") else branch))
+                    self.UI.show("Abandoning %s"%branch)
                     self.git.abandon(branch)
 
     def abandon(self, ticketnum):
@@ -514,7 +596,9 @@ class SageDev(object):
             self.git.execute("merge", *inputs, q=True, m="Gathering %s into branch %s"%(", ".join(inputs), branchname))
 
     def show_dependencies(self, ticketnum=None, all=True):
-        raise NotImplementedError
+        if ticketnum is None:
+            ticketnum = self.current_ticket(error=True)
+        self.UI.show("Ticket %s depends on %s"%(ticketnum, ", ".join(["#%s"%(a) for a in self.trac.dependencies(ticketnum, all)])))
 
     def update_dependencies(self, ticketnum=None, dependencynum=None, all=False):
         # Merge in most recent changes from dependency(ies)
@@ -975,6 +1059,10 @@ class SageDev(object):
         return self._rewrite_patch_diff_paths(self._rewrite_patch_header(lines, to_format=to_header_format, from_format=from_header_format, diff_format=from_diff_format), to_format=to_path_format, diff_format=from_diff_format, from_format=from_path_format)
 
     def dependency_join(self, ticketnum=None):
+        if ticketnum is None:
+            ticketnum = self.current_ticket(error=True)
+        for d in self.trac.dependencies(ticketnum):
+            pass
         raise NotImplementedError
 
     def exists(self, ticketnum):
