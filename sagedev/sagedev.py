@@ -319,7 +319,7 @@ class SageDev(object):
                 apply = self.git.apply(*apply_args)
                 if apply: # apply failed
                     if self.UI.get_input("The patch did not apply cleanly. Please integrate the `.rej` files that were created and resolve conflicts. When you did, type `resolved`. If you want to abort this process, type `abort`.",["resolved","abort"]) == "abort":
-                        self.git.reset_to_clean_state()
+                        self.git.reset_to_clean_state(interactive=False)
                         return
 
                     self.git.add("--update")
