@@ -22,15 +22,73 @@ class SavingDict(dict):
         os.rename(tmpfile, self._filename)
         os.unlink(tmpfile)
 
-class GitInterface(object):
-    def __init__(self, UI, config):
-        self._config = config
-        self._dot_git = config['dot_git']
-        self.UI = UI
-        ssh_git = 'ssh -i "%s"' % config['sshkeyfile']
+class authenticated(object):
+    def __init__(self, func):
+        self.func = func
+
+    def __call__(self, git, *args, **kwargs):
+        sshkeyfile = os.path.join(os.environ['HOME'], '.ssh', 'id_rsa')
+        if "sshkeyfile" in git._config:
+            sshkeyfile = git._config['sshkeyfile']
+
+        if not "sshkey_set" in git._config or not git._config['sshkey_set']:
+            git._sagedev._upload_ssh_key(sshkeyfile)
+            git._config['sshkeyfile'] = sshkeyfile
+            git._config['sshkey_set'] = True
+            git._config._write_config()
+
+        gitcmd = "git"
+        if "gitcmd" in git._config:
+            gitcmd = git._config['gitcmd']
+
+        ssh_git = 'ssh -i "%s"' % sshkeyfile
         ssh_git = 'GIT_SSH="%s" ' % ssh_git
-        self._gitcmd = ssh_git + config['gitcmd']
-        self._ticket, self._branch = self._load_ticket_branches(config['ticketfile'], config['branchfile'])
+        git._gitcmd = ssh_git + gitcmd
+        self.func(git, *args, **kwargs)
+
+class anonymous(object):
+    def __init__(self, func):
+        self.func = func
+
+    def __call__(self, git, *args, **kwargs):
+        self.func(git, *args, **kwargs)
+
+        gitcmd = "git"
+        if "gitcmd" in git._config:
+            gitcmd = git._config['gitcmd']
+
+        git._gitcmd = gitcmd
+        self.func(git, *args, **kwargs)
+
+class GitInterface(object):
+    def __init__(self, sagedev):
+        self._sagedev = sagedev
+        self._UI = self._sagedev._UI
+
+        if 'git' not in self._sagedev._config:
+            self._sagedev._config['git'] = {}
+        self._config = self._sagedev._config['git']
+
+        if 'dot_git' in self._config:
+            self._dot_git = self._config['dot_git']
+        else:
+            self._dot_git = os.environ.get("SAGE_DOT_GIT", ".git")
+
+        if not os.path.exists(self._dot_git):
+            raise ValueError("`%s` does not point to an existing directory."%self._dot_git)
+
+        from sagedev import DOT_SAGE
+        ticketfile = os.path.join(DOT_SAGE, 'branch_to_ticket')
+        if 'ticketfile' in self._config:
+            ticketfile = self._config['ticketfile']
+        branchfile = os.path.join(DOT_SAGE, 'ticket_to_branch')
+        if 'branchfile' in self._config:
+            branchfile = self._config['brachfile']
+
+        self._ticket, self._branch = self._load_ticket_branches(ticketfile, branchfile)
+
+    def __repr__(self):
+        return "GitInterface()"
 
     def _load_ticket_branches(self, ticket_file, branch_file):
         if os.path.exists(ticket_file):
@@ -213,7 +271,7 @@ class GitInterface(object):
                 branchname = 't/' + branchname
             else:
                 return 'g/' + group + '/' + branchname
-        return 'u/' + self._config['username'] + '/' + branchname
+        return 'u/' + self._sagedev._trac._username + '/' + branchname
 
     def _validate_remote_name(self, x):
         if len(x) == 0: raise ValueError("Empty list")
@@ -248,7 +306,7 @@ class GitInterface(object):
             if len(x) > 2: raise ValueError("Too many slashes in branch name")
             if not x[1].isdigit(): raise ValueError("Ticket branch not numeric")
         elif x[0] == 'u':
-            if x[1] != self._config['username']: raise ValueError("Local name should not include username")
+            if x[1] != self._sagedev._trac._username: raise ValueError("Local name should not include username")
             self._validate_remote_name(x)
         elif len(x) == 2:
             self._validate_atomic_name(x[0])
@@ -270,7 +328,7 @@ class GitInterface(object):
         if x[0] == 'ticket':
             return '/'.join(x)
         elif x[0] == 'u':
-            if x[1] == self._config['username']:
+            if x[1] == self._sagedev._trac._username:
                 if x[2] == 't':
                     return 'me/%s'%(x[3])
                 return x[2]
@@ -308,7 +366,7 @@ class GitInterface(object):
         raise NotImplementedError
 
     def create_branch(self, branchname, location=None, remote_branch=True):
-        if branchname in ["t", "u", "me", "u/" + self._config['username'], "ticket"]:
+        if branchname in ["t", "u", "me", "u/" + self._sagedev._trac._username, "ticket"]:
             raise ValueError("Bad branchname")
         if location is None:
             self.execute("branch", branchname)

@@ -35,91 +35,183 @@ GIT_DIFF_REGEX = re.compile(r"^diff --git a/(.*) b/(.*)$") # this regex should w
 HG_PATH_REGEX = re.compile(r"^(?=sage/)|(?=module_list\.py)|(?=setup\.py)|(?=c_lib/)")
 GIT_PATH_REGEX = re.compile(r"^(?=src/)")
 
-# a wrapper to be able to index the configparser as a dictionary of dictionaries,
-# like in the python3 api.
-class ConfigParser(configparser.ConfigParser):
+class Config:
+    """
+    Wrapper around the ``devrc`` file storing the configuration for
+    :class:`SageDev`.
+
+    INPUT:
+
+    - ``devrc`` -- a string (default: the absolute path of the ``devrc`` file in ``DOT_SAGE``)
+
+    """
+    def __init__(self, devrc = os.path.join(DOT_SAGE, 'devrc')):
+        self._config = configparser.ConfigParser()
+        self._devrc = devrc
+
+    @classmethod
+    def _doctest_config(self):
+        ret = Config(devrc = tempfile.NamedTemporaryFile())
+        dot_git = tempfile.mkdtemp()
+        ret['git'] = {}
+        ret['git']['dot_git'] = dot_git
+        atexit.register(lambda: shutil.rmtree(dot_git))
+        return ret
+
+    def _read_config(self):
+        if os.path.exists(self._devrc):
+            cfg.read(self._devrc)
+
+    def _write_config(self):
+        with open(self._devrc, 'w') as F:
+            self._config.write(F)
+        # set the configuration file to read only by this user,
+        # because it may contain the trac password
+        os.chmod(self._devrc, 0600)
+
     def keys(self):
-        return self.sections()
+        return self._config.sections()
 
     def values(self):
         return [self[key] for key in self.keys()]
 
     def __getitem__(self, section):
+        if not section in self:
+            raise KeyError(section)
+
         class IndexableForSection(object):
             def __init__(this, section):
                 this._section = section
             def __getitem__(this, option):
-                return self.get(this._section, option)
+                return self._config.get(this._section, option)
+            def __iter__(this):
+                return iter(self._config.options(this._section))
             def __setitem__(this, option, value):
-                self.set(this._section, option, value)
+                self._config.set(this._section, option, value)
             def getboolean(this, option):
-                return self.getboolean(this._section, option)
+                return self._config.getboolean(this._section, option)
+            def _write_config(this):
+                self._write_config()
 
         return IndexableForSection(section)
 
+    def __iter__(self):
+        return iter(self.keys())
+
     def __setitem__(self, section, dictionary):
-        if self.has_section(section):
+        if self._config.has_section(section):
             self.remove_section(section)
-        self.add_section(section)
+        self._config.add_section(section)
         for option, value in dictionary.iteritems():
             self.set(section, option, value)
 
-REALM = 'sage.math.washington.edu'
-TRAC_SERVER_URI = 'https://trac.tangentspace.org/sage_trac'
-
 class SageDev(object):
-    def __init__(self, devrc=os.path.join(DOT_SAGE, 'devrc'),
-                 ssh_pubkey_file=None, ssh_passphrase="", ssh_comment=None):
-        self.UI = CmdLineInterface()
-        self._devrc = devrc
-        self._config = cfg = ConfigParser()
-        self._read_config()
+    """
+    The developer interface for sage.
 
-        if not cfg.has_option('trac','realm'):
-            cfg.set('trac','realm',REALM)
-        if not cfg.has_option('trac','server'):
-            cfg.set('trac','server',TRAC_SERVER_URI)
-        if cfg['trac']['server'][-1] != '/':
-            cfg['trac']['server'] += '/'
+    This class facilitates access to git and trac.
 
-        if not cfg.has_option('git','ticketfile'):
-            cfg.set('git','ticketfile',os.path.join(DOT_SAGE, 'branch_to_ticket'))
-        if not cfg.has_option('git','branchfile'):
-            cfg.set('git','branchfile',os.path.join(DOT_SAGE, 'ticket_to_branch'))
-        if not cfg.has_option('git','dot_git'):
-            dot_git = os.environ.get("SAGE_DOT_GIT", ".git")
-            if not os.path.exists(dot_git):
-                raise ValueError("`%s` does not point to an existing directory."%dot_git)
-            cfg.set('git','dot_git',dot_git)
-        cfg.set('git','username',cfg['trac']['username'])
-        if not cfg.has_option('git', 'sshkeyfile'):
-            cfg.set('git','sshkeyfile',os.path.join(os.environ['HOME'], '.ssh', 'id_rsa'))
-        keyfile = cfg['git']['sshkeyfile']
+    EXAMPLES::
+
+        sage: SageDev()
+        SageDev()
+
+    """
+    def __init__(self, config = Config()):
+        """
+        Initialization.
+
+        TESTS::
+
+            sage: type(SageDev())
+            __main__.SageDev
+
+        """
+        self._config = config
+        self._UI = CmdLineInterface()
+
+        self.__git = None
+        self.__trac = None
+
+    @property
+    def _git(self):
+        """
+        A lazy property to provide a :class:`GitInterface`.
+
+        sage: config = Config._doctest_config()
+        sage: s = SageDev(config)
+        sage: s._git
+        GitInterface()
+
+        """
+        if self.__git is None:
+            self.__git = GitInterface(self)
+        return self.__git
+
+    @property
+    def _trac(self):
+        """
+        A lazy propert to provide a :class:`TracInterface`
+
+        sage: config = Config._doctest_config()
+        sage: s = SageDev(config)
+        sage: s._trac
+        TracInterface()
+
+        """
+        if 'trac' not in self._config:
+            self._config['trac'] = {}
+        if self.__trac is None:
+            self.__trac = TracInterface(self._UI, self._config['trac'])
+        return self.__trac
+
+    def __repr__(self):
+        """
+        Return a printable representation of this object.
+
+        EXAMPLES::
+
+            sage: SageDev() # indirect doctest
+            SageDev()
+
+        """
+        return "SageDev()"
+
+    def _upload_ssh_key(self, keyfile, create_key_if_not_exists=True):
+        """
+        Upload ``keyfile`` to gitolite through the trac interface.
+
+        INPUT:
+
+        - ``keyfile`` -- the absolute path of the key file (default:
+          ``~/.ssh/id_rsa``)
+
+        - ``create_key_if_not_exists`` -- use ``ssh-keygen`` to create
+          ``keyfile`` if ``keyfile`` or ``keyfile.pub`` does not exist.
+
+        """
+        cfg = self._config
+
         try:
             with open(keyfile, 'r') as F:
                 pass
             with open(keyfile + '.pub', 'r') as F:
-                pubkey = F.read()
+                pass
         except IOError:
-            self.UI.show("Generating ssh key....")
-            success = call(["ssh-keygen", "-q", "-N", '""', "-f", keyfile])
-            if success == 0:
-                self.UI.show("Ssh key successfully generated")
-                with open(keyfile + '.pub', 'r') as F:
-                    pubkey = F.read().strip()
+            if create_key_if_not_exists:
+                self._UI.show("Generating ssh key....")
+                success = call(["ssh-keygen", "-q", "-N", '""', "-f", keyfile])
+                if success == 0:
+                    self._UI.show("Ssh key successfully generated")
+                else:
+                    raise RuntimeError("Ssh key generation failed.  Please create a key in `%s` and retry"%(keyfile))
             else:
-                raise RuntimeError("Ssh key generation failed.  Please create a key in %s and retry"%(keyfile))
-        if not cfg.has_option('git','gitcmd'):
-            cfg.set('git','gitcmd','git')
-        self.trac = TracInterface(self.UI, cfg['trac'])
-        if not cfg.has_option('trac', 'sshkey_set'):
-            if self.UI.confirm("You have not yet uploaded an ssh key to the server." +
-                               "Would you like to upload one now?"):
-                self.trac.sshkeys.addkey(pubkey)
-                cfg.set('trac','sshkey_set')
-        self.git = GitInterface(self.UI, cfg['git'])
-        self.tmp_dir = None
-        self._write_config()
+                raise
+
+        with open(keyfile + '.pub', 'r') as F:
+            pubkey = F.read().strip()
+
+        self.trac.sshkeys.addkey(pubkey)
 
     def switch_ticket(self, ticket, branchname=None, offline=False):
         """
@@ -443,36 +535,6 @@ class SageDev(object):
             self.tmp_dir = tempfile.mkdtemp()
             atexit.register(lambda: shutil.rmtree(self.tmp_dir))
         return self.tmp_dir
-
-    def _get_user_info(self):
-        username = self.UI.get_input("Please enter your trac username: ")
-        # we should eventually use a password entering mechanism (ie *s or blanks when typing)
-        passwd, confirm = 0, 1
-        while passwd != confirm:
-            msg = "Please enter your trac password" + (" (stored in plaintext on your filesystem)" if passwd == 0 else "") + ": "
-            passwd = self.UI.get_password(msg)
-            confirm = self.UI.get_password("Please confirm your trac password: ")
-            if passwd != confirm:
-                self.UI.show("Passwords do not agree")
-        return username, passwd
-
-    def _read_config(self):
-        cfg = self._config
-        if os.path.exists(self._devrc):
-            cfg.read(self._devrc)
-        if not cfg.has_section('trac'): cfg.add_section('trac')
-        if not cfg.has_section('git'): cfg.add_section('git')
-        if not (cfg.has_option('trac', 'username') and cfg.has_option('trac', 'password')):
-            username, password = self._get_user_info()
-            cfg.set('trac','username',username)
-            cfg.set('trac','password',password)
-
-    def _write_config(self):
-        with open(self._devrc, 'w') as F:
-            self._config.write(F)
-        # set the configuration file to read only by this user,
-        # because it may contain the trac password
-        os.chmod(self._devrc, 0600)
 
     def current_ticket(self, error=False):
         curbranch = self.git.current_branch()
