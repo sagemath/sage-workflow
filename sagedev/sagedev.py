@@ -311,7 +311,7 @@ class SageDev(object):
                 # They didn't succeed.
                 return
             if curticket is not None:
-                if self.UI.confirm("Should the new ticket depend on #%s?"%(curticket)):
+                if self._UI.confirm("Should the new ticket depend on #%s?"%(curticket)):
                     self.git.create_branch(self, ticketnum)
                     self.trac.add_dependency(self, ticketnum, curticket)
                 else:
@@ -341,12 +341,12 @@ class SageDev(object):
         """
         raise NotImplementedError
         curticket = self.git.current_ticket()
-        if self.UI.confirm("Are you sure you want to save your changes to ticket #%s?"%(curticket)):
+        if self._UI.confirm("Are you sure you want to save your changes to ticket #%s?"%(curticket)):
             self.git.save()
-            if self.UI.confirm("Would you like to upload the changes?"):
+            if self._UI.confirm("Would you like to upload the changes?"):
                 self.git.upload()
         else:
-            self.UI.show("If you want to commit these changes to another ticket use the start() method")
+            self._UI.show("If you want to commit these changes to another ticket use the start() method")
 
     def upload(self, ticket=None, remote_branch=None, force=False):
         """
@@ -375,12 +375,12 @@ class SageDev(object):
         if ticketnum is None or ticketnum == oldticket:
             oldticket = None
             ticketnum = self.git.current_ticket()
-            if not self.UI.confirm("Are you sure you want to upload your changes to ticket #%s?"%(ticketnum)):
+            if not self._UI.confirm("Are you sure you want to upload your changes to ticket #%s?"%(ticketnum)):
                 return
         elif not self.exists(ticketnum):
-            self.UI.show("You don't have a branch for ticket %s"%(ticketnum))
+            self._UI.show("You don't have a branch for ticket %s"%(ticketnum))
             return
-        elif not self.UI.confirm("Are you sure you want to upload your changes to ticket #%s?"%(ticketnum)):
+        elif not self._UI.confirm("Are you sure you want to upload your changes to ticket #%s?"%(ticketnum)):
             return
         else:
             self.start(ticketnum)
@@ -431,13 +431,13 @@ class SageDev(object):
         # pulls in changes from trac and rebases the current branch to
         # them. ticketnum=None syncs unstable.
         curticket = self.git.current_ticket()
-        if self.UI.confirm("Are you sure you want to save your changes and sync to the most recent development version of Sage?"):
+        if self._UI.confirm("Are you sure you want to save your changes and sync to the most recent development version of Sage?"):
             self.git.save()
             self.git.sync()
         if curticket is not None and curticket.isdigit():
             dependencies = self.trac.dependencies(curticket)
             for dep in dependencies:
-                if self.git.needs_update(dep) and self.UI.confirm("Do you want to sync to the latest version of #%s"%(dep)):
+                if self.git.needs_update(dep) and self._UI.confirm("Do you want to sync to the latest version of #%s"%(dep)):
                     self.git.sync(dep)
 
 
@@ -510,25 +510,25 @@ class SageDev(object):
             lines = self._rewrite_patch(lines, to_header_format="git", to_path_format="new", from_diff_format=diff_format, from_header_format=header_format, from_path_format=path_format)
             outfile = os.path.join(self._get_tmp_dir(), "patch_new")
             open(outfile, 'w').writelines("\n".join(lines)+"\n")
-            print "Trying to apply reformatted patch `%s` ..."%outfile
+            self._UI.show("Trying to apply reformatted patch `%s` ..."%outfile)
             shared_args = ["--ignore-whitespace",outfile]
             am_args = shared_args+["--resolvemsg=''"]
             am = self.git.am(*am_args)
             if am: # apply failed
-                if not self.UI.confirm("The patch does not apply cleanly. Would you like to apply it anyway and create reject files for the parts that do not apply?", default_yes=False):
-                    print "Not applying patch."
+                if not self._UI.confirm("The patch does not apply cleanly. Would you like to apply it anyway and create reject files for the parts that do not apply?", default_yes=False):
+                    self._UI.show("Not applying patch.")
                     self.git.reset_to_clean_state(interactive=False)
                     return
 
                 apply_args = shared_args + ["--reject"]
                 apply = self.git.apply(*apply_args)
                 if apply: # apply failed
-                    if self.UI.get_input("The patch did not apply cleanly. Please integrate the `.rej` files that were created and resolve conflicts. When you did, type `resolved`. If you want to abort this process, type `abort`.",["resolved","abort"]) == "abort":
+                    if self._UI.get_input("The patch did not apply cleanly. Please integrate the `.rej` files that were created and resolve conflicts. When you did, type `resolved`. If you want to abort this process, type `abort`.",["resolved","abort"]) == "abort":
                         self.git.reset_to_clean_state(interactive=False)
                         self.git.reset_to_clean_working_directory(interactive=False)
                         return
                 else:
-                    print "It seemed that the patch would not apply, but in fact it did."
+                    self._UI.show("It seemed that the patch would not apply, but in fact it did.")
 
                 self.git.add("--update")
                 self.git.am("--resolved")
@@ -622,10 +622,10 @@ class SageDev(object):
         raise NotImplementedError
         # gets rid of branches that have been merged into unstable
         # Do we need this confirmation?  This is pretty harmless....
-        if self.UI.confirm("Are you sure you want to abandon all branches that have been merged into master?"):
+        if self._UI.confirm("Are you sure you want to abandon all branches that have been merged into master?"):
             for branch in self.git.local_branches():
                 if self.git.is_ancestor_of(branch, "master"):
-                    self.UI.show("Abandoning %s"%branch)
+                    self._UI.show("Abandoning %s"%branch)
                     self.git.abandon(branch)
 
     def abandon_ticket(self, ticket=None):
@@ -647,7 +647,7 @@ class SageDev(object):
           showing the non-abandoned ones).
         """
         raise NotImplementedError
-        if self.UI.confirm("Are you sure you want to delete your work on #%s?"%(ticketnum), default_yes=False):
+        if self._UI.confirm("Are you sure you want to delete your work on #%s?"%(ticketnum), default_yes=False):
             self.git.abandon(ticketnum)
 
     def gather(self, branchname, *tickets, **kwds):
@@ -684,10 +684,10 @@ class SageDev(object):
         download = kwds.pop('download',False)
         # Creates a join of inputs and stores that in a branch, switching to it.
         if len(inputs) == 0:
-            self.UI.show("Please include at least one input branch")
+            self._UI.show("Please include at least one input branch")
             return
         if self.git.branch_exists(branchname):
-            if not self.UI.confirm("The %s branch already exists; do you want to merge into it?", default_yes=False):
+            if not self._UI.confirm("The %s branch already exists; do you want to merge into it?", default_yes=False):
                 return
         else:
             self.git.execute_silent("branch", branchname, inputs[0])
@@ -731,7 +731,7 @@ class SageDev(object):
         raise NotImplementedError
         if ticketnum is None:
             ticketnum = self.current_ticket(error=True)
-        self.UI.show("Ticket %s depends on %s"%(ticketnum, ", ".join(["#%s"%(a) for a in self.trac.dependencies(ticketnum, all)])))
+        self._UI.show("Ticket %s depends on %s"%(ticketnum, ", ".join(["#%s"%(a) for a in self.trac.dependencies(ticketnum, all)])))
 
     def merge(self, ticket="master", create_dependency=True, download=False):
         """
@@ -863,9 +863,9 @@ class SageDev(object):
           merge it.
         """
         raise NotImplementedError
-        if self.UI.confirm("Are you sure you want to revert to %s?"%(self.git.released_sage_ver() if release else "a plain development version")):
+        if self._UI.confirm("Are you sure you want to revert to %s?"%(self.git.released_sage_ver() if release else "a plain development version")):
             if self.git.has_uncommitted_changes():
-                dest = self.UI.get_input("Where would you like to save your changes?",["current branch","stash"],"current branch")
+                dest = self._UI.get_input("Where would you like to save your changes?",["current branch","stash"],"current branch")
                 if dest == "stash":
                     self.git.stash()
                 else:
