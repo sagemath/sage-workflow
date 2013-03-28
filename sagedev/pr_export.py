@@ -94,23 +94,26 @@ def get_attachement(num, attachment):
 repo = Repository(GIT_REPO)
 
 for commit in repo.walk(repo.head.oid, GIT_SORT_TIME):
-  tickets = re.findall('#[0-9]+', commit.message)
-  if tickets:
-    if len(commit.parents) != 1:
-      continue
-    base = commit.parents[0].hex
-    head = commit.hex
-    title = commit.message
-    ticket = tickets[0][1:]
-    body = "PR for issue #%s" % (ticket)
-    trac_ticket = trac._tracserver.ticket.get(ticket)
-    num, updated, created, props = trac_ticket
-    if props['status'] != 'closed':
-      continue
-    print commit.message
-    branch = 'issue_branch_' + ticket
-    resp = github_create_branch(branch, base)
-    print 'branch', resp.status_code
-    resp = github_create_pr_issue(ticket, GITHUB_USERNAME + ':' + branch, head)
-    print 'pr_issue', resp.status_code
+  try:
+    tickets = re.findall('#[0-9]+', commit.message)
+    if tickets:
+      if len(commit.parents) != 1:
+        continue
+      base = commit.parents[0].hex
+      head = commit.hex
+      title = commit.message
+      ticket = tickets[0][1:]
+      body = "PR for issue #%s" % (ticket)
+      trac_ticket = trac._tracserver.ticket.get(ticket)
+      num, updated, created, props = trac_ticket
+      if props['status'] != 'closed':
+        continue
+      print commit.message
+      branch = 'issue_branch_' + ticket
+      resp = github_create_branch(branch, base)
+      print 'branch', resp.status_code
+      resp = github_create_pr_issue(ticket, GITHUB_USERNAME + ':' + branch, head)
+      print 'pr_issue', resp.status_code
+  except:
+    print "Error... ignoring"
 
