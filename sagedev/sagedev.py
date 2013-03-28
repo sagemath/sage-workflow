@@ -125,7 +125,65 @@ def remote_status(ticket=None):
     """
     raise NotImplementedError
 
-def diff(base="master/dependencies/'commit default'/..."):
+def import_patch(self, ticketnum=None, patchname=None, url=None, local_file=None, diff_format=None, header_format=None, path_format=None):
+    """
+    Import a patch to your working copy.
+
+    If ``local_file`` is specified, apply the file it points to.
+
+    Otherwise, apply the patch using :meth:`download_patch` and apply it.
+
+    INPUT:
+
+    - ``ticketnum`` -- an int or an Integer or ``None`` (default: ``None``) ## REMOVE
+
+    - ``patchname`` -- a string or ``None`` (default: ``None``)
+
+    - ``url`` -- a string or ``None`` (default: ``None``)
+
+    - ``local_file`` -- a string or ``None`` (default: ``None``)
+    """
+    if not self.git.reset_to_clean_state(): return
+    if not self.git.reset_to_clean_working_directory(): return
+
+    if not local_file:
+        return self.import_patch(local_file = self.download_patch(ticketnum = ticketnum, patchname = patchname, url = url), diff_format=diff_format, header_format=header_format, path_format=path_format)
+    else:
+        if patchname or url:
+            raise ValueError("If `local_file` is specified, `patchname`, and `url` must not be specified.")
+        if ticketnum:
+            branch="t/%s"%ticketnum
+            if not self.git.branch_exists(branch):
+                self.git.branch(branch)
+            self.git.checkout(branch)
+        lines = open(local_file).read().splitlines()
+        lines = self._rewrite_patch(lines, to_header_format="git", to_path_format="new", from_diff_format=diff_format, from_header_format=header_format, from_path_format=path_format)
+        outfile = os.path.join(self._get_tmp_dir(), "patch_new")
+        open(outfile, 'w').writelines("\n".join(lines)+"\n")
+        print "Trying to apply reformatted patch `%s` ..."%outfile
+        shared_args = ["--ignore-whitespace",outfile]
+        am_args = shared_args+["--resolvemsg=''"]
+        am = self.git.am(*am_args)
+        if am: # apply failed
+            if not self.UI.confirm("The patch does not apply cleanly. Would you like to apply it anyway and create reject files for the parts that do not apply?", default_yes=False):
+                print "Not applying patch."
+                self.git.reset_to_clean_state(interactive=False)
+                return
+
+            apply_args = shared_args + ["--reject"]
+            apply = self.git.apply(*apply_args)
+            if apply: # apply failed
+                if self.UI.get_input("The patch did not apply cleanly. Please integrate the `.rej` files that were created and resolve conflicts. When you did, type `resolved`. If you want to abort this process, type `abort`.",["resolved","abort"]) == "abort":
+                    self.git.reset_to_clean_state(interactive=False)
+                    self.git.reset_to_clean_working_directory(interactive=False)
+                    return
+            else:
+                print "It seemed that the patch would not apply, but in fact it did."
+
+            self.git.add("--update")
+            self.git.am("--resolved")
+
+def diff(base="commit"):
     """
     Show how the current file system differs from ``base``.
 
@@ -141,18 +199,37 @@ def diff(base="master/dependencies/'commit default'/..."):
 
 def prune_closed_tickets():
     """
-    Remove tickets that have already been merged...
+    Remove branches for tickets that are already merged into master.
     """
+    raise NotImplementedError
 
 def abandon_ticket(ticket=None):
     """
-    Move to abandoned
-    """
+    Abandon a ticket branch.
 
-def gather(tickets, branchname):
+    INPUT:
+
+    - ``ticket`` -- an integer or ``None`` (default: ``None``), remove the
+      branch for ``ticket`` (or the current branch if ``None``). Also removes
+      the users remote tracking branch.
+
     """
-    Create a new brach with all tickets applied.
+    raise NotImplementedError
+
+def gather(branchname, *tickets):
     """
+    Create a new branch ``branchname`` with ``tickets`` applied.
+
+    INPUT:
+
+    - ``branchname`` -- a string, the name of the new branch
+
+    - ``tickets`` -- a list of integers or strings; for an integer, the branch
+      on the trac ticket gets merged, for a string, that branch (or remote
+      branch) gets merged.
+
+    """
+    raise NotImplementedError
 
 def show_dependencies(ticket=None, all=False) # all = recursive
 
@@ -492,64 +569,6 @@ class SageDev(object):
                     raise ValueError("Ticket #%s has more than one attachment but parameter `patchname` is not present."%ticketnum)
         else:
             raise ValueError("If `url` is not specified, `ticketnum` must be specified")
-
-    def import_patch(self, ticketnum=None, patchname=None, url=None, local_file=None, diff_format=None, header_format=None, path_format=None):
-        """
-        Import a patch to your working copy.
-
-        If ``local_file`` is specified, apply the file it points to.
-
-        Otherwise, apply the patch using :meth:`download_patch` and apply it.
-
-        INPUT:
-
-        - ``ticketnum`` -- an int or an Integer or ``None`` (default: ``None``)
-
-        - ``patchname`` -- a string or ``None`` (default: ``None``)
-
-        - ``url`` -- a string or ``None`` (default: ``None``)
-
-        - ``local_file`` -- a string or ``None`` (default: ``None``)
-        """
-        if not self.git.reset_to_clean_state(): return
-        if not self.git.reset_to_clean_working_directory(): return
-
-        if not local_file:
-            return self.import_patch(local_file = self.download_patch(ticketnum = ticketnum, patchname = patchname, url = url), diff_format=diff_format, header_format=header_format, path_format=path_format)
-        else:
-            if patchname or url:
-                raise ValueError("If `local_file` is specified, `patchname`, and `url` must not be specified.")
-            if ticketnum:
-                branch="t/%s"%ticketnum
-                if not self.git.branch_exists(branch):
-                    self.git.branch(branch)
-                self.git.checkout(branch)
-            lines = open(local_file).read().splitlines()
-            lines = self._rewrite_patch(lines, to_header_format="git", to_path_format="new", from_diff_format=diff_format, from_header_format=header_format, from_path_format=path_format)
-            outfile = os.path.join(self._get_tmp_dir(), "patch_new")
-            open(outfile, 'w').writelines("\n".join(lines)+"\n")
-            print "Trying to apply reformatted patch `%s` ..."%outfile
-            shared_args = ["--ignore-whitespace",outfile]
-            am_args = shared_args+["--resolvemsg=''"]
-            am = self.git.am(*am_args)
-            if am: # apply failed
-                if not self.UI.confirm("The patch does not apply cleanly. Would you like to apply it anyway and create reject files for the parts that do not apply?", default_yes=False):
-                    print "Not applying patch."
-                    self.git.reset_to_clean_state(interactive=False)
-                    return
-
-                apply_args = shared_args + ["--reject"]
-                apply = self.git.apply(*apply_args)
-                if apply: # apply failed
-                    if self.UI.get_input("The patch did not apply cleanly. Please integrate the `.rej` files that were created and resolve conflicts. When you did, type `resolved`. If you want to abort this process, type `abort`.",["resolved","abort"]) == "abort":
-                        self.git.reset_to_clean_state(interactive=False)
-                        self.git.reset_to_clean_working_directory(interactive=False)
-                        return
-                else:
-                    print "It seemed that the patch would not apply, but in fact it did."
-
-                self.git.add("--update")
-                self.git.am("--resolved")
 
     def _detect_patch_diff_format(self, lines):
         """
