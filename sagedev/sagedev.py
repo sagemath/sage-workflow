@@ -223,14 +223,20 @@ class SageDev(object):
 
         INPUT:
 
-        - ``ticket`` -- an integer or a string. If a string, then switch to the
-          branch ``ticket`` (``branchname`` must be ``None`` in this case).  If an
-          integer, it must be the number of a ticket. If ``branchname`` is
-          ``None``, then a new name for a ``branch`` is chosen. If ``branchname``
-          is the name of a branch that exists locally, then associate this branch
-          to ``ticket``. Otherwise, switch to a new branch ``branchname``. If
-          ``offline`` is ``False``, merge the branch mentioned on the trac ticket
-          (if there is such a branch) into that branch.
+        - ``ticket`` -- an integer or a string. If a string, then
+          switch to the branch ``ticket`` (``branchname`` must be
+          ``None`` in this case).  If an integer, it must be the
+          number of a ticket. If ``branchname`` is ``None``, then a
+          new name for a ``branch`` is chosen. If ``branchname`` is
+          the name of a branch that exists locally, then associate
+          this branch to ``ticket``. Otherwise, switch to a new branch
+          ``branchname``.
+
+          If ``offline`` is ``False`` and a local branch was already
+          associated to this ticket, then :meth:`remote_status` will
+          be called on the ticket.  If no local branch was associated
+          to the ticket, then the current version of that ticket will
+          be downloaded from trac.
 
         - ``branchname`` -- a string or ``None`` (default: ``None``)
 
@@ -238,11 +244,12 @@ class SageDev(object):
 
         .. SEEALSO::
 
-        - :meth:`download`
+        - :meth:`download` -- Download the ticket from the remote
+          server and merge in the changes.
 
-        - :meth:`create_ticket`
+        - :meth:`create_ticket` -- Make a new ticket.
 
-        - :meth:`vanilla`
+        - :meth:`vanilla` -- Switch to a released version of Sage.
         """
         raise NotImplementedError
 
@@ -252,18 +259,21 @@ class SageDev(object):
 
         INPUT:
 
-        - ``branchname`` -- a string or ``None`` (default: ``None``), the name of
-          the local branch that will used for the new ticket; if ``None``, a name
-          will be chosen automatically.
+        - ``branchname`` -- a string or ``None`` (default: ``None``),
+          the name of the local branch that will used for the new
+          ticket; if ``None``, a name will be chosen automatically.
 
-        - ``remote_branch`` -- a string or ``None`` (default: ``None``), if a
-          string, the name of the remote branch this branch should be tracking.
+        - ``remote_branch`` -- a string or ``None`` (default:
+          ``None``), if a string, the name of the remote branch this
+          branch should be tracking.
 
         .. SEEALSO::
 
-        - :meth:`switch_ticket`
+        - :meth:`switch_ticket` -- Switch to an already existing
+          ticket.
 
-        - :meth:`download`
+        - :meth:`download` -- Download changes from an existing
+          ticket.
         """
         raise NotImplementedError
         curticket = self.current_ticket()
@@ -298,9 +308,9 @@ class SageDev(object):
 
         .. SEEALSO::
 
-        - :meth:`upload`
+        - :meth:`upload` -- Upload changes to the remote server.
 
-        - :meth:`diff`
+        - :meth:`diff` -- Show changes that will be committed.
         """
         raise NotImplementedError
         curticket = self.git.current_ticket()
@@ -329,9 +339,9 @@ class SageDev(object):
 
         .. SEEALSO::
 
-        - :meth:`commit`
+        - :meth:`commit` -- Save changes to the local repository.
 
-        - :meth:`download`
+        - :meth:`download` -- Update a ticket with changes from the remote repository.
         """
         raise NotImplementedError
         oldticket = self.git.current_ticket()
@@ -377,15 +387,18 @@ class SageDev(object):
 
         .. SEEALSO::
 
-        - :meth:`merge` -- Merge in local branches
+        - :meth:`merge` -- Merge in local branches.
 
-        - :meth:`upload`
+        - :meth:`upload` -- Upload changes to the remote server.
 
-        - :meth:`switch_ticket`
+        - :meth:`switch_ticket` -- Switch to another ticket without
+          updating.
 
-        - :meth:`vanilla`
+        - :meth:`vanilla` -- Switch to a plain release (which is not a
+          branch).
 
-        - :meth:`import_patch`
+        - :meth:`import_patch` -- Import a patch into the current
+          ticket.
         """
         raise NotImplementedError
         # pulls in changes from trac and rebases the current branch to
@@ -560,10 +573,10 @@ class SageDev(object):
 
         .. SEEALSO::
 
-        - :meth:`commit` -- record changes into the repository
+        - :meth:`commit` -- record changes into the repository.
 
         - :meth:`local_tickets` -- list local tickets (you may want to
-          commit your changes to a branch other than the current one)
+          commit your changes to a branch other than the current one).
         """
         raise NotImplementedError
         if vs_dependencies:
@@ -577,7 +590,7 @@ class SageDev(object):
 
         .. SEEALSO::
 
-        - :meth:`abandon_ticket`
+        - :meth:`abandon_ticket` -- Abandon a single ticket or branch.
         """
         raise NotImplementedError
         # gets rid of branches that have been merged into unstable
@@ -773,7 +786,7 @@ class SageDev(object):
         - :meth:`remote_status` -- also show status compared to the
           trac server.
 
-        - :meth:`current_ticket` -- get the current ticket
+        - :meth:`current_ticket` -- get the current ticket.
         """
         raise NotImplementedError
 
@@ -789,7 +802,7 @@ class SageDev(object):
 
         .. SEEALSO::
 
-        - :meth:`local_tickets` -- show all local tickets
+        - :meth:`local_tickets` -- show all local tickets.
         """
         curbranch = self.git.current_branch()
         if curbranch is not None and curbranch in self.git._ticket:
