@@ -2,21 +2,52 @@ import functools
 import os.path
 from subprocess import call, check_output, CalledProcessError
 import types
+import cPickle
+from cStringIO import StringIO
+import random
+import os
+
+class SavingDict(dict):
+    def __init__(self, filename, **kwds):
+        self._filename = filename
+        dict.__init__(self, **kwds)
+
+    def __setitem__(self, key, value):
+        dict.__setitem__(self, key, value)
+        tmpfile = self._filename + '%016x'%(random.randrange(256**8))
+        s = cPickle.dumps(self, protocol=2)
+        with open(tmpfile, 'wb') as F:
+            F.write(s)
+        # This move is atomic
+        os.rename(tmpfile, self._filename)
+        os.unlink(tmpfile)
 
 class GitInterface(object):
-    def __init__(self, UI, username, dot_git=None, gitcmd='git'):
-        self._gitcmd = gitcmd
-        self._username = username
-        if not dot_git:
-            import os
-            if os.environ.has_key("SAGE_DOT_GIT"):
-                dot_git = os.environ.get("SAGE_DOT_GIT")
-            else:
-                dot_git = ".git"
-        if not os.path.exists(dot_git):
-            raise ValueError("`%s` does not point to an existing directory."%dot_git)
-        self._dot_git = dot_git
+    def __init__(self, UI, config):
+        self._config = config
+        self._dot_git = config['dot_git']
         self.UI = UI
+        ssh_git = 'ssh -i "%s"' % config['sshkeyfile']
+        ssh_git = 'GIT_SSH="%s" ' % ssh_git
+        self._gitcmd = ssh_git + config['gitcmd']
+        self._ticket, self._branch = self._load_ticket_branches(config['ticketfile'], config['branchfile'])
+
+    def _load_ticket_branches(self, ticket_file, branch_file):
+        if os.path.exists(ticket_file):
+            with open(ticket_file) as F:
+                s = F.read()
+                unpickler = cPickle.Unpickler(StringIO(s))
+                ticket_dict = unpickle.load()
+        else:
+            ticket_dict = {}
+        if os.path.exists(branch_file):
+            with open(branch_file) as F:
+                s = F.read()
+                unpickler = cPickle.Unpickler(StringIO(s))
+                branch_dict = unpickle.load()
+        else:
+            branch_dict = {}
+        return SavingDict(ticket_file, **ticket_dict), SavingDict(branch_file, **branch_dict)
 
     def released_sage_ver(self):
         # should return a string with the most recent released version
@@ -131,7 +162,17 @@ class GitInterface(object):
         self.commit_all(m=msg)
 
     def local_branches(self):
-        raise NotImplementedError
+        """
+        Return the list of the local branches
+
+        EXAMPLES::
+
+            sage: git.local_branches()
+            ['master', 't/13624', 't/13838']
+        """
+        result = self._run_git("stdout", "show-ref", ["--heads"], {}).split()
+        result = [result[2*i+1][11:] for i in range(len(result)/2)]
+        return result
 
     def current_branch(self):
         try:
@@ -140,6 +181,14 @@ class GitInterface(object):
                 raise RuntimeError('HEAD is bizarre!')
             return branch[11:]
         except CalledProcessError:
+            return None
+
+    def _branch_to_ticketnum(self, branchname):
+        x = branchname.split('/')
+        self._validate_local_name(x)
+        if x[0] == 'me' or x[0] == 'ticket':
+            return x[1]
+        else:
             return None
 
     def _branch_printname(self, branchname):
@@ -164,7 +213,7 @@ class GitInterface(object):
                 branchname = 't/' + branchname
             else:
                 return 'g/' + group + '/' + branchname
-        return 'u/' + self._username + '/' + branchname
+        return 'u/' + self._config['username'] + '/' + branchname
 
     def _validate_remote_name(self, x):
         if len(x) == 0: raise ValueError("Empty list")
@@ -188,7 +237,7 @@ class GitInterface(object):
 
     def _validate_atomic_name(self, name):
         if '/' in name: raise ValueError("No slashes allowed in atomic name")
-        if name in ["t", "u", "g", "me", "ticket"]:
+        if name in ["t", "u", "g", "me", "ticket", "trash"]:
             raise ValueError("Invalid atomic name")
 
     def _validate_local_name(self, x):
@@ -199,7 +248,7 @@ class GitInterface(object):
             if len(x) > 2: raise ValueError("Too many slashes in branch name")
             if not x[1].isdigit(): raise ValueError("Ticket branch not numeric")
         elif x[0] == 'u':
-            if x[1] != self._username: raise ValueError("Local name should not include username")
+            if x[1] != self._config['username']: raise ValueError("Local name should not include username")
             self._validate_remote_name(x)
         elif len(x) == 2:
             self._validate_atomic_name(x[0])
@@ -221,7 +270,7 @@ class GitInterface(object):
         if x[0] == 'ticket':
             return '/'.join(x)
         elif x[0] == 'u':
-            if x[1] == self._username:
+            if x[1] == self._config['username']:
                 if x[2] == 't':
                     return 'me/%s'%(x[3])
                 return x[2]
@@ -232,15 +281,35 @@ class GitInterface(object):
             raise RuntimeError # should never reach here
 
     def branch_exists(self, branch):
-        raise NotImplementedError
+        """
+        Returns the commit id of the local branch, or None if branch does not exist.
+
+        EXAMPLES::
+
+            sage: import sagedev
+            sage: cd ..
+            sage: git = sagedev.SageDev().git
+            sage: git.branch_exists("master")    # random
+            'c4512c860a162c962073a83fd08e984674dd4f44'
+            sage: type(git.branch_exists("master"))
+            str
+            sage: len(git.branch_exists("master"))
+            40
+            sage: git.branch_exists("asdlkfjasdlf")
+        """
+        # TODO: optimize and make this atomic :-)
+        ref = "refs/heads/%s"%branch
+        if self.execute("show-ref", "--quiet", "--verify", ref):
+            return None
+        else:
+            return self.read_output("show-ref", "--verify", ref).split()[0]
 
     def ref_exists(self, ref):
         raise NotImplementedError
 
     def create_branch(self, branchname, location=None):
-        if branchname in ["t", "u", "me", "u/" + self._username, "ticket"]:
+        if branchname in ["t", "u", "me", "u/" + self._config['username'], "ticket"]:
             raise ValueError("Bad branchname")
-                                
         if location is None:
             self.execute("branch", branchname)
         elif self.ref_exists(location):
@@ -249,6 +318,7 @@ class GitInterface(object):
             self.UI.show("Branch not created: %s does not exist"%location)
 
     def rename_branch(self, oldname, newname):
+        self._validate_local_name(newname)
         self.execute("branch", oldname, newname, m=True)
 
     def fetch_ticket(self, ticketnum, user=None):
@@ -276,20 +346,33 @@ class GitInterface(object):
         raise NotImplementedError
 
     def move_uncommited_changes(self, branchname):
-        # create temp branch, commit chanes, rebase, fast-forward....
+        # create temp branch, commit changes, rebase, fast-forward....
         raise NotImplementedError
 
     def vanilla(self, release=False):
         # switch to unstable branch in the past (release=False) or a
         # given named release
-        raise NotImplementedError
+        if release is False:
+            self.switch_branch("master")
+        elif release is True:
+            raise NotImplementedError
+        else:
+            release = self._validate_release_name(release)
+            if not self.branch_exists(release):
+                self.fetch_release(release)
+            self.switch_branch(release)
 
     def abandon(self, branchname):
         """
         Move to trash/
         """
-        # deletes the branch
-        raise NotImplementedError
+        remotename = self._local_to_remote_name(branchname)
+        trashname = "trash/" + branchname
+        oldtrash = self.branch_exists(trashname)
+        if oldtrash:
+            self.UI.show("Overwriting %s in trash"(oldtrash))
+        self.execute("branch", branchname, trashname, M=True)
+        # Need to delete remote branch (and have a hook move it to /g/abandoned/ and update the trac symlink)
 
 def git_cmd_wrapper(git_cmd):
     def f(self, *args, **kwds):
