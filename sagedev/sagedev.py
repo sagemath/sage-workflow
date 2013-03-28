@@ -771,11 +771,17 @@ class SageDev(object):
             return self._rewrite_patch_header(ret, to_format=to_format, from_format="git", diff_format=diff_format)
         elif from_format == "hg":
             message, diff = parse_header(lines, (HG_HEADER_REGEX, HG_PARENT_REGEX))
+            if message:
+                subject = message[0]
+                message = message[1:]
+            else:
+                subject = 'No Subject. Modified: %s'%(", ".join(self._detect_patch_modified_files(lines)))
+
             ret = []
             ret.append('From: "Unknown User" <unknown@sagemath.org>')
-            ret.append('Subject: No Subject. Modified: %s'%(", ".join(self._detect_patch_modified_files(lines))))
+            ret.append('Subject: %s'%subject)
             ret.append('Date: %s'%email.utils.formatdate(time.time()))
-            ret.extend(message[1:])
+            ret.extend(message)
             ret.extend(diff)
             return self._rewrite_patch_header(ret, to_format=to_format, from_format="git", diff_format=diff_format)
         elif from_format == "hg-export":
