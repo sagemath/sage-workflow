@@ -511,8 +511,10 @@ class SageDev(object):
             if patchname or url:
                 raise ValueError("If `local_file` is specified, `patchname`, and `url` must not be specified.")
             if ticketnum:
-                self.git.branch("t/%s"%ticketnum)
-                self.git.checkout("t/%s"%ticketnum)
+                branch="t/%s"%ticketnum
+                if not self.git.branch_exists(branch):
+                    self.git.branch(branch)
+                self.git.checkout(branch)
             lines = open(local_file).read().splitlines()
             lines = self._rewrite_patch(lines, to_header_format="git", to_path_format="new", from_diff_format=diff_format, from_header_format=header_format, from_path_format=path_format)
             outfile = os.path.join(self._get_tmp_dir(), "patch_new")
