@@ -1,4 +1,4 @@
-
+from getpass import getpass
 
 class CmdLineInterface(object):
     def get_input(self, prompt, options=None, default=None, dryrun=False, strip=None):
@@ -78,6 +78,9 @@ class CmdLineInterface(object):
         ok = self.get_input(question, ["yes","no"],
                             "yes" if default_yes else "no")
         return ok == "yes"
+
+    def get_password(self, prompt):
+        return getpass(prompt)
 
     def show(self, message):
         print message

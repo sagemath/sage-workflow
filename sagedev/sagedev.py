@@ -6,6 +6,7 @@ import re
 import time
 import tempfile
 import email.utils
+import ConfigParser as configparser
 from datetime import datetime
 from subprocess import call, check_call
 from trac_interface import TracInterface
@@ -34,21 +35,86 @@ GIT_DIFF_REGEX = re.compile(r"^diff --git a/(.*) b/(.*)$") # this regex should w
 HG_PATH_REGEX = re.compile(r"^(?=sage/)|(?=module_list\.py)|(?=setup\.py)|(?=c_lib/)") # TODO: add more patterns
 GIT_PATH_REGEX = re.compile(r"^(?=src/)")
 
+# a wrapper to be able to index the configparser as a dictionary of dictionaries,
+# like in the python3 api.
+class ConfigParser(configparser.ConfigParser):
+    def keys(self):
+        return self.sections()
+
+    def values(self):
+        return [self[key] for key in self.keys()]
+
+    def __getitem__(self, section):
+        class IndexableForSection(object):
+            def __init__(this, section):
+                this._section = section
+            def __getitem__(this, option):
+                return self.get(this._section, option)
+            def __setitem__(this, option, value):
+                self.set(this._section, option, value)
+            def getboolean(this, option):
+                return self.getboolean(this._section, option)
+
+        return IndexableForSection(section)
+
+    def __setitem__(self, section, dictionary):
+        if self.has_section(section):
+            self.remove_section(section)
+        self.add_section(section)
+        for option, value in dictionary.iteritems():
+            self.set(section, option, value)
+
+REALM = 'sage.math.washington.edu'
+TRAC_SERVER_URI = 'https://trac.tangentspace.org/sage_trac'
+
 class SageDev(object):
     def __init__(self, devrc=os.path.join(DOT_SAGE, 'devrc'),
-                 ticket_file=os.path.join(DOT_SAGE, 'branch_to_ticket'),
-                 branch_file=os.path.join(DOT_SAGE, 'branch_to_ticket'),
-                 gitcmd='git', realm='sage.math.washington.edu',
-                 trac='http://boxen.math.washington.edu:8888/sage_trac/',
                  ssh_pubkey_file=None, ssh_passphrase="", ssh_comment=None):
         self.UI = CmdLineInterface()
-        username, password, has_ssh_key = self._process_rc(devrc)
-        self._username = username
-        self.git = GitInterface(self.UI, username, ticket_file, branch_file, gitcmd)
-        self.trac = TracInterface(self.UI, realm, trac, username, password)
+        self._devrc = devrc
+        self._config = cfg = ConfigParser()
+        self._read_config()
+
+        if not cfg.has_option('trac','realm'):
+            cfg.set('trac','realm',REALM)
+        if not cfg.has_option('trac','server'):
+            cfg.set('trac','server',TRAC_SERVER_URI)
+        if cfg['trac']['server'][-1] != '/':
+            cfg['trac']['server'] += '/'
+
+        if not cfg.has_option('git','ticketfile'):
+            cfg.set('git','ticketfile',os.path.join(DOT_SAGE, 'branch_to_ticket'))
+        if not cfg.has_option('git','branchfile'):
+            cfg.set('git','branchfile',os.path.join(DOT_SAGE, 'ticket_to_branch'))
+        cfg.set('git','username',cfg['trac']['username'])
+        if not cfg.has_option('git', 'sshkeyfile'):
+            cfg.set('git','sshkeyfile',os.path.join(os.environ['HOME'], '.ssh', 'id_rsa'))
+        keyfile = cfg['git']['sshkeyfile']
+        try:
+            with open(keyfile, 'r') as F:
+                pass
+            with open(keyfile + '.pub', 'r') as F:
+                pubkey = F.read()
+        except IOError:
+            self.UI.show("Generating ssh key....")
+            success = call(["ssh-keygen", "-q", "-N", '""', "-f", keyfile])
+            if success == 0:
+                self.UI.show("Ssh key successfully generated")
+                with open(keyfile + '.pub', 'r') as F:
+                    pubkey = F.read().strip()
+            else:
+                raise RuntimeError("Ssh key generation failed.  Please create a key in %s and retry"%(keyfile))
+        if not cfg.has_option('git','gitcmd'):
+            cfg.set('git','gitcmd','git')
+        self.trac = TracInterface(self.UI, cfg['trac'])
+        #if not cfg.has_option('trac', 'sshkey_set'):
+        #    if self.UI.confirm("You have not yet uploaded an ssh key to the server." +
+        #                       "Would you like to upload one now?"):
+        #        self.trac.sshkeys.addkey(pubkey)
+        #        cfg.set('trac','sshkey_set')
+        self.git = GitInterface(self.UI, cfg['git'])
         self.tmp_dir = None
-        if not has_ssh_key:
-            self._send_ssh_key(username, password, devrc, ssh_pubkey_file, ssh_passphrase, ssh_comment)
+        self._write_config()
 
     def _get_tmp_dir(self):
         if self.tmp_dir is None:
@@ -59,55 +125,39 @@ class SageDev(object):
     def _get_user_info(self):
         username = self.UI.get_input("Please enter your trac username: ")
         # we should eventually use a password entering mechanism (ie *s or blanks when typing)
-        passwd = self.UI.get_input("Please enter your trac password (stored in plaintext on your filesystem): ")
+        passwd, confirm = 0, 1
+        while password != confirm:
+            msg = "Please enter your trac password" + (" (stored in plaintext on your filesystem)" if passwd == 0 else "") + ": "
+            passwd = self.UI.get_password(msg)
+            confirm = self.UI.get_password("Please confirm your trac password: ")
+            if passwd != confirm:
+                self.UI.show("Passwords do not agree")
         return username, passwd
 
-    def _send_ssh_key(self, username, passwd, devrc, ssh_pubkey_file, ssh_passphrase, comment):
-        if self.UI.confirm("You have not yet uploaded an ssh key to the server." +
-                           "Would you like to upload one now?"):
-            if ssh_pubkey_file is None:
-                ssh_pubkey_file = os.path.join(os.environ['HOME'], '.ssh', 'id_rsa.pub')
-            if not os.path.exists(ssh_pubkey_file):
-                self.UI.show("Generating ssh key....")
-                if not ssh_pubkey_file.endswith(".pub"):
-                    raise ValueError("public key filename must end with .pub")
-                ssh_prikey_file = ssh_pubkey_file[:-4]
-                cmd = ["ssh-keygen", "-q", "-t", "rsa", "-f", ssh_prikey_file, "-N", ssh_passphrase]
-                if comment is not None:
-                    cmd.extend(["-C", comment])
-                success = call(cmd)
-                if success == 0:
-                    self.UI.show("Ssh key successfully generated")
-                else:
-                    raise RuntimeError("Ssh key generation failed.  Please create a key in %s and retry"%(ssh_pubkey_file))
-            with open(devrc, "w") as F:
-                F.write("v0\n%s\n%s\nssh_sent"%(username, passwd))
-            os.chmod(devrc, 0600)
-        else:
-            with open(devrc, "w") as F:
-                F.write("v0\n%s\n%s"%(username, passwd))
-            os.chmod(devrc, 0600)
+    def _read_config(self):
+        cfg = self._config
+        if os.path.exists(self._devrc):
+            cfg.read(self._devrc)
+        if not cfg.has_section('trac'): cfg.add_section('trac')
+        if not cfg.has_section('git'): cfg.add_section('git')
+        if not (cfg.has_option('trac', 'username') and cfg.has_option('trac', 'password')):
+            username, password = self._get_user_info()
+            cfg.set('trac','username',username)
+            cfg.set('trac','password',password)
 
-    def _process_rc(self, devrc):
-        if not os.path.exists(devrc):
-            username, passwd = self._get_user_info()
-            has_ssh_key = False
-        else:
-            with open(devrc) as F:
-                L = list(F)
-                if len(L) < 3:
-                    username, passwd = self._get_user_info()
-                else:
-                    username, passwd = L[1].strip(), L[2].strip()
-                has_ssh_key = len(L) >= 4
-        return username, passwd, has_ssh_key
+    def _write_config(self):
+        with open(self._devrc, 'w') as F:
+            self._config.write(F)
+        # set the configuration file to read only by this user,
+        # because it may contain the trac password
+        os.chmod(self._devrc, 0600)
 
     def current_ticket(self):
         curbranch = self.git.current_branch()
         if curbranch is None: return None
         return self.git._branch_to_ticketnum(curbranch)
 
-    def start(self, ticketnum = None):
+    def start(self, ticketnum = None, branchname = None):
         curticket = self.current_ticket()
         if ticketnum is None:
             # User wants to create a ticket
@@ -272,7 +322,7 @@ class SageDev(object):
             return ret
         elif ticketnum:
             if patchname:
-                return self.download_patch(url = self.trac._tracsite+"raw-attachment/ticket/%s/%s"%(ticketnum,patchname))
+                return self.download_patch(url = self._config['trac']['server']+"raw-attachment/ticket/%s/%s"%(ticketnum,patchname))
             else:
                 attachments = self.trac.attachment_names(ticketnum)
                 if len(attachments) == 0:
@@ -688,7 +738,7 @@ class SageDev(object):
     def _remote_branchname(self, ticketnum):
         if ticketnum is None:
             return "master"
-        return "%s/%s"(self._username, ticketnum)
+        return "%s/%s"(self._config['trac']['username'], ticketnum)
 
     def needs_update(self, ticketnum):
         # returns True if there are changes in the ticket on trac that

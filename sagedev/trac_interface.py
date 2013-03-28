@@ -25,15 +25,12 @@ class DigestTransport(Transport):
 
         return self.parse_response(response)
 
-class TracInterface(object):
-    def __init__(self, UI, realm, trac, username, password):
+class TracInterface(ServerProxy):
+    def __init__(self, UI, config):
         self.UI = UI
-        if trac[-1] != '/':
-            trac += '/'
-        self._tracsite = trac
-        trac += 'login/xmlrpc'
-        transport = DigestTransport(realm, trac, username, password)
-        self._tracserver = ServerProxy(trac, transport=transport)
+        self._config = config
+        transport = DigestTransport(config['realm'], config['server'], config['username'], config['password'])
+        ServerProxy.__init__(self, config['server'] + 'login/xmlrpc', transport=transport)
 
     def create_ticket(self, summary, description, type, component,
                       attributes={}, notify=False):

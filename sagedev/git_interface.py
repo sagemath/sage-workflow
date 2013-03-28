@@ -4,6 +4,7 @@ import types
 import cPickle
 from cStringIO import StringIO
 import random
+import os
 
 class SavingDict(dict):
     def __init__(self, filename, **kwds):
@@ -21,11 +22,13 @@ class SavingDict(dict):
         os.unlink(tmpfile)
 
 class GitInterface(object):
-    def __init__(self, UI, username, ticket_file, branch_file, gitcmd='git'):
-        self._gitcmd = gitcmd
-        self._username = username
+    def __init__(self, UI, config):
+        self._config = config
         self.UI = UI
-        self._ticket, self._branch = self._load_ticket_branches(ticket_file, branch_file)
+        ssh_git = 'ssh -i "%s"' % config['sshkeyfile']
+        ssh_git = 'GIT_SSH="%s" ' % ssh_git
+        self._gitcmd = ssh_git + config['gitcmd']
+        self._ticket, self._branch = self._load_ticket_branches(config['ticketfile'], config['branchfile'])
 
     def _load_ticket_branches(self, ticket_file, branch_file):
         if os.path.exists(ticket_file):
@@ -166,7 +169,7 @@ class GitInterface(object):
                 branchname = 't/' + branchname
             else:
                 return 'g/' + group + '/' + branchname
-        return 'u/' + self._username + '/' + branchname
+        return 'u/' + self._config['username'] + '/' + branchname
 
     def _validate_remote_name(self, x):
         if len(x) == 0: raise ValueError("Empty list")
@@ -201,7 +204,7 @@ class GitInterface(object):
             if len(x) > 2: raise ValueError("Too many slashes in branch name")
             if not x[1].isdigit(): raise ValueError("Ticket branch not numeric")
         elif x[0] == 'u':
-            if x[1] != self._username: raise ValueError("Local name should not include username")
+            if x[1] != self._config['username']: raise ValueError("Local name should not include username")
             self._validate_remote_name(x)
         elif len(x) == 2:
             self._validate_atomic_name(x[0])
@@ -223,7 +226,7 @@ class GitInterface(object):
         if x[0] == 'ticket':
             return '/'.join(x)
         elif x[0] == 'u':
-            if x[1] == self._username:
+            if x[1] == self._config['username']:
                 if x[2] == 't':
                     return 'me/%s'%(x[3])
                 return x[2]
@@ -243,7 +246,7 @@ class GitInterface(object):
         raise NotImplementedError
 
     def create_branch(self, branchname, location=None):
-        if branchname in ["t", "u", "me", "u/" + self._username, "ticket"]:
+        if branchname in ["t", "u", "me", "u/" + self._config['username'], "ticket"]:
             raise ValueError("Bad branchname")
         if location is None:
             self.execute("branch", branchname)
