@@ -623,7 +623,7 @@ class SageDev(object):
         if self.UI.confirm("Are you sure you want to delete your work on #%s?"%(ticketnum), default_yes=False):
             self.git.abandon(ticketnum)
 
-    def gather(self, branchname, *tickets, create_dependencies=True, download=False):
+    def gather(self, branchname, *tickets, **kwds):
         """
         Create a new branch ``branchname`` with ``tickets`` applied.
 
@@ -635,14 +635,14 @@ class SageDev(object):
           integer, the branch on the trac ticket gets merged, for a
           string, that branch (or remote branch) gets merged.
 
-        - ``create_dependency`` -- boolean (default ``True``), whether
-          to append the other ticket to the list of dependencies.  See
-          :meth:`merge` for the consequences of having another branch
-          as a dependency.
+        - ``create_dependency`` -- boolean (default ``True``, keyword
+          only), whether to append the other ticket to the list of
+          dependencies.  See :meth:`merge` for the consequences of
+          having another branch as a dependency.
 
-        - ``download`` -- boolean (default ``False``), whether to
-          download the most recent version of the other tickets before
-          merging.
+        - ``download`` -- boolean (default ``False``, keyword only),
+          whether to download the most recent version of the other
+          tickets before merging.
 
         .. SEEALSO::
 
@@ -653,6 +653,8 @@ class SageDev(object):
           given branch.
         """
         raise NotImplementedError
+        create_dependencies = kwds.pop('create_dependencies',True)
+        download = kwds.pop('download',False)
         # Creates a join of inputs and stores that in a branch, switching to it.
         if len(inputs) == 0:
             self.UI.show("Please include at least one input branch")
