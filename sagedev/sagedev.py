@@ -25,8 +25,8 @@ def switch_ticket(ticket, branchname=None, offline=False):
       ``None``, then a new name for a ``branch`` is chosen. If ``branchname``
       is the name of a branch that exists locally, then associate this branch
       to ``ticket``. Otherwise, switch to a new branch ``branchname``. If
-      ``offline`` is False, download the branch mentioned on the trac ticket
-      (if there is such a branch) to that branch.
+      ``offline`` is ``False``, merge the branch mentioned on the trac ticket
+      (if there is such a branch) into that branch.
 
     - ``branchname`` -- a string or ``None`` (default: ``None``)
 
