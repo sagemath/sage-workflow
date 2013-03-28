@@ -48,6 +48,7 @@ def fixup_user(user,authors):
     mail='<%s>' % util.email(user)
     if '@' not in mail:
       mail = '<devnull@localhost>'
+      name = 'Nomail Name'
   else:
     # if we have 'Name <mail>' syntax, everything is fine :)
     name,mail=m.group(1),m.group(2)
