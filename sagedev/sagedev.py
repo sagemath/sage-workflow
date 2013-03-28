@@ -35,7 +35,7 @@ GIT_DIFF_REGEX = re.compile(r"^diff --git a/(.*) b/(.*)$") # this regex should w
 HG_PATH_REGEX = re.compile(r"^(?=sage/)|(?=module_list\.py)|(?=setup\.py)|(?=c_lib/)")
 GIT_PATH_REGEX = re.compile(r"^(?=src/)")
 
-class Config:
+class Config(object):
     """
     Wrapper around the ``devrc`` file storing the configuration for
     :class:`SageDev`.
@@ -44,14 +44,58 @@ class Config:
 
     - ``devrc`` -- a string (default: the absolute path of the ``devrc`` file in ``DOT_SAGE``)
 
+    EXAMPLES::
+
+        sage: Config._doctest_config()
+        Config('''
+        [git]
+        dot_git = ...
+        ''')
+
     """
     def __init__(self, devrc = os.path.join(DOT_SAGE, 'devrc')):
+        """
+        Initialization.
+
+        EXAMPLES::
+
+            sage: type(Config._doctest_config())
+            __main__.Config
+
+        """
         self._config = configparser.ConfigParser()
         self._devrc = devrc
 
+    def __repr__(self):
+        """
+        Return a printable representation of this element.
+
+        EXAMPLES::
+
+            sage: Config._doctest_config()
+            Config('''
+            [git]
+            dot_git = ...
+            ''')
+
+        """
+        return "Config('''\n"+"\n".join([ "[%s]\n"%s+"\n".join(["%s = %s"%(o,self[s][o]) for o in self[s] ]) for s in self ])+"\n''')"
+
     @classmethod
     def _doctest_config(self):
-        ret = Config(devrc = tempfile.NamedTemporaryFile())
+        """
+        Create a fake configuration for doctesting.
+
+        EXAMPLES::
+
+            sage: Config._doctest_config()
+            Config('''
+            [git]
+            dot_git = ...
+            ''')
+
+        """
+        ret = Config(devrc = tempfile.NamedTemporaryFile().name)
         dot_git = tempfile.mkdtemp()
         ret['git'] = {}
         ret['git']['dot_git'] = dot_git
@@ -59,29 +103,71 @@ class Config:
         return ret
 
     def _read_config(self):
+        """
+        Read the configuration from disk.
+
+        EXAMPLES::
+
+            sage: c = Config._doctest_config()
+            sage: c._write_config()
+            sage: c = Config(c._devrc)
+            sage: c._read_config()
+            sage: c
+            Config('''
+            [git]
+            dot_git = ...
+            ''')
+
+        """
         if os.path.exists(self._devrc):
-            cfg.read(self._devrc)
+            self._config.read(self._devrc)
 
     def _write_config(self):
+        """
+        Write the configuration to disk.
+
+        EXAMPLES::
+
+            sage: c = Config._doctest_config()
+            sage: import os.path
+            sage: os.path.exists(c._devrc)
+            False
+            sage: c._write_config()
+            sage: os.path.exists(c._devrc)
+            True
+
+        """
         with open(self._devrc, 'w') as F:
             self._config.write(F)
         # set the configuration file to read only by this user,
         # because it may contain the trac password
         os.chmod(self._devrc, 0600)
 
-    def keys(self):
-        return self._config.sections()
-
-    def values(self):
-        return [self[key] for key in self.keys()]
-
     def __getitem__(self, section):
+        """
+        Return the configurations in ``section``.
+
+        EXAMPLES::
+
+            sage: c = Config._doctest_config()
+            sage: c['git']
+            IndexableForSection('''
+            dot_git = ...
+            ''')
+            sage: c['tig']
+            Traceback (most recent call last):
+            ...
+            KeyError: 'tig'
+
+        """
         if not section in self:
             raise KeyError(section)
 
         class IndexableForSection(object):
             def __init__(this, section):
                 this._section = section
+            def __repr__(this):
+                return "IndexableForSection('''\n"+"\n".join(["%s = %s"%(o,this[o]) for o in this])+"\n''')"
             def __getitem__(this, option):
                 return self._config.get(this._section, option)
             def __iter__(this):
@@ -96,14 +182,35 @@ class Config:
         return IndexableForSection(section)
 
     def __iter__(self):
-        return iter(self.keys())
+        """
+        Return an iterator over the section names.
+
+        EXAMPLES::
+
+            sage: c = Config._doctest_config()
+            sage: list(c)
+            ['git']
+
+        """
+        return iter(self._config.sections())
 
     def __setitem__(self, section, dictionary):
+        """
+        Set ``section`` to ``dictionary``.
+
+        EXAMPLES::
+
+            sage: c = Config._doctest_config()
+            sage: c['foo'] = {'foo':'foo'}
+            sage: c['foo']['foo']
+            'foo'
+
+        """
         if self._config.has_section(section):
             self.remove_section(section)
         self._config.add_section(section)
         for option, value in dictionary.iteritems():
-            self.set(section, option, value)
+            self._config.set(section, option, value)
 
 class SageDev(object):
     """
