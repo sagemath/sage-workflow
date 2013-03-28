@@ -6,7 +6,7 @@ Subject: [PATCH] (FIXUP) remove mecurial dependency
 ---
 
 diff --git a/__SAGE_BUILD__/deps b/__SAGE_BUILD__/deps
-index 80a4fb9..b72381d 100644
+index c00df7a..efaacfd 100644
 --- a/__SAGE_BUILD__/deps
 +++ b/__SAGE_BUILD__/deps
 @@ -74,7 +74,6 @@ all-sage: \
@@ -36,10 +36,10 @@ index 80a4fb9..b72381d 100644
  		 $(INST)/$(MPFI) \
  		 $(INST)/$(MPFR) \
 diff --git a/__SAGE_BUILD__/install b/__SAGE_BUILD__/install
-index 1e801e7..6cd4429 100755
+index f2aec2e..5062657 100755
 --- a/__SAGE_BUILD__/install
 +++ b/__SAGE_BUILD__/install
-@@ -380,7 +380,6 @@ M4RI=`newest_version libm4ri`
+@@ -389,7 +389,6 @@ M4RI=`newest_version libm4ri`
  M4RIE=`newest_version libm4rie`
  MATPLOTLIB=`newest_version matplotlib`
  MAXIMA=`newest_version maxima`
@@ -48,7 +48,7 @@ index 1e801e7..6cd4429 100755
  MPFI=`newest_version mpfi`
  MPFR=`newest_version mpfr`
 diff --git a/__SAGE_SCRIPTS_DIR__/sage b/__SAGE_SCRIPTS_DIR__/sage
-index ee161a6..5a6ca27 100755
+index 49560e0..474cb36 100755
 --- a/__SAGE_SCRIPTS_DIR__/sage
 +++ b/__SAGE_SCRIPTS_DIR__/sage
 @@ -85,7 +85,6 @@ usage_advanced() {
@@ -72,7 +72,7 @@ index ee161a6..5a6ca27 100755
      echo "  -fixdoctests <file.py> -- create <file.py>.out that would pass the doctests"
      echo "                            and output a patch"
      echo "  -startuptime [module]  -- display how long each component of Sage takes to"
-@@ -336,12 +332,6 @@ if [ "$1" = '-root'  -o "$1" = '--root' ]; then
+@@ -339,12 +335,6 @@ if [ "$1" = '-root'  -o "$1" = '--root' ]; then
      exit 0
  fi
  
@@ -85,7 +85,7 @@ index ee161a6..5a6ca27 100755
  #####################################################################
  # Run Sage's versions of the standard Algebra/Geometry etc. software
  #####################################################################
-@@ -554,14 +544,6 @@ EOF
+@@ -557,14 +547,6 @@ EOF
      exit $status
  fi
  
@@ -100,7 +100,7 @@ index ee161a6..5a6ca27 100755
  if [ "$1" = '-merge' -o "$1" = '--merge' ]; then
      shift
      exec sage-apply-ticket "$@"
-@@ -661,21 +643,6 @@ fi
+@@ -664,21 +646,6 @@ fi
  
  if [ "$1" = '-r' ]; then
     shift
@@ -122,7 +122,7 @@ index ee161a6..5a6ca27 100755
     interactive_sage
  fi
  
-@@ -710,12 +677,6 @@ if [ "$1" = '-sync-build' -o "$1" = '--sync-build' ]; then
+@@ -713,12 +680,6 @@ if [ "$1" = '-sync-build' -o "$1" = '--sync-build' ]; then
      exec sage-sync-build.py "$@"
  fi
  
@@ -136,7 +136,7 @@ index ee161a6..5a6ca27 100755
      if [ "$1" = '-bt' -o "$1" = '-btp' ]; then
          build_sage
 diff --git a/__SAGE_SRC__/sage/misc/all.py b/__SAGE_SRC__/sage/misc/all.py
-index 2638ec0..be64eff 100644
+index f92f569..c0877ce 100644
 --- a/__SAGE_SRC__/sage/misc/all.py
 +++ b/__SAGE_SRC__/sage/misc/all.py
 @@ -41,8 +41,6 @@ from fpickle import pickle_function, unpickle_function
@@ -149,7 +149,7 @@ index 2638ec0..be64eff 100644
  
  from pager import pager
 diff --git a/__SAGE_SRC__/sage/misc/lazy_import_cache.py b/__SAGE_SRC__/sage/misc/lazy_import_cache.py
-index 7cdd396..104d43b 100644
+index 7cdd396..cbd1289 100644
 --- a/__SAGE_SRC__/sage/misc/lazy_import_cache.py
 +++ b/__SAGE_SRC__/sage/misc/lazy_import_cache.py
 @@ -17,8 +17,7 @@ def get_cache_file():
@@ -163,13 +163,14 @@ index 7cdd396..104d43b 100644
  
      It shouldn't matter whether DOT_SAGE ends with a slash::
 diff --git a/__SAGE_SRC__/sage/misc/misc.py b/__SAGE_SRC__/sage/misc/misc.py
-index 856e4c3..8fc203a 100644
---- a/__SAGE_SRC__/sage/misc/misc.py
-+++ b/__SAGE_SRC__/sage/misc/misc.py
-@@ -1951,55 +1951,6 @@ def getitem(v, n):
+index 5b29892..cd28435 100644
+--- a/src/sage/misc/misc.py
++++ b/src/sage/misc/misc.py
+@@ -2010,58 +2010,6 @@ def getitem(v, n):
      except TypeError:
          return v[int(n)]
  
+-
 -def branch_current_hg():
 -    """
 -    Return the current Mercurial branch name.
@@ -219,11 +220,14 @@ index 856e4c3..8fc203a 100644
 -    notice = 'Loading Sage library. Current Mercurial branch is: '
 -    return notice + branch
 -
+-
+-
  def pad_zeros(s, size=3):
      """
      EXAMPLES::
+
 diff --git a/__SAGE_SRC__/sage/tests/cmdline.py b/__SAGE_SRC__/sage/tests/cmdline.py
-index e27911d5..f695891 100644
+index 65e2e65..b9aee0f 100644
 --- a/__SAGE_SRC__/sage/tests/cmdline.py
 +++ b/__SAGE_SRC__/sage/tests/cmdline.py
 @@ -11,7 +11,6 @@ test.sage
@@ -242,7 +246,7 @@ index e27911d5..f695891 100644
  --info
  --ipython
  --kash
-@@ -185,14 +183,6 @@ def test_executable(args, input="", timeout=50.0, cwd=None):
+@@ -188,14 +186,6 @@ def test_executable(args, input="", timeout=50.0, cwd=None):
          sage: ret
          0
  
@@ -257,7 +261,7 @@ index e27911d5..f695891 100644
          sage: (out, err, ret) = test_executable(["sage", "--root"])
          sage: len(out) >= 2   # at least one character + newline
          True
-@@ -501,14 +491,6 @@ def test_executable(args, input="", timeout=50.0, cwd=None):
+@@ -504,14 +494,6 @@ def test_executable(args, input="", timeout=50.0, cwd=None):
  
      Some programs of which we check functionality using only ``--version``::
  
