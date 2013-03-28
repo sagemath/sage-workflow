@@ -559,13 +559,17 @@ class SageDev(object):
 
         OUTPUT:
 
-        A string, ``'hg'`` (mercurial header), ``'git'`` (git mailbox header), ``'diff'`` (no header)
+        A string, ``'hg-export'`` (mercurial export header), ``'hg'``
+        (mercurial header), ``'git'`` (git mailbox header), ``'diff'`` (no
+        header)
 
         EXAMPLES::
 
             sage: s = SageDev()
-            sage: s._detect_patch_header_format(['# HG changeset patch'])
+            sage: s._detect_patch_header_format(['# HG changeset patch','# Parent 05fca316b08fe56c8eec85151d9a6dde6f435d46'])
             'hg'
+            sage: s._detect_patch_header_format(['# HG changeset patch','# User foo@bar.com'])
+            'hg-export'
             sage: s._detect_patch_header_format(['From: foo@bar'])
             'git'
 
@@ -574,13 +578,16 @@ class SageDev(object):
             raise ValueError("patch is empty")
 
         if HG_HEADER_REGEX.match(lines[0]):
-            return "hg"
+            if HG_USER_REGEX.match(lines[1]):
+                return "hg-export"
+            elif HG_PARENT_REGEX.match(lines[1]):
+                return "hg"
         elif GIT_FROM_REGEX.match(lines[0]):
             return "git"
         elif lines[0].startswith("diff -"):
             return "diff"
-        else:
-            raise NotImplementedError("Failed to determine patch header format.")
+
+        raise NotImplementedError("Failed to determine patch header format.")
 
     def _rewrite_patch_header(self, lines, to_format, from_format = None):
         """
@@ -590,8 +597,8 @@ class SageDev(object):
 
         - ``lines`` -- a list of strings, the lines of the patch file
 
-        - ``to_format`` -- one of ``'hg'``, ``'diff'``, ``'git'``, the format
-          of the resulting patch file.
+        - ``to_format`` -- one of ``'hg'``, ``'hg-export'``, ``'diff'``,
+          ``'git'``, the format of the resulting patch file.
 
         - ``from_format`` -- one of ``None``, ``'hg'``, ``'diff'``, ``'git'``
           (default: ``None``), the format of the patch file.  The format is
@@ -612,7 +619,7 @@ class SageDev(object):
             ....: #12555: fixed modulus templates
             ....:
             ....: diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi'''.splitlines()
-            sage: s._rewrite_patch_header(lines, 'hg') == lines
+            sage: s._rewrite_patch_header(lines, 'hg-export') == lines
             True
             sage: lines = s._rewrite_patch_header(lines, 'git'); lines
             ['From: David Roe <roed@math.harvard.edu>',
@@ -622,7 +629,7 @@ class SageDev(object):
              'diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi']
             sage: s._rewrite_patch_header(lines, 'git') == lines
             True
-            sage: s._rewrite_patch_header(lines, 'hg')
+            sage: s._rewrite_patch_header(lines, 'hg-export')
 
         """
         if not lines:
@@ -653,7 +660,7 @@ class SageDev(object):
         if from_format == "git":
             message, diff = parse_header(lines, (GIT_FROM_REGEX, GIT_SUBJECT_REGEX, GIT_DATE_REGEX))
 
-            if to_format == "hg":
+            if to_format == "hg-export":
                 ret = []
                 ret.append('# HG changeset')
                 ret.append('# User %s'%GIT_FROM_REGEX.match(lines[0]).groups()[0])
@@ -663,6 +670,7 @@ class SageDev(object):
                 ret.append(GIT_SUBJECT_REGEX.match(lines[1]).groups()[0])
                 ret.extend(message)
                 ret.extend(diff)
+                return ret
             else:
                 raise NotImplementedError(to_format)
         elif from_format == "diff":
@@ -673,6 +681,15 @@ class SageDev(object):
             ret.extend(lines)
             return self._rewrite_patch_header(ret, to_format=to_format, from_format="git")
         elif from_format == "hg":
+            message, diff = parse_header(lines, (HG_HEADER_REGEX, HG_PARENT_REGEX))
+            ret = []
+            ret.append('From: "Unknown User" <unknown@sagemath.org>')
+            ret.append('Subject: No Subject')
+            ret.append('Date: %s'%email.utils.formatdate(time.time()))
+            ret.extend(message[1:])
+            ret.extend(diff)
+            return self._rewrite_patch_header(ret, to_format=to_format, from_format="git")
+        elif from_format == "hg-export":
             message, diff = parse_header(lines, (HG_HEADER_REGEX, HG_USER_REGEX, HG_DATE_REGEX, HG_NODE_REGEX, HG_PARENT_REGEX))
             ret = []
             ret.append('From: %s'%HG_USER_REGEX.match(lines[1]).groups()[0])
