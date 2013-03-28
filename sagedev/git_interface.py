@@ -27,6 +27,7 @@ class GitInterface(object):
         ret = []
         if os.path.exists(os.path.join(self._dot_git,"rebase-apply")):
             ret.append("am")
+        return ret
 
     def reset_to_clean_state(self, interactive=True):
         state = self.get_state()
