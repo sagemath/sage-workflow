@@ -873,7 +873,7 @@ class SageDev(object):
             self.git.vanilla(release)
 
     ##
-    ## Initialization and configuration
+    ## Auxilliary functions
     ##
 
     def _get_tmp_dir(self):
@@ -881,143 +881,6 @@ class SageDev(object):
             self.tmp_dir = tempfile.mkdtemp()
             atexit.register(lambda: shutil.rmtree(self.tmp_dir))
         return self.tmp_dir
-
-    def current_ticket(self, error=False):
-        curbranch = self.git.current_branch()
-        if curbranch is not None and curbranch in self.git._ticket:
-            return self.git._ticket[curbranch]
-        if error: raise ValueError("You must specify a ticket")
-
-    def start(self, ticketnum = None, branchname = None, remote_branch=True):
-        curticket = self.current_ticket()
-        if ticketnum is None:
-            # User wants to create a ticket
-            ticketnum = self.trac.create_ticket_interactive()
-            if ticketnum is None:
-                # They didn't succeed.
-                return
-            if curticket is not None:
-                if self.UI.confirm("Should the new ticket depend on #%s?"%(curticket)):
-                    self.git.create_branch(self, ticketnum)
-                    self.trac.add_dependency(self, ticketnum, curticket)
-                else:
-                    self.git.create_branch(self, ticketnum, at_master=True)
-        if not self.exists(ticketnum):
-            self.git.fetch_ticket(ticketnum)
-        self.git.switch_branch("t/" + ticketnum)
-
-    def save(self):
-        curticket = self.git.current_ticket()
-        if self.UI.confirm("Are you sure you want to save your changes to ticket #%s?"%(curticket)):
-            self.git.save()
-            if self.UI.confirm("Would you like to upload the changes?"):
-                self.git.upload()
-        else:
-            self.UI.show("If you want to commit these changes to another ticket use the start() method")
-
-    def upload(self, ticketnum=None):
-        oldticket = self.git.current_ticket()
-        if ticketnum is None or ticketnum == oldticket:
-            oldticket = None
-            ticketnum = self.git.current_ticket()
-            if not self.UI.confirm("Are you sure you want to upload your changes to ticket #%s?"%(ticketnum)):
-                return
-        elif not self.exists(ticketnum):
-            self.UI.show("You don't have a branch for ticket %s"%(ticketnum))
-            return
-        elif not self.UI.confirm("Are you sure you want to upload your changes to ticket #%s?"%(ticketnum)):
-            return
-        else:
-            self.start(ticketnum)
-        self.git.upload()
-        if oldticket is not None:
-            self.git.switch(oldticket)
-
-    def sync(self):
-        # pulls in changes from trac and rebases the current branch to
-        # them. ticketnum=None syncs unstable.
-        curticket = self.git.current_ticket()
-        if self.UI.confirm("Are you sure you want to save your changes and sync to the most recent development version of Sage?"):
-            self.git.save()
-            self.git.sync()
-        if curticket is not None and curticket.isdigit():
-            dependencies = self.trac.dependencies(curticket)
-            for dep in dependencies:
-                if self.git.needs_update(dep) and self.UI.confirm("Do you want to sync to the latest version of #%s"%(dep)):
-                    self.git.sync(dep)
-
-    def vanilla(self, release=False):
-        if self.UI.confirm("Are you sure you want to revert to %s?"%(self.git.released_sage_ver() if release else "a plain development version")):
-            if self.git.has_uncommitted_changes():
-                dest = self.UI.get_input("Where would you like to save your changes?",["current branch","stash"],"current branch")
-                if dest == "stash":
-                    self.git.stash()
-                else:
-                    self.git.save()
-            self.git.vanilla(release)
-
-    def review(self, ticketnum, user=None):
-        if self.UI.confirm("Are you sure you want to download and review #%s"%(ticketnum)):
-            self.git.fetch_ticket(ticketnum, user, switch=True)
-            if self.UI.confirm("Would you like to rebuild Sage?"):
-                call("sage -b", shell=True)
-
-    #def status(self):
-    #    self.git.execute("status")
-
-    #def list(self):
-    #    self.git.execute("branch")
-
-    def diff(self, vs_dependencies=False):
-        if vs_dependencies:
-            self.git.execute("diff", self.dependency_join())
-        else:
-            self.git.execute("diff")
-
-    def prune_merged(self):
-        # gets rid of branches that have been merged into unstable
-        # Do we need this confirmation?  This is pretty harmless....
-        if self.UI.confirm("Are you sure you want to abandon all branches that have been merged into master?"):
-            for branch in self.git.local_branches():
-                if self.git.is_ancestor_of(branch, "master"):
-                    self.UI.show("Abandoning %s"%branch)
-                    self.git.abandon(branch)
-
-    def abandon(self, ticketnum):
-        if self.UI.confirm("Are you sure you want to delete your work on #%s?"%(ticketnum), default_yes=False):
-            self.git.abandon(ticketnum)
-
-    def help(self):
-        raise NotImplementedError
-
-    def gather(self, branchname, *inputs):
-        # Creates a join of inputs and stores that in a branch, switching to it.
-        if len(inputs) == 0:
-            self.UI.show("Please include at least one input branch")
-            return
-        if self.git.branch_exists(branchname):
-            if not self.UI.confirm("The %s branch already exists; do you want to merge into it?", default_yes=False):
-                return
-        else:
-            self.git.execute_silent("branch", branchname, inputs[0])
-            inputs = inputs[1:]
-        # The following will deal with outstanding changes
-        self.git.switch_branch(branchname)
-        if len(inputs) > 1:
-            self.git.execute("merge", *inputs, q=True, m="Gathering %s into branch %s"%(", ".join(inputs), branchname))
-
-    def show_dependencies(self, ticketnum=None, all=True):
-        if ticketnum is None:
-            ticketnum = self.current_ticket(error=True)
-        self.UI.show("Ticket %s depends on %s"%(ticketnum, ", ".join(["#%s"%(a) for a in self.trac.dependencies(ticketnum, all)])))
-
-    def update_dependencies(self, ticketnum=None, dependencynum=None, all=False):
-        # Merge in most recent changes from dependency(ies)
-        raise NotImplementedError
-
-    def add_dependency(self, ticketnum=None, dependencynum=None):
-        # Do we want to do this?
-        raise NotImplementedError
 
     def _detect_patch_diff_format(self, lines):
         """
@@ -1430,10 +1293,6 @@ class SageDev(object):
 
     def _rewrite_patch(self, lines, to_path_format, to_header_format, from_diff_format=None, from_path_format=None, from_header_format=None):
         return self._rewrite_patch_diff_paths(self._rewrite_patch_header(lines, to_format=to_header_format, from_format=from_header_format, diff_format=from_diff_format), to_format=to_path_format, diff_format=from_diff_format, from_format=from_path_format)
-
-    ##
-    ## Other Auxilliary functions
-    ##
 
     def _dependency_join(self, ticketnum=None):
         if ticketnum is None:
