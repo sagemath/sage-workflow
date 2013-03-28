@@ -220,7 +220,7 @@ class SageDev(object):
 
     EXAMPLES::
 
-        sage: SageDev()
+        sage: SageDev(Config._doctest_config())
         SageDev()
 
     """
@@ -230,7 +230,7 @@ class SageDev(object):
 
         TESTS::
 
-            sage: type(SageDev())
+            sage: type(SageDev(Config._doctest_config()))
             __main__.SageDev
 
         """
@@ -239,86 +239,6 @@ class SageDev(object):
 
         self.__git = None
         self.__trac = None
-
-    @property
-    def _git(self):
-        """
-        A lazy property to provide a :class:`GitInterface`.
-
-        sage: config = Config._doctest_config()
-        sage: s = SageDev(config)
-        sage: s._git
-        GitInterface()
-
-        """
-        if self.__git is None:
-            self.__git = GitInterface(self)
-        return self.__git
-
-    @property
-    def _trac(self):
-        """
-        A lazy propert to provide a :class:`TracInterface`
-
-        sage: config = Config._doctest_config()
-        sage: s = SageDev(config)
-        sage: s._trac
-        TracInterface()
-
-        """
-        if 'trac' not in self._config:
-            self._config['trac'] = {}
-        if self.__trac is None:
-            self.__trac = TracInterface(self._UI, self._config['trac'])
-        return self.__trac
-
-    def __repr__(self):
-        """
-        Return a printable representation of this object.
-
-        EXAMPLES::
-
-            sage: SageDev() # indirect doctest
-            SageDev()
-
-        """
-        return "SageDev()"
-
-    def _upload_ssh_key(self, keyfile, create_key_if_not_exists=True):
-        """
-        Upload ``keyfile`` to gitolite through the trac interface.
-
-        INPUT:
-
-        - ``keyfile`` -- the absolute path of the key file (default:
-          ``~/.ssh/id_rsa``)
-
-        - ``create_key_if_not_exists`` -- use ``ssh-keygen`` to create
-          ``keyfile`` if ``keyfile`` or ``keyfile.pub`` does not exist.
-
-        """
-        cfg = self._config
-
-        try:
-            with open(keyfile, 'r') as F:
-                pass
-            with open(keyfile + '.pub', 'r') as F:
-                pass
-        except IOError:
-            if create_key_if_not_exists:
-                self._UI.show("Generating ssh key....")
-                success = call(["ssh-keygen", "-q", "-N", '""', "-f", keyfile])
-                if success == 0:
-                    self._UI.show("Ssh key successfully generated")
-                else:
-                    raise RuntimeError("Ssh key generation failed.  Please create a key in `%s` and retry"%(keyfile))
-            else:
-                raise
-
-        with open(keyfile + '.pub', 'r') as F:
-            pubkey = F.read().strip()
-
-        self.trac.sshkeys.addkey(pubkey)
 
     ##
     ## Public interface
@@ -1521,3 +1441,99 @@ class SageDev(object):
         for d in self.trac.dependencies(ticketnum):
             pass
         raise NotImplementedError
+
+    @property
+    def _git(self):
+        """
+        A lazy property to provide a :class:`git_interface.GitInterface`.
+
+        EXAMPLES::
+
+            sage: s = SageDev(Config._doctest_config())
+            sage: g = s._git; g
+            GitInterface()
+            sage: g is s._git
+            True
+
+        """
+        if self.__git is None:
+            self.__git = GitInterface(self)
+        return self.__git
+
+    @property
+    def _trac(self):
+        """
+        A lazy property to provide a :class:`trac_interface.TracInterface`
+
+        EXAMPLES::
+
+            sage: s = SageDev(Config._doctest_config())
+            sage: t = s._trac; t
+            TracInterface()
+            sage: t is s._trac
+            True
+
+        """
+        if 'trac' not in self._config:
+            self._config['trac'] = {}
+        if self.__trac is None:
+            self.__trac = TracInterface(self._UI, self._config['trac'])
+        return self.__trac
+
+    def __repr__(self):
+        """
+        Return a printable representation of this object.
+
+        EXAMPLES::
+
+            sage: SageDev() # indirect doctest
+            SageDev()
+
+        """
+        return "SageDev()"
+
+    def _upload_ssh_key(self, keyfile, create_key_if_not_exists=True):
+        """
+        Upload ``keyfile`` to gitolite through the trac interface.
+
+        INPUT:
+
+        - ``keyfile`` -- the absolute path of the key file (default:
+          ``~/.ssh/id_rsa``)
+
+        - ``create_key_if_not_exists`` -- use ``ssh-keygen`` to create
+          ``keyfile`` if ``keyfile`` or ``keyfile.pub`` does not exist.
+
+        EXAMPLES::
+
+            sage: s = SageDev(Config._doctest_config())
+            sage: s._upload_ssh_key(tempfile.NamedTemporaryFile().name, create_key_if_not_exists = False)
+            Traceback (most recent call last):
+            ...
+            IOError: [Errno 2] No such file or directory: ...
+            sage: s._upload_ssh_key(tempfile.NamedTemporaryFile().name, create_key_if_not_exists = True)
+
+        """
+        cfg = self._config
+
+        try:
+            with open(keyfile, 'r') as F:
+                pass
+            with open(keyfile + '.pub', 'r') as F:
+                pass
+        except IOError:
+            if create_key_if_not_exists:
+                self._UI.show("Generating ssh key....")
+                success = call(["ssh-keygen", "-q", "-f", keyfile, "-P", ""])
+                if success == 0:
+                    self._UI.show("Ssh key successfully generated")
+                else:
+                    raise RuntimeError("Ssh key generation failed.  Please create a key in `%s` and retry"%(keyfile))
+            else:
+                raise
+
+        with open(keyfile + '.pub', 'r') as F:
+            pubkey = F.read().strip()
+
+        self._trac.sshkeys.addkey(pubkey)
+

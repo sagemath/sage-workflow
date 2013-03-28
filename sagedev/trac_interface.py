@@ -56,14 +56,52 @@ class TracInterface(object):
         return self.__anonymous_server_proxy
 
     @property
-    def username(self):
+    def _authenticated_server_proxy(self):
+        """
+        Get an XML-RPC proxy object that is authenticated using the users
+        username and password.
+
+        EXAMPLES::
+
+            sage: SageDev()._trac._authenticated_server_proxy # optional: trac
+
+        For convenient doctesting, this is replaced with a fake object for the user ``'doctest'``::
+
+            sage: SageDev(config=Config._doctest_config(authenticated=False))._trac._authenticated_server_proxy
+
+            sage: SageDev(config=Config._doctest_config(authenticated=True))._trac._authenticated_server_proxy
+
+        """
+        config = self._config
+
+        if self.__authenticated_server_proxy is None:
+            realm = REALM
+            if "realm" in self._config:
+                realm = self._config["realm"]
+            server = TRAC_SERVER_URI
+            if "server" in self._config:
+                server = self._config["server"]
+            if server[-1] != '/': server += '/'
+
+            username = self._username
+            if username == "doctest":
+                return DoctestServerProxy()
+            else:
+                transport = DigestTransport(realm, server, username, self._password)
+                self.__authenticated_server_proxy = ServerProxy.__init__(self, server + 'login/xmlrpc', transport=transport)
+
+        return self.__authenticated_server_proxy
+
+
+    @property
+    def _username(self):
         if 'username' not in self._config:
             self._config['username'] = self._UI.get_input("Please enter your trac username: ")
             self._config._write_config()
         return self._config['username']
 
     @property
-    def password(self):
+    def _password(self):
         if 'password' in self._config:
             return self._config['password']
         else:
@@ -79,22 +117,8 @@ class TracInterface(object):
             return password
 
     @property
-    def _authenticated_server_proxy(self):
-        config = self._config
-
-        if self.__authenticated_server_proxy is None:
-            realm = REALM
-            if "realm" in self._config:
-                realm = self._config["realm"]
-            server = TRAC_SERVER_URI
-            if "server" in self._config:
-                server = self._config["server"]
-            if server[-1] != '/': server += '/'
-
-            transport = DigestTransport(realm, server, self._username, self._password)
-            self.__authenticated_server_proxy = ServerProxy.__init__(self, server + 'login/xmlrpc', transport=transport)
-
-        return self.__authenticated_server_proxy
+    def sshkeys(self):
+        return self._authenticated_server_proxy.sshkeys
 
     def __repr__(self):
         return "TracInterface()"
