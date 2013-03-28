@@ -341,7 +341,7 @@ while read commit parents; do
                 # don't mess with diff or patch files
                 new_object=$object
             else
-                new_object=`git cat-file -p $object | sed 's+\s*$++' | sed -e :a -e '/./,$!d;/^\n*$/{$d;N;};/\n$/ba' | git hash-object -w --stdin`
+                new_object=`git cat-file -p $object | sed 's+\s*$++' | git hash-object -w --stdin`
             fi
             GIT_OBJ_DICT[X$object]=$new_object
         fi
