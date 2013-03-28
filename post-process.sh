@@ -103,3 +103,4 @@ apply_patch sage_data1
 apply_patch sage-envpy1
 apply_patch long_doctests1
 apply_patch setup1
+apply_patch gcc1

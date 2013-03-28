@@ -1,0 +1,23 @@
+From 7e5cb5f480e55257610ae43e2750607920779ae1 Mon Sep 17 00:00:00 2001
+From: Julian Rueth <julian.rueth@gmail.com>
+Date: Thu, 28 Mar 2013 07:01:08 +0100
+Subject: [PATCH] fixed gcc compile error
+
+---
+ build/pkgs/gcc/spkg-install | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/build/pkgs/gcc/spkg-install b/build/pkgs/gcc/spkg-install
+index 68ae02d..78eb9b4 100755
+--- a/build/pkgs/gcc/spkg-install
++++ b/build/pkgs/gcc/spkg-install
+@@ -93,5 +93,5 @@ $MAKE install
+ 
+ 
+ # Force re-installation of mpir, mpfr and mpc with the GCC we just built.
+-cd "$SAGE_ROOT/spkg/installed"
++cd "$SAGE_SPKG_INST"
+ rm -f mpir-* mpfr-* mpc-*
+-- 
+1.8.2.200.g7632cd2
+

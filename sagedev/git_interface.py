@@ -162,7 +162,17 @@ class GitInterface(object):
         self.commit_all(m=msg)
 
     def local_branches(self):
-        raise NotImplementedError
+        """
+        Return the list of the local branches
+
+        EXAMPLES::
+
+            sage: git.local_branches()
+            ['master', 't/13624', 't/13838']
+        """
+        result = self._run_git("stdout", "show-ref", ["--heads"], {}).split()
+        result = [result[2*i+1][11:] for i in range(len(result)/2)]
+        return result
 
     def current_branch(self):
         try:
@@ -273,8 +283,26 @@ class GitInterface(object):
     def branch_exists(self, branch):
         """
         Returns the commit id of the local branch, or None if branch does not exist.
+
+        EXAMPLES::
+
+            sage: import sagedev
+            sage: cd ..
+            sage: git = sagedev.SageDev().git
+            sage: git.branch_exists("master")    # random
+            'c4512c860a162c962073a83fd08e984674dd4f44'
+            sage: type(git.branch_exists("master"))
+            str
+            sage: len(git.branch_exists("master"))
+            40
+            sage: git.branch_exists("asdlkfjasdlf")
         """
-        raise NotImplementedError
+        # TODO: optimize and make this atomic :-)
+        ref = "refs/heads/%s"%branch
+        if self.execute("show-ref", "--quiet", "--verify", ref):
+            return None
+        else:
+            return self.read_output("show-ref", "--verify", ref).split()[0]
 
     def ref_exists(self, ref):
         raise NotImplementedError
