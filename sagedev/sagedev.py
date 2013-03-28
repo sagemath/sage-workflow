@@ -35,91 +35,183 @@ GIT_DIFF_REGEX = re.compile(r"^diff --git a/(.*) b/(.*)$") # this regex should w
 HG_PATH_REGEX = re.compile(r"^(?=sage/)|(?=module_list\.py)|(?=setup\.py)|(?=c_lib/)")
 GIT_PATH_REGEX = re.compile(r"^(?=src/)")
 
-# a wrapper to be able to index the configparser as a dictionary of dictionaries,
-# like in the python3 api.
-class ConfigParser(configparser.ConfigParser):
+class Config:
+    """
+    Wrapper around the ``devrc`` file storing the configuration for
+    :class:`SageDev`.
+
+    INPUT:
+
+    - ``devrc`` -- a string (default: the absolute path of the ``devrc`` file in ``DOT_SAGE``)
+
+    """
+    def __init__(self, devrc = os.path.join(DOT_SAGE, 'devrc')):
+        self._config = configparser.ConfigParser()
+        self._devrc = devrc
+
+    @classmethod
+    def _doctest_config(self):
+        ret = Config(devrc = tempfile.NamedTemporaryFile())
+        dot_git = tempfile.mkdtemp()
+        ret['git'] = {}
+        ret['git']['dot_git'] = dot_git
+        atexit.register(lambda: shutil.rmtree(dot_git))
+        return ret
+
+    def _read_config(self):
+        if os.path.exists(self._devrc):
+            cfg.read(self._devrc)
+
+    def _write_config(self):
+        with open(self._devrc, 'w') as F:
+            self._config.write(F)
+        # set the configuration file to read only by this user,
+        # because it may contain the trac password
+        os.chmod(self._devrc, 0600)
+
     def keys(self):
-        return self.sections()
+        return self._config.sections()
 
     def values(self):
         return [self[key] for key in self.keys()]
 
     def __getitem__(self, section):
+        if not section in self:
+            raise KeyError(section)
+
         class IndexableForSection(object):
             def __init__(this, section):
                 this._section = section
             def __getitem__(this, option):
-                return self.get(this._section, option)
+                return self._config.get(this._section, option)
+            def __iter__(this):
+                return iter(self._config.options(this._section))
             def __setitem__(this, option, value):
-                self.set(this._section, option, value)
+                self._config.set(this._section, option, value)
             def getboolean(this, option):
-                return self.getboolean(this._section, option)
+                return self._config.getboolean(this._section, option)
+            def _write_config(this):
+                self._write_config()
 
         return IndexableForSection(section)
 
+    def __iter__(self):
+        return iter(self.keys())
+
     def __setitem__(self, section, dictionary):
-        if self.has_section(section):
+        if self._config.has_section(section):
             self.remove_section(section)
-        self.add_section(section)
+        self._config.add_section(section)
         for option, value in dictionary.iteritems():
             self.set(section, option, value)
 
-REALM = 'sage.math.washington.edu'
-TRAC_SERVER_URI = 'https://trac.tangentspace.org/sage_trac'
-
 class SageDev(object):
-    def __init__(self, devrc=os.path.join(DOT_SAGE, 'devrc'),
-                 ssh_pubkey_file=None, ssh_passphrase="", ssh_comment=None):
-        self.UI = CmdLineInterface()
-        self._devrc = devrc
-        self._config = cfg = ConfigParser()
-        self._read_config()
+"""
+    The developer interface for sage.
 
-        if not cfg.has_option('trac','realm'):
-            cfg.set('trac','realm',REALM)
-        if not cfg.has_option('trac','server'):
-            cfg.set('trac','server',TRAC_SERVER_URI)
-        if cfg['trac']['server'][-1] != '/':
-            cfg['trac']['server'] += '/'
+    This class facilitates access to git and trac.
 
-        if not cfg.has_option('git','ticketfile'):
-            cfg.set('git','ticketfile',os.path.join(DOT_SAGE, 'branch_to_ticket'))
-        if not cfg.has_option('git','branchfile'):
-            cfg.set('git','branchfile',os.path.join(DOT_SAGE, 'ticket_to_branch'))
-        if not cfg.has_option('git','dot_git'):
-            dot_git = os.environ.get("SAGE_DOT_GIT", ".git")
-            if not os.path.exists(dot_git):
-                raise ValueError("`%s` does not point to an existing directory."%dot_git)
-            cfg.set('git','dot_git',dot_git)
-        cfg.set('git','username',cfg['trac']['username'])
-        if not cfg.has_option('git', 'sshkeyfile'):
-            cfg.set('git','sshkeyfile',os.path.join(os.environ['HOME'], '.ssh', 'id_rsa'))
-        keyfile = cfg['git']['sshkeyfile']
+    EXAMPLES::
+
+        sage: SageDev()
+        SageDev()
+
+    """
+    def __init__(self, config = Config()):
+        """
+        Initialization.
+
+        TESTS::
+
+            sage: type(SageDev())
+            __main__.SageDev
+
+        """
+        self._config = config
+        self._UI = CmdLineInterface()
+
+        self.__git = None
+        self.__trac = None
+
+    @property
+    def _git(self):
+        """
+        A lazy property to provide a :class:`GitInterface`.
+
+        sage: config = Config._doctest_config()
+        sage: s = SageDev(config)
+        sage: s._git
+        GitInterface()
+
+        """
+        if self.__git is None:
+            self.__git = GitInterface(self)
+        return self.__git
+
+    @property
+    def _trac(self):
+        """
+        A lazy propert to provide a :class:`TracInterface`
+
+        sage: config = Config._doctest_config()
+        sage: s = SageDev(config)
+        sage: s._trac
+        TracInterface()
+
+        """
+        if 'trac' not in self._config:
+            self._config['trac'] = {}
+        if self.__trac is None:
+            self.__trac = TracInterface(self._UI, self._config['trac'])
+        return self.__trac
+
+    def __repr__(self):
+        """
+        Return a printable representation of this object.
+
+        EXAMPLES::
+
+            sage: SageDev() # indirect doctest
+            SageDev()
+
+        """
+        return "SageDev()"
+
+    def _upload_ssh_key(self, keyfile, create_key_if_not_exists=True):
+        """
+        Upload ``keyfile`` to gitolite through the trac interface.
+
+        INPUT:
+
+        - ``keyfile`` -- the absolute path of the key file (default:
+          ``~/.ssh/id_rsa``)
+
+        - ``create_key_if_not_exists`` -- use ``ssh-keygen`` to create
+          ``keyfile`` if ``keyfile`` or ``keyfile.pub`` does not exist.
+
+        """
+        cfg = self._config
+
         try:
             with open(keyfile, 'r') as F:
                 pass
             with open(keyfile + '.pub', 'r') as F:
-                pubkey = F.read()
+                pass
         except IOError:
-            self.UI.show("Generating ssh key....")
-            success = call(["ssh-keygen", "-q", "-N", '""', "-f", keyfile])
-            if success == 0:
-                self.UI.show("Ssh key successfully generated")
-                with open(keyfile + '.pub', 'r') as F:
-                    pubkey = F.read().strip()
+            if create_key_if_not_exists:
+                self._UI.show("Generating ssh key....")
+                success = call(["ssh-keygen", "-q", "-N", '""', "-f", keyfile])
+                if success == 0:
+                    self._UI.show("Ssh key successfully generated")
+                else:
+                    raise RuntimeError("Ssh key generation failed.  Please create a key in `%s` and retry"%(keyfile))
             else:
-                raise RuntimeError("Ssh key generation failed.  Please create a key in %s and retry"%(keyfile))
-        if not cfg.has_option('git','gitcmd'):
-            cfg.set('git','gitcmd','git')
-        self.trac = TracInterface(self.UI, cfg['trac'])
-        if not cfg.has_option('trac', 'sshkey_set'):
-            if self.UI.confirm("You have not yet uploaded an ssh key to the server." +
-                               "Would you like to upload one now?"):
-                self.trac.sshkeys.addkey(pubkey)
-                cfg.set('trac','sshkey_set')
-        self.git = GitInterface(self.UI, cfg['git'])
-        self.tmp_dir = None
-        self._write_config()
+                raise
+
+        with open(keyfile + '.pub', 'r') as F:
+            pubkey = F.read().strip()
+
+        self.trac.sshkeys.addkey(pubkey)
 
     ##
     ## Public interface
@@ -748,39 +840,142 @@ class SageDev(object):
             atexit.register(lambda: shutil.rmtree(self.tmp_dir))
         return self.tmp_dir
 
-    def _get_user_info(self):
-        username = self.UI.get_input("Please enter your trac username: ")
-        # we should eventually use a password entering mechanism (ie *s or blanks when typing)
-        passwd, confirm = 0, 1
-        while passwd != confirm:
-            msg = "Please enter your trac password" + (" (stored in plaintext on your filesystem)" if passwd == 0 else "") + ": "
-            passwd = self.UI.get_password(msg)
-            confirm = self.UI.get_password("Please confirm your trac password: ")
-            if passwd != confirm:
-                self.UI.show("Passwords do not agree")
-        return username, passwd
+    def current_ticket(self, error=False):
+        curbranch = self.git.current_branch()
+        if curbranch is not None and curbranch in self.git._ticket:
+            return self.git._ticket[curbranch]
+        if error: raise ValueError("You must specify a ticket")
 
-    def _read_config(self):
-        cfg = self._config
-        if os.path.exists(self._devrc):
-            cfg.read(self._devrc)
-        if not cfg.has_section('trac'): cfg.add_section('trac')
-        if not cfg.has_section('git'): cfg.add_section('git')
-        if not (cfg.has_option('trac', 'username') and cfg.has_option('trac', 'password')):
-            username, password = self._get_user_info()
-            cfg.set('trac','username',username)
-            cfg.set('trac','password',password)
+    def start(self, ticketnum = None, branchname = None, remote_branch=True):
+        curticket = self.current_ticket()
+        if ticketnum is None:
+            # User wants to create a ticket
+            ticketnum = self.trac.create_ticket_interactive()
+            if ticketnum is None:
+                # They didn't succeed.
+                return
+            if curticket is not None:
+                if self.UI.confirm("Should the new ticket depend on #%s?"%(curticket)):
+                    self.git.create_branch(self, ticketnum)
+                    self.trac.add_dependency(self, ticketnum, curticket)
+                else:
+                    self.git.create_branch(self, ticketnum, at_master=True)
+        if not self.exists(ticketnum):
+            self.git.fetch_ticket(ticketnum)
+        self.git.switch_branch("t/" + ticketnum)
 
-    def _write_config(self):
-        with open(self._devrc, 'w') as F:
-            self._config.write(F)
-        # set the configuration file to read only by this user,
-        # because it may contain the trac password
-        os.chmod(self._devrc, 0600)
+    def save(self):
+        curticket = self.git.current_ticket()
+        if self.UI.confirm("Are you sure you want to save your changes to ticket #%s?"%(curticket)):
+            self.git.save()
+            if self.UI.confirm("Would you like to upload the changes?"):
+                self.git.upload()
+        else:
+            self.UI.show("If you want to commit these changes to another ticket use the start() method")
 
-    ##
-    ## Functions related to importing and exporting patches
-    ##
+    def upload(self, ticketnum=None):
+        oldticket = self.git.current_ticket()
+        if ticketnum is None or ticketnum == oldticket:
+            oldticket = None
+            ticketnum = self.git.current_ticket()
+            if not self.UI.confirm("Are you sure you want to upload your changes to ticket #%s?"%(ticketnum)):
+                return
+        elif not self.exists(ticketnum):
+            self.UI.show("You don't have a branch for ticket %s"%(ticketnum))
+            return
+        elif not self.UI.confirm("Are you sure you want to upload your changes to ticket #%s?"%(ticketnum)):
+            return
+        else:
+            self.start(ticketnum)
+        self.git.upload()
+        if oldticket is not None:
+            self.git.switch(oldticket)
+
+    def sync(self):
+        # pulls in changes from trac and rebases the current branch to
+        # them. ticketnum=None syncs unstable.
+        curticket = self.git.current_ticket()
+        if self.UI.confirm("Are you sure you want to save your changes and sync to the most recent development version of Sage?"):
+            self.git.save()
+            self.git.sync()
+        if curticket is not None and curticket.isdigit():
+            dependencies = self.trac.dependencies(curticket)
+            for dep in dependencies:
+                if self.git.needs_update(dep) and self.UI.confirm("Do you want to sync to the latest version of #%s"%(dep)):
+                    self.git.sync(dep)
+
+    def vanilla(self, release=False):
+        if self.UI.confirm("Are you sure you want to revert to %s?"%(self.git.released_sage_ver() if release else "a plain development version")):
+            if self.git.has_uncommitted_changes():
+                dest = self.UI.get_input("Where would you like to save your changes?",["current branch","stash"],"current branch")
+                if dest == "stash":
+                    self.git.stash()
+                else:
+                    self.git.save()
+            self.git.vanilla(release)
+
+    def review(self, ticketnum, user=None):
+        if self.UI.confirm("Are you sure you want to download and review #%s"%(ticketnum)):
+            self.git.fetch_ticket(ticketnum, user, switch=True)
+            if self.UI.confirm("Would you like to rebuild Sage?"):
+                call("sage -b", shell=True)
+
+    #def status(self):
+    #    self.git.execute("status")
+
+    #def list(self):
+    #    self.git.execute("branch")
+
+    def diff(self, vs_dependencies=False):
+        if vs_dependencies:
+            self.git.execute("diff", self.dependency_join())
+        else:
+            self.git.execute("diff")
+
+    def prune_merged(self):
+        # gets rid of branches that have been merged into unstable
+        # Do we need this confirmation?  This is pretty harmless....
+        if self.UI.confirm("Are you sure you want to abandon all branches that have been merged into master?"):
+            for branch in self.git.local_branches():
+                if self.git.is_ancestor_of(branch, "master"):
+                    self.UI.show("Abandoning %s"%branch)
+                    self.git.abandon(branch)
+
+    def abandon(self, ticketnum):
+        if self.UI.confirm("Are you sure you want to delete your work on #%s?"%(ticketnum), default_yes=False):
+            self.git.abandon(ticketnum)
+
+    def help(self):
+        raise NotImplementedError
+
+    def gather(self, branchname, *inputs):
+        # Creates a join of inputs and stores that in a branch, switching to it.
+        if len(inputs) == 0:
+            self.UI.show("Please include at least one input branch")
+            return
+        if self.git.branch_exists(branchname):
+            if not self.UI.confirm("The %s branch already exists; do you want to merge into it?", default_yes=False):
+                return
+        else:
+            self.git.execute_silent("branch", branchname, inputs[0])
+            inputs = inputs[1:]
+        # The following will deal with outstanding changes
+        self.git.switch_branch(branchname)
+        if len(inputs) > 1:
+            self.git.execute("merge", *inputs, q=True, m="Gathering %s into branch %s"%(", ".join(inputs), branchname))
+
+    def show_dependencies(self, ticketnum=None, all=True):
+        if ticketnum is None:
+            ticketnum = self.current_ticket(error=True)
+        self.UI.show("Ticket %s depends on %s"%(ticketnum, ", ".join(["#%s"%(a) for a in self.trac.dependencies(ticketnum, all)])))
+
+    def update_dependencies(self, ticketnum=None, dependencynum=None, all=False):
+        # Merge in most recent changes from dependency(ies)
+        raise NotImplementedError
+
+    def add_dependency(self, ticketnum=None, dependencynum=None):
+        # Do we want to do this?
+        raise NotImplementedError
 
     def _detect_patch_diff_format(self, lines):
         """

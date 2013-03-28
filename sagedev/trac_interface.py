@@ -2,14 +2,21 @@ import os, tempfile
 from xmlrpclib import Transport, ServerProxy
 import urllib2
 
+REALM = 'sage.math.washington.edu'
+TRAC_SERVER_URI = 'https://trac.tangentspace.org/sage_trac'
+
 class DigestTransport(Transport):
     """Handles an HTTP transaction to an XML-RPC server."""
 
-    def __init__(self, realm, url, username, password, **kwds):
+    def __init__(self, realm, url, username=None, password=None, **kwds):
         Transport.__init__(self, **kwds)
 
-        authhandler = urllib2.HTTPDigestAuthHandler()
-        authhandler.add_password(realm, url, username, password)
+        if username and password:
+            authhandler = urllib2.HTTPDigestAuthHandler()
+            authhandler.add_password(realm, url, username, password)
+        else:
+            raise NotImplementedError
+
         self.opener = urllib2.build_opener(authhandler)
 
     def request(self, host, handler, request_body, verbose=0):
@@ -27,10 +34,69 @@ class DigestTransport(Transport):
 
 class TracInterface(ServerProxy):
     def __init__(self, UI, config):
-        self.UI = UI
+        self._UI = UI
         self._config = config
-        transport = DigestTransport(config['realm'], config['server'], config['username'], config['password'])
-        ServerProxy.__init__(self, config['server'] + 'login/xmlrpc', transport=transport)
+        self.__anonymous_server_proxy = None
+        self.__authenticated_server_proxy = None
+
+    @property
+    def _anonymous_server_proxy(self):
+        if self.__anonymous_server_proxy is None:
+            realm = REALM
+            if "realm" in self._config:
+                realm = self._config["realm"]
+            server = TRAC_SERVER_URI
+            if "server" in self._config:
+                server = self._config["server"]
+            if server[-1] != '/': server += '/'
+
+            transport = DigestTransport(realm, server)
+            self.__anonymous_server_proxy = ServerProxy.__init__(self, server + 'xmlrpc', transport=transport)
+        return self.__anonymous_server_proxy
+
+    @property
+    def username(self):
+        if 'username' not in self._config:
+            self._config['username'] = self._UI.get_input("Please enter your trac username: ")
+            self._config._write_config()
+        return self._config['username']
+
+    @property
+    def password(self):
+        if 'password' in self._config:
+            return self._config['password']
+        else:
+            while True:
+                password = self._UI.get_password("Please enter your trac password: ")
+                password2 = self._UI.get_password("Please confirm your trac password: ")
+                if password != password2:
+                    self._UI.show("Passwords do not agree.")
+                else: break
+            if self._UI.confirm("Do you want your password to be stored on your local system? (your password will be stored in plaintext in a file only readable by you)", defaultYes=False):
+                self._config['password'] = password
+                self._config._write_confi()
+            return password
+
+    @property
+    def _authenticated_server_proxy(self):
+        config = self._config
+
+        if self.__authenticated_server_proxy is None:
+            realm = REALM
+            if "realm" in self._config:
+                realm = self._config["realm"]
+            server = TRAC_SERVER_URI
+            if "server" in self._config:
+                server = self._config["server"]
+            if server[-1] != '/': server += '/'
+
+            transport = DigestTransport(realm, server, self._username, self._password)
+            self.__authenticated_server_proxy = ServerProxy.__init__(self, server + 'login/xmlrpc', transport=transport)
+
+        return self.__authenticated_server_proxy
+
+    def __repr__(self):
+        return "TracInterface()"
 
     def create_ticket(self, summary, description, type, component,
                       attributes={}, notify=False):
