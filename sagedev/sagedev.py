@@ -1302,16 +1302,16 @@ class SageDev(object):
         raise NotImplementedError
 
     @property
-    def _git(self):
+    def git(self):
         """
         A lazy property to provide a :class:`git_interface.GitInterface`.
 
         EXAMPLES::
 
             sage: s = SageDev(Config._doctest_config())
-            sage: g = s._git; g
+            sage: g = s.git; g
             GitInterface()
-            sage: g is s._git
+            sage: g is s.git
             True
 
         """
@@ -1320,16 +1320,16 @@ class SageDev(object):
         return self.__git
 
     @property
-    def _trac(self):
+    def trac(self):
         """
         A lazy property to provide a :class:`trac_interface.TracInterface`
 
         EXAMPLES::
 
             sage: s = SageDev(Config._doctest_config())
-            sage: t = s._trac; t
+            sage: t = s.trac; t
             TracInterface()
-            sage: t is s._trac
+            sage: t is s.trac
             True
 
         """
