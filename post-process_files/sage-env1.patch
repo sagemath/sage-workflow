@@ -7,10 +7,10 @@ Subject: [PATCH] (FIXUP) make sage-env and basic startup not depend on the
 ---
 
 diff --git a/sage b/sage
-index 0a085c4..a08eb43 100755
+index 6597c54..4ca06c1 100755
 --- a/sage
 +++ b/sage
-@@ -120,11 +120,10 @@ fi
+@@ -124,11 +124,10 @@ fi
  export SAGE_ROOT
  
  # Run the actual Sage script
@@ -27,10 +27,10 @@ index 0a085c4..a08eb43 100755
      echo >&2 "$0: no Sage installation found in \$SAGE_ROOT=$SAGE_ROOT"
      exit 1
 diff --git a/__SAGE_SCRIPTS_DIR__/sage b/__SAGE_SCRIPTS_DIR__/sage
-index 961ae78..d1e6759 100755
+index 142b9de..d304a92 100755
 --- a/__SAGE_SCRIPTS_DIR__/sage
 +++ b/__SAGE_SCRIPTS_DIR__/sage
-@@ -248,7 +248,7 @@ if [ "$1" = '--nodotsage' ]; then
+@@ -247,7 +247,7 @@ if [ "$1" = '--nodotsage' ]; then
  fi
  
  # Make sure this doesn't produce output (in case we use this in scripts).
@@ -40,7 +40,7 @@ index 961ae78..d1e6759 100755
      echo >&2 "Error setting environment variables by sourcing '$SAGE_ROOT/spkg/bin/sage-env';"
      echo >&2 "possibly contact sage-devel (see http://groups.google.com/group/sage-devel)."
 diff --git a/__SAGE_SCRIPTS_DIR__/sage-env b/__SAGE_SCRIPTS_DIR__/sage-env
-index 4b37e9e..349891c 100644
+index 6af257c..f551d0d 100644
 --- a/__SAGE_SCRIPTS_DIR__/sage-env
 +++ b/__SAGE_SCRIPTS_DIR__/sage-env
 @@ -7,7 +7,7 @@
@@ -61,7 +61,7 @@ index 4b37e9e..349891c 100644
  #
  #  from the SAGE_ROOT directory.
  #
-@@ -111,9 +111,9 @@ resolvelinks() {
+@@ -114,9 +114,9 @@ resolvelinks() {
  # or a guessed value based on pwd.
  if [ -n "$SAGE_ROOT" ]; then
      NEW_SAGE_ROOT="$SAGE_ROOT"
@@ -73,7 +73,7 @@ index 4b37e9e..349891c 100644
      NEW_SAGE_ROOT="../.."
  else
      # No idea what SAGE_ROOT should be...
-@@ -126,7 +126,7 @@ fi
+@@ -129,7 +129,7 @@ fi
  NEW_SAGE_ROOT=`cd "$NEW_SAGE_ROOT" && pwd -P`
  
  # Sanity check NEW_SAGE_ROOT
@@ -82,7 +82,7 @@ index 4b37e9e..349891c 100644
      :
  else
      echo >&2 "Error: SAGE_ROOT is set to a bad value:"
-@@ -151,7 +151,7 @@ fi
+@@ -154,7 +154,7 @@ fi
  # "version number" of sage-env.  If a different version of sage-env was
  # sourced earlier (when upgrading), we still source the new version.
  # The sage-env version should be increased whenever a newer sage-env is
@@ -91,9 +91,9 @@ index 4b37e9e..349891c 100644
  # to be changed: the packages which need the new sage-env must depend on
  # SAGE_ROOT_REPO (the root repo contains sage-env).
  #
-@@ -168,6 +168,28 @@ export SAGE_ENV_SOURCED=$SAGE_ENV_VERSION
- 
+@@ -172,6 +172,28 @@ export SAGE_ENV_SOURCED=$SAGE_ENV_VERSION
  export SAGE_ROOT="$NEW_SAGE_ROOT"
+ 
  
 +# sage-env must know where the Sage's script files are
 +if [ -z "$SAGE_SCRIPTS_DIR" ]; then
@@ -120,7 +120,7 @@ index 4b37e9e..349891c 100644
  # Call with: contains_spaces X${VAR}X
  # i.e., WITHOUT quotes but some character(s) around the environment variable to test.
  # (This function does return false for empty/unset variables.)
-@@ -218,11 +240,11 @@ fi
+@@ -224,11 +246,11 @@ fi
  export SAGE_LOCAL="$SAGE_ROOT/local"
  export SAGE_SHARE="$SAGE_LOCAL/share"
  export SAGE_EXTCODE="$SAGE_SHARE/sage/ext"
@@ -137,7 +137,7 @@ index 4b37e9e..349891c 100644
  
  # this is to be compatible with optional packages that haven't
  # been updated to not use SAGE_DATA
-@@ -273,7 +295,7 @@ HGENCODING="utf8" && export HGENCODING
+@@ -279,7 +301,7 @@ HGENCODING="utf8" && export HGENCODING
  
  # Make Mercurial not use any user defaults (like enabling the pager extension)
  # This is needed in order to use mercurial in scripts.  When running hg
@@ -146,7 +146,7 @@ index 4b37e9e..349891c 100644
  # See Trac Ticket #12058
  HGPLAIN="yes" && export HGPLAIN
  
-@@ -297,7 +319,7 @@ fi
+@@ -303,7 +325,7 @@ fi
  
  if [ "$DOT_SAGE" = "" ]; then
      # It is *not* an error if this directory does not exist, it will
@@ -155,7 +155,7 @@ index 4b37e9e..349891c 100644
      # This also works if $HOME/.sage is a symbolic link to a
      # non-existing directory.
      DOT_SAGE=`resolvelinks "$HOME/.sage"`
-@@ -413,7 +435,7 @@ export PKG_CONFIG_PATH
+@@ -420,7 +442,7 @@ export PKG_CONFIG_PATH
  # Whenever a flag like SAGE64 has been set once, it needs to be
  # restored in every run of sage, as mixing 64-bit and 32-bit code is
  # bad idea at best.  This script takes care of that.

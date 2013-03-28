@@ -6,15 +6,16 @@ Subject: [PATCH] (FIXUP) move __SAGE_BUILD__/install to git layout
 ---
 
 diff --git a/Makefile b/Makefile
-index 740e5c9..667e237 100644
+index 160945f..5a615c8 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -7,12 +7,13 @@
+@@ -7,13 +7,14 @@
  # See below for targets to build the documentation in other formats,
  # to run various types of test suites, and to remove parts of the build etc.
  
 -PIPE = spkg/pipestatus
 +PIPE = __SAGE_BUILD__/pipestatus
+ 
  
  all: start doc  # indirectly depends on build
  

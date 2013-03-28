@@ -6,10 +6,10 @@ Subject: [PATCH] (FIXUP) Makefile: put logs in logs directory
 ---
 
 diff --git a/Makefile b/Makefile
-index ab78926..617300c 100644
+index 7dfa378..58c4f9f 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -16,7 +16,7 @@ build:
+@@ -17,7 +17,7 @@ build:
  	cd build && \
  	"../$(PIPE)" \
  		"env SAGE_PARALLEL_SPKG_BUILD='$(SAGE_PARALLEL_SPKG_BUILD)' ./install all 2>&1" \
@@ -18,7 +18,7 @@ index ab78926..617300c 100644
  	./sage -b
  
  # ssl: build Sage, and also install pyOpenSSL. This is necessary for
-@@ -47,16 +47,16 @@ start: build
+@@ -49,16 +49,16 @@ start: build
  doc: doc-html
  
  doc-html: build
@@ -38,7 +38,7 @@ index ab78926..617300c 100644
  
  doc-clean:
  	@echo "Deleting devel/sage/doc/output..."
-@@ -105,37 +105,37 @@ TESTDIRS = src/doc/common src/doc/[a-z][a-z] src/sage
+@@ -107,37 +107,37 @@ TESTDIRS = src/doc/common src/doc/[a-z][a-z] src/sage
  
  test: all # i.e. build and doc
  	$(TESTPRELIMS)
@@ -82,8 +82,8 @@ index ab78926..617300c 100644
 -	$(PIPE) "./sage -tp --sagenb --optional --long $(TESTDIRS) 2>&1" "tee -a ptestalllong.log"
 +	$(PIPE) "./sage -tp --sagenb --optional --long $(TESTDIRS) 2>&1" "tee -a logs/ptestalllong.log"
  
- testoptional: testall # just an alias
  
+ testoptional: testall # just an alias
 -- 
 1.8.1.5
 
