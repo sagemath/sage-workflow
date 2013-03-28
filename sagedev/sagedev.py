@@ -31,7 +31,7 @@ GIT_DIFF_REGEX = re.compile(r"^diff --git a/(.*) b/(.*)$") # this regex should w
 
 # regular expressions to determine whether a path was written for the new git
 # repository of for the old hg repository
-HG_PATH_REGEX = re.compile(r"^(?=sage/)|(?=module_list\.py)|(?=setup\.py)|(?=c_lib/)") # TODO: add more patterns
+HG_PATH_REGEX = re.compile(r"^(?=sage/)|(?=module_list\.py)|(?=setup\.py)|(?=c_lib/)")
 GIT_PATH_REGEX = re.compile(r"^(?=src/)")
 
 class SageDev(object):
@@ -591,7 +591,28 @@ class SageDev(object):
 
         raise NotImplementedError("Failed to determine patch header format.")
 
-    def _rewrite_patch_header(self, lines, to_format, from_format = None):
+    def _detect_patch_modified_files(self, lines, diff_format = None):
+        if diff_format is None:
+            diff_format = self._detect_patch_diff_format(lines)
+
+        if diff_format == "hg":
+            regex = HG_DIFF_REGEX
+        elif diff_format == "git":
+            regex = GIT_DIFF_REGEX
+        else:
+            raise NotImplementedError(diff_format)
+
+        ret = set()
+        for line in lines:
+            m = regex.match(line)
+            if m:
+                for group in m.groups():
+                    split = group.split('/')
+                    if split:
+                        ret.add(split[-1])
+        return list(ret)
+
+    def _rewrite_patch_header(self, lines, to_format, from_format = None, diff_format = None):
         """
         Rewrite ``lines`` to match ``to_format``.
 
@@ -678,19 +699,19 @@ class SageDev(object):
         elif from_format == "diff":
             ret = []
             ret.append('From: "Unknown User" <unknown@sagemath.org>')
-            ret.append('Subject: No Subject')
+            ret.append('Subject: No Subject. Modified: %s'%(", ".join(self._detect_patch_modified_files(lines))))
             ret.append('Date: %s'%email.utils.formatdate(time.time()))
             ret.extend(lines)
-            return self._rewrite_patch_header(ret, to_format=to_format, from_format="git")
+            return self._rewrite_patch_header(ret, to_format=to_format, from_format="git", diff_format=diff_format)
         elif from_format == "hg":
             message, diff = parse_header(lines, (HG_HEADER_REGEX, HG_PARENT_REGEX))
             ret = []
             ret.append('From: "Unknown User" <unknown@sagemath.org>')
-            ret.append('Subject: No Subject')
+            ret.append('Subject: No Subject. Modified: %s'%(", ".join(self._detect_patch_modified_files(lines))))
             ret.append('Date: %s'%email.utils.formatdate(time.time()))
             ret.extend(message[1:])
             ret.extend(diff)
-            return self._rewrite_patch_header(ret, to_format=to_format, from_format="git")
+            return self._rewrite_patch_header(ret, to_format=to_format, from_format="git", diff_format=diff_format)
         elif from_format == "hg-export":
             message, diff = parse_header(lines, (HG_HEADER_REGEX, HG_USER_REGEX, HG_DATE_REGEX, HG_NODE_REGEX, HG_PARENT_REGEX))
             ret = []
@@ -699,12 +720,12 @@ class SageDev(object):
             ret.append('Date: %s'%email.utils.formatdate(int(HG_DATE_REGEX.match(lines[2]).groups()[0])))
             ret.extend(message[1:])
             ret.extend(diff)
-            return self._rewrite_patch_header(ret, to_format=to_format, from_format="git")
+            return self._rewrite_patch_header(ret, to_format=to_format, from_format="git", diff_format=diff_format)
         else:
             raise NotImplementedError(from_format)
 
     def _rewrite_patch(self, lines, to_path_format, to_header_format, from_diff_format=None, from_path_format=None, from_header_format=None):
-        return self._rewrite_patch_diff_paths(self._rewrite_patch_header(lines, to_format=to_header_format, from_format=from_header_format), to_format=to_path_format, diff_format=from_diff_format, from_format=from_path_format)
+        return self._rewrite_patch_diff_paths(self._rewrite_patch_header(lines, to_format=to_header_format, from_format=from_header_format, diff_format=from_diff_format), to_format=to_path_format, diff_format=from_diff_format, from_format=from_path_format)
 
     def dependency_join(self, ticketnum=None):
         raise NotImplementedError
