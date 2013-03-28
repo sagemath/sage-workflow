@@ -44,6 +44,17 @@ class GitInterface(object):
         else:
             raise NotImplementedError(state)
 
+    def reset_to_clean_working_directory(self, interactive=True):
+        if not self.has_uncommitted_changes():
+            return True
+
+        if interactive and not self.UI.confirm("You have uncommited changes in your working directory. To run this command you have to discard your changes. Do you want me to discard any changes which are not commited?"):
+            return False
+
+        self.reset("--hard")
+
+        return True
+
     def _clean_str(self, s):
         # for now, no error checking
         return str(s)

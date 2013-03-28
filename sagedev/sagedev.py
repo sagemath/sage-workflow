@@ -292,6 +292,7 @@ class SageDev(object):
         - ``local_file`` -- a string or ``None`` (default: ``None``)
         """
         if not self.git.reset_to_clean_state(): return
+        if not self.git.reset_to_clean_working_directory(): return
 
         if not local_file:
             return self.import_patch(local_file = self.download_patch(ticketnum = ticketnum, patchname = patchname, url = url), diff_format=diff_format, header_format=header_format, path_format=path_format)
