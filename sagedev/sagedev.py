@@ -127,8 +127,17 @@ def remote_status(ticket=None):
 
 def diff(base="master/dependencies/'commit default'/..."):
     """
+    Show how the current file system differs from ``base``.
+
+    INPUT:
+
+    - ``base`` -- show the differences against the latest ``'commit'`` (the
+      default), against the branch ``'master'`` (or any other branch name), or
+      the merge of the ``'dependencies'`` of the current ticket (if the
+      dependencies merge cleanly)
 
     """
+    raise NotImplementedError
 
 def prune_closed_tickets():
     """
