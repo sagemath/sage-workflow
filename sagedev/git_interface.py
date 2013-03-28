@@ -279,7 +279,7 @@ class GitInterface(object):
     def ref_exists(self, ref):
         raise NotImplementedError
 
-    def create_branch(self, branchname, location=None):
+    def create_branch(self, branchname, location=None, remote_branch=True):
         if branchname in ["t", "u", "me", "u/" + self._config['username'], "ticket"]:
             raise ValueError("Bad branchname")
         if location is None:
@@ -293,7 +293,7 @@ class GitInterface(object):
         self._validate_local_name(newname)
         self.execute("branch", oldname, newname, m=True)
 
-    def fetch_ticket(self, ticketnum, user=None):
+    def fetch_ticket(self, ticketnum, user=None, switch=False):
         # fetches a branch from remote, including dependencies if
         # necessary. Doesn't switch
         raise NotImplementedError

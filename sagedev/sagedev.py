@@ -157,12 +157,13 @@ class SageDev(object):
         # because it may contain the trac password
         os.chmod(self._devrc, 0600)
 
-    def current_ticket(self):
+    def current_ticket(self, error=False):
         curbranch = self.git.current_branch()
-        if curbranch is None: return None
-        return self.git._branch_to_ticketnum(curbranch)
+        if curbranch is not None and curbranch in self.git._ticket:
+            return self.git._ticket[curbranch]
+        if error: raise ValueError("You must specify a ticket")
 
-    def start(self, ticketnum = None, branchname = None):
+    def start(self, ticketnum = None, branchname = None, remote_branch=True):
         curticket = self.current_ticket()
         if ticketnum is None:
             # User wants to create a ticket
@@ -232,9 +233,7 @@ class SageDev(object):
 
     def review(self, ticketnum, user=None):
         if self.UI.confirm("Are you sure you want to download and review #%s"%(ticketnum)):
-            self.git.fetch_ticket(ticketnum, user)
-            branch = "t/" + str(ticketnum)
-            raise NotImplementedError
+            self.git.fetch_ticket(ticketnum, user, switch=True)
             if self.UI.confirm("Would you like to rebuild Sage?"):
                 call("sage -b", shell=True)
 
@@ -244,9 +243,9 @@ class SageDev(object):
     #def list(self):
     #    self.git.execute("branch")
 
-    def diff(self, vs_unstable=False):
-        if vs_unstable:
-            self.git.execute("diff", self.git._unstable)
+    def diff(self, vs_dependencies=False):
+        if vs_dependencies:
+            self.git.execute("diff", self.dependency_join())
         else:
             self.git.execute("diff")
 
@@ -256,7 +255,7 @@ class SageDev(object):
         if self.UI.confirm("Are you sure you want to abandon all branches that have been merged into master?"):
             for branch in self.git.local_branches():
                 if self.git.is_ancestor_of(branch, "master"):
-                    self.UI.show("Abandoning %s"("#%s"%(branch[2:]) if branch.startswith("t/") else branch))
+                    self.UI.show("Abandoning %s"%branch)
                     self.git.abandon(branch)
 
     def abandon(self, ticketnum):
@@ -283,7 +282,9 @@ class SageDev(object):
             self.git.execute("merge", *inputs, q=True, m="Gathering %s into branch %s"%(", ".join(inputs), branchname))
 
     def show_dependencies(self, ticketnum=None, all=True):
-        raise NotImplementedError
+        if ticketnum is None:
+            ticketnum = self.current_ticket(error=True)
+        self.UI.show("Ticket %s depends on %s"%(ticketnum, ", ".join(["#%s"%(a) for a in self.trac.dependencies(ticketnum, all)])))
 
     def update_dependencies(self, ticketnum=None, dependencynum=None, all=False):
         # Merge in most recent changes from dependency(ies)
@@ -773,6 +774,10 @@ class SageDev(object):
         return self._rewrite_patch_diff_paths(self._rewrite_patch_header(lines, to_format=to_header_format, from_format=from_header_format), to_format=to_path_format, diff_format=from_diff_format, from_format=from_path_format)
 
     def dependency_join(self, ticketnum=None):
+        if ticketnum is None:
+            ticketnum = self.current_ticket(error=True)
+        for d in self.trac.dependencies(ticketnum):
+            pass
         raise NotImplementedError
 
     def exists(self, ticketnum):

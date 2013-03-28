@@ -47,8 +47,8 @@ class TracInterface(ServerProxy):
             ... "defect", "scripts"
             ... )
         """
-        tnum = self._tracserver.ticket.create(summary, description,
-                                              attributes, notify)
+        tnum = self.ticket.create(summary, description,
+                                  attributes, notify)
         return tnum
 
     def create_ticket_interactive(self):
@@ -84,17 +84,20 @@ class TracInterface(ServerProxy):
 
     def _get_attributes(self, ticketnum):
         ticketnum = int(ticketnum)
-        return self._tracserver.ticket.get(ticketnum)[3]
+        return self.ticket.get(ticketnum)[3]
 
-    def dependencies(self, ticketnum):
-        # returns the list of all ticket dependencies that have not
-        # been merged into unstable. Earlier elements should be
-        # 'older'.
+    def dependencies(self, ticketnum, all=False):
+        # returns the list of all ticket dependencies, sorted by ticket number
         data = self._get_attributes(ticketnum)
-        dependencies = [a.strip(" #\n") for a in data['dependencies'].split(',')]
-        return dependencies
+        dependencies = [int(a.strip(" #\n")) for a in data['dependencies'].split(',')]
+        if not all or not dependencies:
+            return sorted(dependencies)
+        L = []
+        for a in dependencies:
+            L.extend(self.dependencies(a, all=True))
+        return sorted(list(set(L)))
 
     def attachment_names(self, ticketnum):
         ticketnum = int(ticketnum)
-        attachments = self._tracserver.ticket.listAttachments(ticketnum)
+        attachments = self.ticket.listAttachments(ticketnum)
         return [a[0] for a in attachments]
