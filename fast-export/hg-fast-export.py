@@ -116,7 +116,11 @@ def get_author(logmessage,committer,authors):
     # if the last non-empty line matches our Signed-Off-by regex: extract username
     if first!=None:
       r=fixup_user(first.group(1),authors)
+      if r.find('>') < r.find('<'):
+          return "Invalid User <invalid@email.com>"
       return r
+  if committer.find('>') < committer.find('<'):
+      return "Invalid User <invalid@email.com>"
   return committer
 
 def export_file_contents(ctx,manifest,files):
@@ -165,6 +169,8 @@ def export_commit(ui,repo,revision,old_marks,max,count,authors,sob,brmap):
     return n
 
   (revnode,_,user,(time,timezone),files,desc,branch,_)=get_changeset(ui,repo,revision,authors)
+  if user.find("<at>")!=-1:
+      user = "Evil Email <malformatted@us.er>"
 
   branch=get_branchname(branch)
 
