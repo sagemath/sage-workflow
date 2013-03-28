@@ -106,7 +106,7 @@ class Config:
             self.set(section, option, value)
 
 class SageDev(object):
-"""
+    """
     The developer interface for sage.
 
     This class facilitates access to git and trac.
