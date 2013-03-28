@@ -112,11 +112,11 @@ class SageDev(object):
         if not cfg.has_option('git','gitcmd'):
             cfg.set('git','gitcmd','git')
         self.trac = TracInterface(self.UI, cfg['trac'])
-        #if not cfg.has_option('trac', 'sshkey_set'):
-        #    if self.UI.confirm("You have not yet uploaded an ssh key to the server." +
-        #                       "Would you like to upload one now?"):
-        #        self.trac.sshkeys.addkey(pubkey)
-        #        cfg.set('trac','sshkey_set')
+        if not cfg.has_option('trac', 'sshkey_set'):
+            if self.UI.confirm("You have not yet uploaded an ssh key to the server." +
+                               "Would you like to upload one now?"):
+                self.trac.sshkeys.addkey(pubkey)
+                cfg.set('trac','sshkey_set')
         self.git = GitInterface(self.UI, cfg['git'])
         self.tmp_dir = None
         self._write_config()
