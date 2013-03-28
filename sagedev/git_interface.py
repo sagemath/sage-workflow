@@ -18,7 +18,7 @@ class SavingDict(dict):
         s = cPickle.dumps(self, protocol=2)
         with open(tmpfile, 'wb') as F:
             F.write(s)
-        # This move is atomic
+        # This move is atomic (the files are on the same filesystem)
         os.rename(tmpfile, self._filename)
         os.unlink(tmpfile)
 
