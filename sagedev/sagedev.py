@@ -323,9 +323,11 @@ class SageDev(object):
                         self.git.reset_to_clean_state(interactive=False)
                         self.git.reset_to_clean_working_directory(interactive=False)
                         return
+                else:
+                    print "It seemed that the patch would not apply, but in fact it did."
 
-                    self.git.add("--update")
-                    self.git.am("--resolved")
+                self.git.add("--update")
+                self.git.am("--resolved")
 
     def _detect_patch_diff_format(self, lines):
         """
