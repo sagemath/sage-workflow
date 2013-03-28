@@ -86,16 +86,30 @@ class TracInterface(ServerProxy):
         ticketnum = int(ticketnum)
         return self.ticket.get(ticketnum)[3]
 
-    def dependencies(self, ticketnum, all=False):
+    def dependencies(self, ticketnum, all=False, _seen=None):
         # returns the list of all ticket dependencies, sorted by ticket number
+        if _seen is None:
+            seen = []
+        elif ticketnum in _seen:
+            return
+        else:
+            seen = _seen
+        seen.append(ticketnum)
         data = self._get_attributes(ticketnum)
-        dependencies = [int(a.strip(" #\n")) for a in data['dependencies'].split(',')]
-        if not all or not dependencies:
-            return sorted(dependencies)
-        L = []
+        dependencies = data['dependencies']
+        if dependencies.strip() == '': return []
+        dependencies = [a.strip(" ,;+-\nabcdefghijklmnopqrstuvwxyz") for a in data['dependencies'].split('#')]
+        dependencies = [a for a in dependencies if a]
+        dependencies = [int(a) if a.isdigit() else a for a in dependencies]
+        if not all:
+            return dependencies
         for a in dependencies:
-            L.extend(self.dependencies(a, all=True))
-        return sorted(list(set(L)))
+            if isinstance(a, int):
+                self.dependencies(a, True, seen)
+            else:
+                seen.append(a)
+        if _seen is None:
+            return seen[1:]
 
     def attachment_names(self, ticketnum):
         ticketnum = int(ticketnum)
