@@ -149,11 +149,11 @@ class SageDev(object):
 
         INPUT:
 
-        - ``branchname`` -- a string of ``None`` (default: ``None``), the name of
+        - ``branchname`` -- a string or ``None`` (default: ``None``), the name of
           the local branch that will used for the new ticket; if ``None``, a name
           will be chosen automatically.
 
-        - ``remote_branch`` -- a string or ``Neon`` (default: ``None``), if a
+        - ``remote_branch`` -- a string or ``None`` (default: ``None``), if a
           string, the name of the remote branch this branch should be tracking.
 
         """
@@ -186,7 +186,7 @@ class SageDev(object):
           to this branch.
 
         - ``remote_branch`` -- a string or ``None`` (default: ``None``), the remote
-          branch to upload to; if ``None``, then a default is chosen (how?)
+          branch to upload to; if ``None``, then a default is chosen (XXX: how?)
 
         - ``force`` -- a boolean (default: ``False``), whether to upload if this is
           not a fast-forward.
@@ -227,7 +227,7 @@ class SageDev(object):
         - ``ticket`` -- an integer, a string, a list of integers and strings, or
           ``None`` (default: ``None``); if ``None`` and the current branch is
           associated to a ticket, show the information for that ticket branch; if
-          its not associated to aticket, show the information for its remote
+          it's not associated to a ticket, show the information for its remote
           tracking branch.
 
         """
@@ -386,7 +386,7 @@ class SageDev(object):
             whereas commits reviewed in this ticket from a non-dependency
             may make reviewing the other ticket easier.
 
-          - you can more easily merge in future changes to depdencies.  So
+          - you can more easily merge in future changes to dependencies.  So
             if you need a feature from another ticket it may be
             appropriate to create a dependency to that you may more easily
             benefit from others' work on that ticket.
@@ -994,7 +994,7 @@ class SageDev(object):
 
             for i,regex in enumerate(regexs):
                 if not regex.match(lines[i]):
-                    raise ValueError("Malformatted patch. Line `%s` does not match regular expression `%s`."%(lines[i],regex.pattern))
+                    raise ValueError("Malformed patch. Line `%s` does not match regular expression `%s`."%(lines[i],regex.pattern))
 
             message = []
             for i in range(len(regexs),len(lines)):
