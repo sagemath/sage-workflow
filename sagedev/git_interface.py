@@ -97,6 +97,11 @@ class GitInterface(object):
         else:
             self._gitcmd = 'git'
 
+        if 'repo' in self._config:
+            self._repo = self._config['repo']
+        else:
+            self._repo = 'git@trac.tangentpsace.org:sage.git'
+
         if not os.path.exists(self._dot_git):
             raise ValueError("`%s` does not point to an existing directory."%self._dot_git)
 
@@ -433,6 +438,7 @@ class GitInterface(object):
         raise NotImplementedError
 
     def switch_branch(self, branchname, detached = False):
+        dest = None
         if self.has_uncommitted_changes():
             curbranch = self.current_branch()
             if curbranch is None:
@@ -442,11 +448,29 @@ class GitInterface(object):
             dest = self._UI.get_input("Where do you want to commit your changes?", options)
             if dest == "stash":
                 self.stash()
+            elif dest == "new branch":
+                success = self.execute_silent("stash")
+                if success != 0:
+                    raise RuntimeError("Failed to stash changes")
             elif dest == "current branch":
-                self.save()
-        
-        # switches to another ticket
-        raise NotImplementedError
+                self._sagedev.commit()
+        if detached:
+            self.checkout(branchname, detach=True)
+        else:
+            success = self.execute_silent("checkout", branchname)
+            if success != 0:
+                success = self.execute_silent("branch", branchname)
+                if success != 0:
+                    raise RuntimeError("Could not create new branch")
+                success = self.execute_silent("checkout", branchname)
+                if success != 0:
+                    raise RuntimeError("Failed to switch to new branch")
+        if dest == "new branch":
+            success = self.execute_silent("stash", "apply")
+            if success == 0:
+                self.execute_silent("stash", "drop")
+            else:
+                self._UI.show("Changes did not apply cleanly to the new branch.  They are now in your stash")
 
     def move_uncommited_changes(self, branchname):
         # create temp branch, commit changes, rebase, fast-forward....

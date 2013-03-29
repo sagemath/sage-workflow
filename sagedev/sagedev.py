@@ -423,7 +423,7 @@ class SageDev(object):
         """
         branch = self.git.current_branch()
         if branch is None: raise ValueError("You cannot upload a detached head.  See switch_ticket")
-        oldticket = self.git.current_ticket()
+        oldticket = self.git._ticket[branch]
         if oldticket is None and ticket is None and remote_branch is None:
             self._UI.show("You don't have a ticket for this branch (%s)"%branch)
             return
@@ -439,7 +439,9 @@ class SageDev(object):
                 if not self._UI.confirm("Changes not compatible with remote branch; consider downloading first.  Are you sure you want to continue?"%(ticket, oldticket), False):
                     return
         remote_branch = remote_branch or self.git._local_to_remote_name(branch)
-        ref = self._fetch(remote_branch)
+        if repository is None:
+            repository = self.git._repo
+        ref = self._fetch(remote_branch, repository=repository)
         if force or self.git.is_ancestor_of(ref, branch):
             self.git.push(repository, "%s:%s" % (branch, remote_branch))
         else:
@@ -450,7 +452,7 @@ class SageDev(object):
             git_deps = self._dependencies_as_tickets(branch)
             self.trac.set_dependencies(ticket, git_deps)
 
-    def download(self, ticket=None, branchname=None, force=False):
+    def download(self, ticket=None, branchname=None, force=False, repository=None):
         """
         Download the changes made to a remote branch into a given
         ticket or the current branch.
@@ -512,7 +514,7 @@ class SageDev(object):
             remote_branch = self._remote_pull_branch(branch)
         if remote_branch is None:
             raise ValueError("No remote branch associated to current branch")
-        ref = self._fetch(remote_branch)
+        ref = self._fetch(remote_branch, repository=repository)
         if force:
             self.git.branch(branch, ref, f=True)
             overwrite_deps = True
@@ -1051,6 +1053,8 @@ class SageDev(object):
         The name of a newly created/updated local ref.
 
         """
+        if repository is None:
+            repository = self.git._repo
         local_ref = "refs/remotes/trac/%s" % branch
         self.git.fetch(repository, "%s:%s" % (branch, local_ref))
         return local_ref
