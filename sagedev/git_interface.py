@@ -8,9 +8,13 @@ import random
 import os
 
 class SavingDict(dict):
-    def __init__(self, filename, **kwds):
+    def __init__(self, filename, default=None, **kwds):
         self._filename = filename
         self._paired = None
+        if default is None:
+            self._default = lambda:None
+        else:
+            self._default = default
         dict.__init__(self, **kwds)
 
     def set_paired(self, other):
@@ -21,12 +25,14 @@ class SavingDict(dict):
         self._paired = other
 
     def __setitem__(self, key, value):
+        current = self[key]
         dict.__setitem__(self, key, value)
         tmpfile = self._filename + '%016x'%(random.randrange(256**8))
         s = cPickle.dumps(self, protocol=2)
         with open(tmpfile, 'wb') as F:
             F.write(s)
         if self._paired is not None:
+            dict.__setitem__(self._paired, current, None)
             dict.__setitem__(self._paired, value, key)
             tmpfile2 = self._paired._filename + '%016x'%(random.randrange(256**8))
             s = cPickle.dumps(self._paired, protocol=2)
@@ -41,7 +47,7 @@ class SavingDict(dict):
         try:
             return dict.__getitem__(self, key)
         except KeyError:
-            return None
+            return self._default()
 
 class authenticated(object):
     def __init__(self, func):
@@ -130,7 +136,7 @@ class GitInterface(object):
         self._branch = SavingDict(branch_file, **branch_dict)
         self._ticket.set_paired(self._branch)
         self._branch.set_paired(self._ticket)
-        self._dependencies = SavingDict(dependencies_file, **dependencies_dict)
+        self._dependencies = SavingDict(dependencies_file, list, **dependencies_dict)
         self._remote = SavingDict(remote_branches_file, **remote_branches_dict)
 
     def released_sage_ver(self):

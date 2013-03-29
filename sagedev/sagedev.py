@@ -309,7 +309,7 @@ class SageDev(object):
         if branch is not None and not offline:
             self.remote_status(branchname)
 
-    def create_ticket(self, branchname=None, remote_branch=None):
+    def create_ticket(self, branchname=None, base="master", remote_branch=True):
         """
         Create a new ticket on trac.
 
@@ -319,9 +319,16 @@ class SageDev(object):
           the name of the local branch that will used for the new
           ticket; if ``None``, a name will be chosen automatically.
 
-        - ``remote_branch`` -- a string or ``None`` (default:
-          ``None``), if a string, the name of the remote branch this
-          branch should be tracking.
+        - ``base`` -- a string or ``None`` (default: ``"master"``), a
+          branch on which to base the ticket.  If ``None`` then the
+          current ticket is used.  If the base is not ``"master"``
+          then a dependency will be added.
+
+        - ``remote_branch`` -- a string or boolean (default:
+          ``True``), if a string, the name of the remote branch this
+          branch should be tracking.  If ``True``, the remote branch
+          is determined from the branchname.  If ``False`` no remote
+          branch is stored.
 
         .. SEEALSO::
 
@@ -331,23 +338,21 @@ class SageDev(object):
         - :meth:`download` -- Download changes from an existing
           ticket.
         """
-        raise NotImplementedError
-        curticket = self.current_ticket()
+        ticketnum = self.trac.create_ticket_interactive()
         if ticketnum is None:
-            # User wants to create a ticket
-            ticketnum = self.trac.create_ticket_interactive()
-            if ticketnum is None:
-                # They didn't succeed.
-                return
-            if curticket is not None:
-                if self._UI.confirm("Should the new ticket depend on #%s?"%(curticket)):
-                    self.git.create_branch(self, ticketnum)
-                    self.trac.add_dependency(self, ticketnum, curticket)
-                else:
-                    self.git.create_branch(self, ticketnum, at_master=True)
-        if not self.exists(ticketnum):
-            self.git.fetch_ticket(ticketnum)
-        self.git.switch_branch("t/" + ticketnum)
+            # They didn't succeed.
+            return
+        if branchname is None:
+            branchname = 't/%s'%(ticketnum)
+        if base is None:
+            base = self.git.current_branch()
+            if base is None:
+                raise ValueError("You cannot add a detached head as a dependency")
+        self.git.create_branch(branchname, base, remote_branch)
+        self._ticket[branchname] = ticketnum
+        if base != "master":
+            self.git._dependencies[branchname] = [base]
+        self.git.switch_branch(branchname)
 
     def commit(self, message=None, interactive=False):
         """
