@@ -1000,7 +1000,7 @@ class SageDev(object):
             return self.git._ticket[curbranch]
         if error: raise ValueError("You must specify a ticket")
 
-    def vanilla(self, release=None):
+    def vanilla(self, release="release"):
         """
         Returns to a basic release of Sage.
 
@@ -1025,15 +1025,11 @@ class SageDev(object):
           merge it.
 
         """
-        raise NotImplementedError
-        if self._UI.confirm("Are you sure you want to revert to %s?"%(self.git.released_sage_ver() if release else "a plain development version")):
-            if self.git.has_uncommitted_changes():
-                dest = self._UI.get_input("Where would you like to save your changes?",["current branch","stash"],"current branch")
-                if dest == "stash":
-                    self.git.stash()
-                else:
-                    self.git.save()
-            self.git.vanilla(release)
+        if hasattr(release, 'literal'):
+            release = release.literal
+        release = str(release)
+        if self._UI.confirm("Are you sure you want to revert to %s?"%(release)):
+            self.git.switch_branch(release, detached = True)
 
     ##
     ## Auxilliary functions

@@ -81,6 +81,7 @@ class GitInterface(object):
     def __init__(self, sagedev):
         self._sagedev = sagedev
         self._UI = self._sagedev._UI
+        self._dryrun = True
 
         if 'git' not in self._sagedev._config:
             self._sagedev._config['git'] = {}
@@ -178,7 +179,7 @@ class GitInterface(object):
 
     def _clean_str(self, s):
         # for now, no error checking
-        return str(s)
+        return "'" + str(s) + "'"
 
     def _run_git(self, output_type, cmd, args, kwds):
         s = self._gitcmd + " " + cmd
@@ -194,6 +195,8 @@ class GitInterface(object):
                 s += k + " " + self._clean_str(v)
         if args:
             s += " " + " ".join([self._clean_str(a) for a in args if a is not None])
+        if self._dryrun:
+            print s
         if dryrun:
             return s
         else:
@@ -429,7 +432,7 @@ class GitInterface(object):
     def fetch_project(self, group, branchname):
         raise NotImplementedError
 
-    def switch_branch(self, branchname):
+    def switch_branch(self, branchname, detached = False):
         if self.has_uncommitted_changes():
             curbranch = self.current_branch()
             if curbranch is None:
