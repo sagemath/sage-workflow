@@ -100,6 +100,8 @@ class Config(object):
         dot_git = tempfile.mkdtemp()
         ret['git'] = {}
         ret['git']['dot_git'] = dot_git
+        ret['trac'] = {}
+        ret['trac']['username'] = 'doctest'
         atexit.register(lambda: shutil.rmtree(dot_git))
         return ret
 

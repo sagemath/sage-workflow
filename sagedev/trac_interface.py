@@ -5,10 +5,28 @@ import urllib2
 REALM = 'sage.math.washington.edu'
 TRAC_SERVER_URI = 'https://trac.tangentspace.org/sage_trac'
 
-class DigestTransport(Transport):
-    """Handles an HTTP transaction to an XML-RPC server."""
+class DigestTransport(object, Transport):
+    """
+    Handles an HTTP transaction to an XML-RPC server.
 
+    EXAMPLES::
+
+        sage: from trac_interface import REALM, TRAC_SERVER_URI, DigestTransport
+        sage: DigestTransport(REALM, TRAC_SERVER_URI+"/xmlrpc")
+        <trac_interface.DigestTransport at ...>
+
+    """
     def __init__(self, realm, url, username=None, password=None, **kwds):
+        """
+        Initialization.
+
+        EXAMPLES::
+
+            sage: from trac_interface import REALM, TRAC_SERVER_URI, DigestTransport
+            sage: type(DigestTransport(REALM, TRAC_SERVER_URI+"/xmlrpc"))
+            trac_interface.DigestTransport
+
+        """
         Transport.__init__(self, **kwds)
 
         authhandler = urllib2.HTTPDigestAuthHandler()
@@ -18,8 +36,16 @@ class DigestTransport(Transport):
         self.opener = urllib2.build_opener(authhandler)
 
     def request(self, host, handler, request_body, verbose=0):
-        # issue XML-RPC request
+        """
+        Issue an XML-RPC request.
 
+        EXAMPLES::
+
+            sage: from trac_interface import REALM, TRAC_SERVER_URI, DigestTransport
+            sage: d = DigestTransport(REALM, TRAC_SERVER_URI+"/xmlrpc")
+            sage: d.request # not tested
+
+        """
         self.verbose = verbose
 
         headers = {'Content-type': 'text/xml'}
@@ -30,8 +56,42 @@ class DigestTransport(Transport):
 
         return self.parse_response(response)
 
+class DoctestServerProxy(object):
+    """
+    A fake trac proxy for doctesting the functionality in this file.
+
+    EXAMPLES::
+
+        sage: from trac_interface import DoctestServerProxy
+        sage: DoctestServerProxy()
+        <trac_interface.DoctestServerProxy at ...>
+
+    """
+    pass
+
 class TracInterface(object):
+    """
+    Wrapper around the XML-RPC interface of trac.
+
+    EXAMPLES::
+
+        sage: from sagedev import SageDev, Config
+        sage: SageDev(Config._doctest_config()).trac
+        <trac_interface.TracInterface at ...>
+
+    """
     def __init__(self, sagedev):
+        """
+        Initialization.
+
+        EXAMPLES::
+
+            sage: from sagedev import SageDev, Config
+            sage: from trac_interface import TracInterface
+            sage: type(TracInterface(SageDev(Config._doctest_config())))
+            trac_interface.TracInterface
+
+        """
         self._sagedev = sagedev
         self._UI = sagedev._UI
         if 'trac' not in sagedev._config:
@@ -43,6 +103,22 @@ class TracInterface(object):
 
     @property
     def _anonymous_server_proxy(self):
+        """
+        Lazy wrapper around a non-authenticated XML-RPC interface to trac.
+
+        .. NOTE::
+
+            Unlike the authenticated server proxy, this is not replaced with a
+            fake proxy for doctesting. All doctests using it should therefore
+            be labeled as optional ``online``
+
+        EXAMPLES::
+
+            sage: from sagedev import SageDev, Config
+            sage: SageDev(Config._doctest_config()).trac._anonymous_server_proxy
+            <ServerProxy for trac.tangentspace.org/sage_trac/xmlrpc>
+
+        """
         if self.__anonymous_server_proxy is None:
             realm = REALM
             if "realm" in self._config:
@@ -64,13 +140,15 @@ class TracInterface(object):
 
         EXAMPLES::
 
-            sage: SageDev()._trac._authenticated_server_proxy # optional: trac
+            sage: from sagedev import SageDev, Config
+            sage: SageDev().trac._authenticated_server_proxy # not tested
+            <ServerProxy for trac.tangentspace.org/sage_trac/login/xmlrpc>
 
         For convenient doctesting, this is replaced with a fake object for the user ``'doctest'``::
 
-            sage: SageDev(config=Config._doctest_config(authenticated=False))._trac._authenticated_server_proxy
-
-            sage: SageDev(config=Config._doctest_config(authenticated=True))._trac._authenticated_server_proxy
+            sage: from sagedev import SageDev, Config
+            sage: SageDev(config=Config._doctest_config()).trac._authenticated_server_proxy
+            <trac_interface.DoctestServerProxy at ...>
 
         """
         config = self._config
