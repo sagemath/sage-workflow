@@ -878,6 +878,28 @@ class SageDev(object):
     ##
     ## Auxilliary functions
     ##
+    
+    def _fetch(self, branch, repo=None):
+        """
+        Fetches ``branch`` from the remote repository, returning the name of
+        the newly-updated local ref.
+
+        INPUT:
+
+        - ``branch`` -- name of a remote branch
+
+        - ``repo`` -- name of a remote repository
+
+        OUTPUT:
+        
+        The name of a newly created/updated local ref.
+        """
+        local_ref = "refs/remotes/trac/%s" % branch
+        args = ("%s:%s" % (branch, local_ref)),
+        if repo is not None:
+            args = (repo,) + args
+        self.git.fetch(*args)
+        return local_ref
 
     def _get_tmp_dir(self):
         if self.tmp_dir is None:

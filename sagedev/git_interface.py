@@ -64,22 +64,12 @@ class authenticated(object):
 
         ssh_git = 'ssh -i "%s"' % sshkeyfile
         ssh_git = 'GIT_SSH="%s" ' % ssh_git
-        git._gitcmd = ssh_git + gitcmd
-        self.func(git, *args, **kwargs)
-
-class anonymous(object):
-    def __init__(self, func):
-        self.func = func
-
-    def __call__(self, git, *args, **kwargs):
-        self.func(git, *args, **kwargs)
-
-        gitcmd = "git"
-        if "gitcmd" in git._config:
-            gitcmd = git._config['gitcmd']
-
-        git._gitcmd = gitcmd
-        self.func(git, *args, **kwargs)
+        try:
+            saved_git_cmd = git._gitcmd
+            git._gitcmd = ssh_git + gitcmd
+            self.func(git, *args, **kwargs)
+        finally:
+            git._gitcmd = saved_git_cmd
 
 class GitInterface(object):
     def __init__(self, sagedev):
@@ -94,6 +84,11 @@ class GitInterface(object):
             self._dot_git = self._config['dot_git']
         else:
             self._dot_git = os.environ.get("SAGE_DOT_GIT", ".git")
+            
+        if 'gitcmd' in self._config:
+            self._gitcmd = self._config['gitcmd']
+        else:
+            self._gitcmd = 'git'
 
         if not os.path.exists(self._dot_git):
             raise ValueError("`%s` does not point to an existing directory."%self._dot_git)
