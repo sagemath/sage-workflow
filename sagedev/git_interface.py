@@ -108,40 +108,35 @@ class GitInterface(object):
         dependencies_file = os.path.join(DOT_SAGE, 'dependencies')
         if 'dependenciesfile' in self._config:
             dependencies_file = self._config['dependenciesfile']
+        remote_branches_file = os.path.join(DOT_SAGE, 'remote_branches')
+        if 'remotebranchesfile' in self._config:
+            remote_branches_file = self._config['remotebranchesfile']
 
-        self._load_dicts(ticket_file, branch_file, dependencies_file)
+        self._load_dicts(ticket_file, branch_file, dependencies_file, remote_branches_file)
 
     def __repr__(self):
         return "GitInterface()"
 
-    def _load_dicts(self, ticket_file, branch_file, dependencies_file):
-        if os.path.exists(ticket_file):
-            with open(ticket_file) as F:
+    def _load_dict_from_file(self, filename):
+        if os.path.exists(filename):
+            with open(filename) as F:
                 s = F.read()
                 unpickler = cPickle.Unpickler(StringIO(s))
-                ticket_dict = unpickle.load()
+                return unpickle.load()
         else:
-            ticket_dict = {}
-        if os.path.exists(branch_file):
-            with open(branch_file) as F:
-                s = F.read()
-                unpickler = cPickle.Unpickler(StringIO(s))
-                branch_dict = unpickle.load()
-        else:
-            branch_dict = {}
-        if os.path.exists(dependencies_file):
-            with open(branch_file) as F:
-                s = F.read()
-                unpickler = cPickle.Unpickler(StringIO(s))
-                dependencies_dict = unpickle.load()
-        else:
-            dependencies_dict = {}
+            return {}
+
+    def _load_dicts(self, ticket_file, branch_file, dependencies_file, remote_branches_file):
+        ticket_dict = self._load_dict_from_file(ticket_file)
+        branch_dict = self._load_dict_from_file(branch_file)
+        dependencies_dict = self._load_dict_from_file(dependencies_file)
+        remote_branches_dict = self._load_dict_from_file(remote_branches_file)
         self._ticket = SavingDict(ticket_file, **ticket_dict)
         self._branch = SavingDict(branch_file, **branch_dict)
         self._ticket.set_paired(self._branch)
         self._branch.set_paired(self._ticket)
         self._dependencies = SavingDict(dependencies_file, **dependencies_dict)
-
+        self._remote = SavingDict(remote_branches_file, **remote_branches_dict)
 
     def released_sage_ver(self):
         # should return a string with the most recent released version
@@ -277,13 +272,27 @@ class GitInterface(object):
         except CalledProcessError:
             return None
 
+    def _ticket_to_branch(self, ticket):
+        """
+        Return the branch associated to an int or string.
+
+        Returns ``None`` if no ticket is associated to this branch.
+        """
+        if ticket is None:
+            ticket = self.current_branch()
+        elif isinstance(ticket, int):
+            ticket = self._branch[ticket]
+        if ticket is not None and self.branch_exists(ticket):
+            return ticket
+
     def _branch_to_ticketnum(self, branchname):
-        x = branchname.split('/')
-        self._validate_local_name(x)
-        if x[0] == 'me' or x[0] == 'ticket':
-            return x[1]
-        else:
-            return None
+        """
+        Return the ticket associated to this branch.
+
+        Returns ``None`` if no local branch is associated to that
+        ticket.
+        """
+        return self._ticket[branchname]
 
     def _branch_printname(self, branchname):
         if branchname[:2] == 't/':
@@ -302,10 +311,7 @@ class GitInterface(object):
         if '/' in branchname:
             x = branchname.split('/')
             group = x[0]
-            branchname = '/'.join(x[1:])
-            if group == 'me' or group == 'ticket':
-                branchname = 't/' + branchname
-            else:
+            if group != 't':
                 return 'g/' + group + '/' + branchname
         return 'u/' + self._sagedev._trac._username + '/' + branchname
 
@@ -402,14 +408,18 @@ class GitInterface(object):
         raise NotImplementedError
 
     def create_branch(self, branchname, location=None, remote_branch=True):
-        if branchname in ["t", "u", "me", "u/" + self._sagedev._trac._username, "ticket"]:
+        if branchname in ["t", "master", "all", "dependencies", "commit", "release"]:
             raise ValueError("Bad branchname")
+        if self.branch_exists(branchname):
+            raise ValueError("Branch already exists")
         if location is None:
-            self.execute("branch", branchname)
-        elif self.ref_exists(location):
-            self.execute("branch", branchname, location)
+            self.branch(branchname)
         else:
-            self._UI.show("Branch not created: %s does not exist"%location)
+            self.checkout(location, b = branchname)
+        if remote_branch is True:
+            remote_branch = self._local_to_remote(branchname)
+        if remote_branch:
+            self._remote[branchname] = remote_branch
 
     def rename_branch(self, oldname, newname):
         self._validate_local_name(newname)
