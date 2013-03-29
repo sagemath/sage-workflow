@@ -416,7 +416,7 @@ class SageDev(object):
                 if not self._UI.confirm("Changes not compatible with remote branch; consider downlaoding first first.  Are you sure you want to continue?"%(ticket, oldticket), False):
                     return
         remote_branch = remote_branch or self.git._local_to_remote_name(branch)
-        self.git.push(repository, "%s:%s" % (branch, remote_branch)
+        self.git.push(repository, "%s:%s" % (branch, remote_branch))
         if ticket:
             commit_id = self.git.branch_exists(branch)
             self.trac._set_branch(ticket, remote_branch, commit_id)
@@ -489,7 +489,7 @@ class SageDev(object):
         #        if self.git.needs_update(dep) and self._UI.confirm("Do you want to sync to the latest version of #%s"%(dep)):
         #            self.git.sync(dep)
 
-    def remote_status(self, ticket=None):
+    def remote_status(self, ticket=None, quiet=False):
         """
         Show the remote status of ``ticket``.
 
@@ -499,11 +499,7 @@ class SageDev(object):
 
         INPUT:
 
-        - ``ticket`` -- an integer, a string, a list of integers and strings, or
-          ``None`` (default: ``None``); if ``None`` and the current branch is
-          associated to a ticket, show the information for that ticket branch; if
-          it's not associated to a ticket, show the information for its remote
-          tracking branch.
+        - ``ticket`` -- None, an integer, a string, or the special string "all"
 
         .. SEEALSO::
 
@@ -519,7 +515,29 @@ class SageDev(object):
         - :meth:`upload` -- Pushes the changes on a given ticket to
           the remote server.
         """
-        raise NotImplementedError
+        if ticket == "all":
+            results = []
+            for ticket, branch in self.local_tickets:
+                results.add((ticket, branch, remote_status(ticket or branch, quiet=quiet)))
+            if quiet:
+                return results
+        remote_branch = self._remote_pull_branch(ticket)
+        if remote_branch is None:
+            print ticket or "     ", branch, "not tracked remotely"
+            return
+        remote_ref = self._fetch(remote_branch)
+        if isinstance(ticket, int):
+            branch = self.git._branch[ticket]
+        else:
+            branch = ticket
+        ahead, behind = self.git.read_output("rev-list", "--left-right", "%s..%s"%(branch, remote_ref), count=True).split()
+        behind = int(behind)
+        ahead = int(ahead)
+        if quiet:
+            return ahead, behind
+        else:
+            print ticket or "     ", branch, "ahead", ahead, "behind", behind
+        
 
     def import_patch(self, patchname=None, url=None, local_file=None, diff_format=None, header_format=None, path_format=None):
         """
@@ -966,7 +984,7 @@ class SageDev(object):
         The name of a newly created/updated local ref.
         """
         local_ref = "refs/remotes/trac/%s" % branch
-        self.git.fetch(repository, "%s:%s" % (branch, local_ref)
+        self.git.fetch(repository, "%s:%s" % (branch, local_ref))
         return local_ref
 
     def _get_tmp_dir(self):
