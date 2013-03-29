@@ -465,13 +465,13 @@ class GitInterface(object):
         """
         Move to trash/
         """
-        remotename = self._local_to_remote_name(branchname)
-        trashname = "trash/" + branchname
+        trashname = "abandoned/" + branchname
         oldtrash = self.branch_exists(trashname)
         if oldtrash:
             self._UI.show("Overwriting %s in trash"(oldtrash))
         self.execute("branch", branchname, trashname, M=True)
         # Need to delete remote branch (and have a hook move it to /g/abandoned/ and update the trac symlink)
+        #remotename = self._remote[branchname]
 
 def git_cmd_wrapper(git_cmd):
     def f(self, *args, **kwds):

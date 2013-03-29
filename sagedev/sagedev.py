@@ -663,14 +663,10 @@ class SageDev(object):
 
         - :meth:`abandon_ticket` -- Abandon a single ticket or branch.
         """
-        raise NotImplementedError
-        # gets rid of branches that have been merged into unstable
-        # Do we need this confirmation?  This is pretty harmless....
-        if self._UI.confirm("Are you sure you want to abandon all branches that have been merged into master?"):
-            for branch in self.git.local_branches():
-                if self.git.is_ancestor_of(branch, "master"):
-                    self._UI.show("Abandoning %s"%branch)
-                    self.git.abandon(branch)
+        for branch in self.git.local_branches():
+            if self.git.is_ancestor_of(branch, "master"):
+                self._UI.show("Abandoning %s"%branch)
+                self.git.abandon(branch)
 
     def abandon_ticket(self, ticket=None):
         """
