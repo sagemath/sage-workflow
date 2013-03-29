@@ -719,23 +719,21 @@ class SageDev(object):
         - :meth:`show_dependencies` -- show the dependencies of a
           given branch.
         """
-        raise NotImplementedError
         create_dependencies = kwds.pop('create_dependencies',True)
         download = kwds.pop('download',False)
-        # Creates a join of inputs and stores that in a branch, switching to it.
-        if len(inputs) == 0:
+        if len(tickets) == 0:
             self._UI.show("Please include at least one input branch")
             return
         if self.git.branch_exists(branchname):
             if not self._UI.confirm("The %s branch already exists; do you want to merge into it?", default_yes=False):
                 return
+            self.git.execute_silent("checkout", branchname)
         else:
-            self.git.execute_silent("branch", branchname, inputs[0])
-            inputs = inputs[1:]
-        # The following will deal with outstanding changes
-        self.git.switch_branch(branchname)
-        if len(inputs) > 1:
-            self.git.execute("merge", *inputs, q=True, m="Gathering %s into branch %s"%(", ".join(inputs), branchname))
+            self.switch_ticket(tickets[0], branchname=branchname, offline=not download)
+            tickets = tickets[1:]
+        for ticket in tickets:
+            self.merge(ticket, create_dependency=create_dependencies,
+                       download=download, message="Gathering %s into branch %s" % (ticket, branchname))
 
     def show_dependencies(self, ticket=None, all=False): # all = recursive
         """
@@ -773,7 +771,7 @@ class SageDev(object):
             ticketnum = self.current_ticket(error=True)
         self._UI.show("Ticket %s depends on %s"%(ticketnum, ", ".join(["#%s"%(a) for a in self.trac.dependencies(ticketnum, all)])))
 
-    def merge(self, ticket="master", create_dependency=True, download=False):
+    def merge(self, ticket="master", create_dependency=True, download=False, message=None):
         """
         Merge changes from another branch into the current branch.
 
@@ -832,9 +830,26 @@ class SageDev(object):
         - :meth:`gather` -- creates a new branch to merge into rather
           than merging into the current branch.
         """
-        raise NotImplementedError
+        current_ticket = self.current_ticket()
+        if ticket == "dependencies":
+            raise NotImplementedError
+        if instanceof(ticket, int):
+            if create_dependency and current_ticket:
+                self.trac.create_dependency(current_ticket, ticket)
+            if download:
+                ref = self._fetch(self._track_branch(ticket))
+            else:
+                ref = self.git._branch[ticket]
+                if ref is None:
+                    raise ValueError("no branch for ticket %s" % ticket)
+        else:
+            # a branch, tag, etc.
+            ref = ticket
+        if message is None:
+            message = get_input("Please enter a commit message:")
+        self.git.merge(ref, '-m', message)
 
-    def local_tickets(self, abandoned=False):
+    def local_tickets(self, abandoned=False, quiet=False):
         """
         Print the tickets currently being worked on in your local
         repository.
@@ -845,8 +860,11 @@ class SageDev(object):
 
         INPUT:
 
-        - ``abandoned`` -- boolean (default ``False), whether to show
+        - ``abandoned`` -- boolean (default ``False``), whether to show
           abandoned branches.
+
+        - ``quite`` -- boolean (default ``False``), whether to show
+          return the list of branches rather than printing them.
 
         .. SEEALSO::
 
@@ -857,7 +875,15 @@ class SageDev(object):
 
         - :meth:`current_ticket` -- get the current ticket.
         """
-        raise NotImplementedError
+        raw_branches = self.git.read_output("branch").split()
+        raw_branches.remove('*')
+        branch_info = [(b, self.git._ticket[b]) for b in raw_branches
+            if abandoned or not b.startswith("trash/")]
+        if quiet:
+            return branch_info
+        else:
+            for branch, ticket in branch_info:
+                print ticket or '     ', '\t', branch
 
     def current_ticket(self, error=False):
         """
