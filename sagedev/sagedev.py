@@ -482,15 +482,20 @@ class SageDev(object):
         - :meth:`import_patch` -- Import a patch into the current
           ticket.
         """
-        if ticket is not None: ticket = int(ticket)
-        branch = self.git._ticket_to_branch(ticket)
-        if branch is None:
+        if ticket is None:
             branch = self.git.current_branch()
             if branch is None:
                 raise ValueError("Cannot download in detached head")
+            ticket = self.git._ticket[branch]
         else:
-            self.git.switch_branch(branch)
-        remote_branch = self._remote_pull_branch(branch)
+            ticket = int(ticket)
+            branch = self.git._ticket_to_branch(ticket)
+            if branch is not None:
+                self.git.switch_branch(branch)
+        if branch is None:
+            remote_branch = self._trac_branch(ticket)
+        else:
+            remote_branch = self._remote_pull_branch(branch)
         if remote_branch is None:
             raise ValueError("No remote branch associated to current branch")
         ref = self._fetch(remote_branch)
@@ -498,13 +503,6 @@ class SageDev(object):
             self.git.branch(branch, ref, f=True)
         else:
             self.merge(ref, create_dependency=False, download=False)
-
-
-        #if curticket is not None and curticket.isdigit():
-        #    dependencies = self.trac.dependencies(curticket)
-        #    for dep in dependencies:
-        #        if self.git.needs_update(dep) and self._UI.confirm("Do you want to sync to the latest version of #%s"%(dep)):
-        #            self.git.sync(dep)
 
     def remote_status(self, ticket=None, quiet=False):
         """
