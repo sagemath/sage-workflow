@@ -336,7 +336,7 @@ class TracInterface(object):
 
         while True:
             try:
-                x = = self._edit_ticket_interactive(summary, description, attributes)
+                x = self._edit_ticket_interactive(summary, description, attributes)
                 if x is None: return
                 summary, description, attributes = x
                 attributes['description'] = description
