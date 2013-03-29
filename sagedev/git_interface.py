@@ -104,7 +104,7 @@ class GitInterface(object):
             ticket_file = self._config['ticketfile']
         branch_file = os.path.join(DOT_SAGE, 'ticket_to_branch')
         if 'branchfile' in self._config:
-            branch_file = self._config['brachfile']
+            branch_file = self._config['branchfile']
         dependencies_file = os.path.join(DOT_SAGE, 'dependencies')
         if 'dependenciesfile' in self._config:
             dependencies_file = self._config['dependenciesfile']
