@@ -294,10 +294,57 @@ class TracInterface(object):
         raise NotImplementedError
 
     def _get_attributes(self, ticketnum):
+        """
+        Retrieve the properties of ticket ``ticketnum``.
+
+        EXAMPLES::
+
+            sage: from sagedev import SageDev, Config
+            sage: SageDev(Config._doctest_config()).trac._get_attributes(1000) # optional: online
+            {'_ts': '1199953720000000',
+             'cc': '',
+             'changetime': <DateTime '20080110T08:28:40' at ...>,
+             'component': 'distribution',
+             'description': '',
+             'keywords': '',
+             'milestone': 'sage-2.10',
+             'owner': 'was',
+             'priority': 'major',
+             'reporter': 'was',
+             'resolution': 'fixed',
+             'status': 'closed',
+             'summary': 'Sage does not have 10000 users yet.',
+             'time': <DateTime '20071025T16:48:05' at ...>,
+             'type': 'defect'}
+
+        """
         ticketnum = int(ticketnum)
         return self._anonymous_server_proxy.ticket.get(ticketnum)[3]
 
     def dependencies(self, ticketnum, all=False, _seen=None):
+        """
+        Retrieve the dependencies of ticket ``ticketnum``.
+
+        INPUT:
+
+        - ``ticketnum`` -- an integer, the number of a ticket
+
+        - ``all`` -- a boolean (default: ``False``), whether to get indirect
+          dependencies of ``ticketnum``
+
+        - ``_seen`` -- (default: ``None``), used internally in recursive calls
+
+        EXAMPLES::
+
+            sage: from sagedev import SageDev, Config
+            sage: SageDev(Config._doctest_config()).trac.dependencies(1000) # optional: online (an old ticket with no dependency field)
+            []
+            sage: SageDev(Config._doctest_config()).trac.dependencies(13147) # optional: online
+            [13579, 13681]
+            sage: SageDev(Config._doctest_config()).trac.dependencies(13147,all=True) # long time optional: online
+            [13579, 13681, 13631]
+
+        """
         # returns the list of all ticket dependencies, sorted by ticket number
         if _seen is None:
             seen = []
@@ -307,6 +354,7 @@ class TracInterface(object):
             seen = _seen
         seen.append(ticketnum)
         data = self._get_attributes(ticketnum)
+        if 'dependencies' not in data: return []
         dependencies = data['dependencies']
         if dependencies.strip() == '': return []
         dependencies = [a.strip(" ,;+-\nabcdefghijklmnopqrstuvwxyz") for a in data['dependencies'].split('#')]
@@ -323,6 +371,18 @@ class TracInterface(object):
             return seen[1:]
 
     def attachment_names(self, ticketnum):
+        """
+        Retrieve the names of the attachments for ticket ``ticketnum``.
+
+        EXAMPLES::
+
+            sage: from sagedev import SageDev, Config
+            sage: SageDev(Config._doctest_config()).trac.attachment_names(1000) # optional: online
+            []
+            sage: SageDev(Config._doctest_config()).trac.attachment_names(13147) # optional: online
+            ['13147_move.patch', '13147_lazy.patch', '13147_lazy_spkg.patch', '13147_new.patch', '13147_over_13579.patch', 'trac_13147-ref.patch', 'trac_13147-rebased-to-13681.patch', 'trac_13681_root.patch']
+
+        """
         ticketnum = int(ticketnum)
         attachments = self._anonymous_server_proxy.ticket.listAttachments(ticketnum)
         return [a[0] for a in attachments]
