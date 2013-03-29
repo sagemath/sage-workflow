@@ -243,9 +243,6 @@ class TracInterface(object):
     def sshkeys(self):
         return self._authenticated_server_proxy.sshkeys
 
-    def __repr__(self):
-        return "TracInterface()"
-
     def create_ticket(self, summary, description, type, component,
                       attributes={}, notify=False):
         """
