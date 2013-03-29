@@ -480,14 +480,9 @@ class SageDev(object):
                 raise ValueError("Cannot download in detached head")
         else:
             self.git.switch_branch(branch)
-        remote_branch = self._remote[branch]
+        remote_branch = self._remote_pull_branch(branch)
         if remote_branch is None:
             raise ValueError("No remote branch associated to current branch")
-        x = remote_branch.split('/')
-        if ticket is not None and x[0] == 'u' and x[1] == self.trac._username:
-            remote_branch = self._trac_branch(ticket)
-            if remote_branch is None:
-                raise ValueError("Trac ticket does not list a branch")
         ref = self._fetch(remote_branch)
         if force:
             self.git.branch(branch, ref, f=True)
@@ -1536,8 +1531,20 @@ class SageDev(object):
         self.git.create_branch(branchname, ref)
         self.git._branch[ticket] = branchname
 
-    def _trac_branch(ticket):
+    def _trac_branch(self, ticket):
         D = self.trac._get_attributes(ticket)
         if 'branch' not in D: return None
         branch = D['branch']
         if branch: return branch
+
+    def _remote_pull_branch(self, ticket):
+        branchname = self.git._ticket_to_branch(ticket)
+        remote_branch = self._remote[branchname]
+        if remote_branch is None:
+            userspace = True
+        else:
+            x = remote_branch.split('/')
+            userspace = (x[0] == 'u' and x[1] == self.trac._username)
+        if userspace and ticket is not None:
+            remote_branch = self._trac_branch(ticket)
+        return remote_branch
