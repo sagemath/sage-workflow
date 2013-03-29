@@ -364,18 +364,34 @@ class SageDev(object):
 
         .. SEEALSO::
 
-        - :meth:`upload` -- Upload changes to the remote server.
+        - :meth:`upload` -- Upload changes to the remote server.  This
+          is the next step once you've committed some changes.
 
         - :meth:`diff` -- Show changes that will be committed.
         """
-        raise NotImplementedError
-        curticket = self.git.current_ticket()
-        if self._UI.confirm("Are you sure you want to save your changes to ticket #%s?"%(curticket)):
-            self.git.save()
-            if self._UI.confirm("Would you like to upload the changes?"):
-                self.git.upload()
+        curticket = self.current_ticket()
+        if curticket is None:
+            curbranch = self.git.current_branch()
+            if curbranch is None:
+                raise ValueError("You may not commit in detached head mode.  Try switching to a branch.")
+            prompt = "Are you sure you want to save your changes to branch %s"%(curbranch)
         else:
-            self._UI.show("If you want to commit these changes to another ticket use the start() method")
+            prompt = "Are you sure you want to save your changes to ticket #%s"%(curticket)
+        if self._UI.confirm(prompt):
+            unknown_files = self.git.unknown_files()
+            for file in unknown_files:
+                if self._UI.confirm("Would you like to commit %s"%(file), default_yes=False):
+                    self.git.add(file)
+            kwds = {}
+            if interactive:
+                kwds['interactive'] = True
+            else:
+                kwds['all'] = True
+            if message is not None:
+                kwds['m'] = message
+            self.git.commit(**kwds)
+        else:
+            self._UI.show("If you want to commit these changes to another ticket use the switch_ticket() method")
 
     def upload(self, ticket=None, remote_branch=None, force=False):
         """
