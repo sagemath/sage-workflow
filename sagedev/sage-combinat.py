@@ -64,7 +64,8 @@ def import_patch(name, ticket_number=None, append=False, depends=[]):
         s.git.checkout("master")
         if s.git.branch_exists(branch):
             s.git.branch("-D", branch)
-        s.git.create_branch(branch)
+        #s.git.create_branch(branch)
+        s.git.create_branch(branch, remote_branch=False)
         assert s.git.branch_exists(branch)
         s.git.checkout(branch)
         for dependency in depends:
@@ -79,6 +80,12 @@ def destroy_all_branches():
     for branch in branches:
         if branch != "master":
             s.git.branch("-D", branch)
+
+def git_reset():
+    s = sagedev.SageDev()
+    branches = s.git.local_branches()
+    s.git.checkout("master")
+    s.git.clean("-f", "-d")
 
 def import_sage_combinat():
     """
@@ -138,13 +145,13 @@ def import_sage_combinat():
     import_patch("trac11935_share_on_base_category.patch", append=True)
     import_patch("trac_12894-classcall_setter-nt.patch")
 
-    import_patch("trac_12895-subcategory-methods-nt.patch", depends=[11935])
+    import_patch("trac_12895-subcategory-methods-nt.patch", depends=[11935,12894])
 
     import_patch("trac_13580-map_reduce-old-fh.patch")        # Does not apply yet (end-of-file whitespace)
     import_patch("trac_13433-lazy_power_serie_gen_fix-fh.patch")
     #import_patch("finite_set_map-isomorphic_cartesian_product-nt.patch")
     import_patch("trac_12848-posets-order_ideal_complement_generators_fix-nt.patch")
-    import_patch("trac_12920-is_test_methods-nt.patch")
+    #import_patch("trac_12920-is_test_methods-nt.patch") # Needs rebase upon #14284
     #import_patch("doc_underscore-fh.patch")
     import_patch("trac_8703-trees-fh.patch", depends=[8392])     # in permutations.py
     import_patch("trac_13987_mary_trees-vp.patch", depends=[8703])
@@ -175,11 +182,11 @@ def import_sage_combinat():
     import_patch("trac_13317-species_unique_representation.patch")
     import_patch("trac_10227-species_fixes-mh.patch", depends=[13317])
     #import_patch("categories-tutorial.patch")
-    import_patch("trac_11111-finite_dimensional_modules-nt.patch", depends=[10963]) # still causing problem
+    import_patch("trac_11111-finite_dimensional_modules-nt.patch", depends=[10963,8678]) # still causing problem
     import_patch("trac_8822-family_constructor-fh.patch")
     import_patch("trac_6484-ranker-improvements-nt.patch")
     #import_patch("selector-fh.patch")
-    import_patch("trac_11529-rooted_trees-fh.patch", depends=[8703]) # causing problem
+    import_patch("trac_11529-rooted_trees-fh.patch", depends=[8703,13987]) # causing problem
     #import_patch("shape_tree-fc.patch")
     #import_patch("shuffle_overlap_generic-fh.patch")
     #import_patch("operads-fh.patch")
@@ -240,13 +247,12 @@ def import_sage_combinat():
     #import_patch("affine_iwahori_hecke_algebras.patch")
     #import_patch("q_tree_factorial-fc.patch")
     import_patch("trac_12916_completion_by_cuts-fc.patch")
-    import_patch("trac_13507_order_polytope-fc.patch")
     #import_patch("algebras_over_operads-fc.patch")
     #import_patch("shuffle-operads-fc.patch")
     #import_patch("trac_Kleshchev-partitions-am.patch")
     #import_patch("hgignore_eclipse_project-EliX-jbp.patch")
     import_patch("trac_13935_coercion_of_coproduct_of_Hopf_algebra-EliX-jbp.patch")
-    import_patch("trac_13793-some-hopf-algebra-f-w-pqsym-EliX-jbp.patch")
+    import_patch("trac_13793-some-hopf-algebra-f-w-pqsym-EliX-jbp.patch", depends=[11571,13935]) # Trivial dependency upon #11571 in setup.py Trivial dependency on invariant_ring_permutation_group-nb.patch in doc/en/reference/combinat/index.rst
     import_patch("trac_14104--html_display-am.patch")
     import_patch("trac_14103--labelled_matrices-am.patch")
-    import_patch("trac_13855_planar_binary_trees_hopf_algebra-EliX-jbp.patch")
+    import_patch("trac_13855_planar_binary_trees_hopf_algebra-EliX-jbp.patch", depends=[8703,13793]) # and q_tree_factorial-fc.patch and trees_symmetry_factor-fh.patch
