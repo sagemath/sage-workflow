@@ -89,6 +89,8 @@ process-spkg () {
     # tarball the src/ directory and put it into our $SAGE_TARBALLS/ directory
     # apply any WIP mecurial patches
     pushd "$TMPDIR"/spkg/$PKGNAME-$PKGVER > /dev/null
+    
+    TAGS_SWITCH=''
     case $PKGNAME in
         sage_root)
             REPO=.
@@ -100,6 +102,7 @@ process-spkg () {
         sage)
             REPO=$SAGE_SRC
             BRANCH=library
+            TAGS_SWITCH='--tag-name-filter cat'
 
             # apply WIP mecurial patches
             hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/14226/trac14226_library.patch
@@ -161,7 +164,7 @@ process-spkg () {
     # hacked into git-filter-branch so that we can use a bash array across
     # commits (bash does not support exporting arrays)
     export REPO SAGE_BUILD SAGE_MACAPP SAGE_SCRIPTS_DIR SAGE_EXTDIR
-    $WORKFLOW_DIR/git-filter-branch -f -d "$TMPDIR/filter-branch/$SPKG" --prune-empty --index-filter '' master
+    $WORKFLOW_DIR/git-filter-branch -f -d "$TMPDIR/filter-branch/$SPKG" --prune-empty --index-filter '' $TAGS_SWITCH master
     popd > /dev/null
 
     # pull it into the consolidated repo
