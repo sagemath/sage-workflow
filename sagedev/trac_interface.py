@@ -58,16 +58,42 @@ class DigestTransport(object, Transport):
 
 class DoctestServerProxy(object):
     """
-    A fake trac proxy for doctesting the functionality in this file.
+    A fake trac proxy for doctesting the functionality in this file which would require authentication by trac.
 
     EXAMPLES::
 
         sage: from trac_interface import DoctestServerProxy
-        sage: DoctestServerProxy()
+        sage: DoctestServerProxy(None)
         <trac_interface.DoctestServerProxy at ...>
 
     """
-    pass
+    def __init__(self, trac):
+        self._trac = trac
+        self._sshkeys = {}
+
+    @property
+    def sshkeys(self):
+        class SshKeys(object):
+            def setkeys(this, keys):
+                if self._trac._username not in self._sshkeys:
+                    self._sshkeys[self._trac._username] = set()
+                self._sshkeys[self._trac._username] = self._sshkeys[self._trac._username].union(set(keys))
+                return 0
+            def getkeys(this):
+                if self._trac._username not in self._sshkeys: return []
+                return list(self._sshkeys[self._trac._username])
+            def listusers(this):
+                return self._sshkeys.keys()
+
+        self._sshkeys_impl = SshKeys()
+        return self._sshkeys_impl
+
+    @property
+    def ticket(self):
+        class Ticket(object):
+            def create(self, summary, description, attributes, notify):
+                return 14366
+        return Ticket()
 
 class TracInterface(object):
     """
@@ -164,7 +190,7 @@ class TracInterface(object):
 
             username = self._username
             if username == "doctest":
-                return DoctestServerProxy()
+                return DoctestServerProxy(self)
             else:
                 transport = DigestTransport(realm, server, username, self._password)
                 self.__authenticated_server_proxy = ServerProxy(server + 'login/xmlrpc', transport=transport)
@@ -241,26 +267,54 @@ class TracInterface(object):
 
     @property
     def sshkeys(self):
+        """
+        Retrieve the interface to the ssh keys stored for the user.
+
+        EXAMPLES::
+
+            sage: from sagedev import SageDev, Config
+            sage: sshkeys = SageDev().trac.sshkeys # not tested
+            sage: type(sshkeys) # not tested
+            instance
+            sage: sshkeys.listusers() # not tested
+            ['rohana', 'saraedum', 'roed', 'kini', 'nthiery', 'anonymous']
+            sage: sshkeys.getkeys() # not tested
+            []
+            sage: sshkeys.setkeys(["foo","bar"]) # not tested
+            0
+            sage: sshkeys.getkeys() # not tested
+            ['foo', 'bar']
+
+            sage: sshkeys = SageDev(Config._doctest_config()).trac.sshkeys
+            sage: type(sshkeys)
+            trac_interface.SshKeys
+            sage: sshkeys.listusers()
+            []
+            sage: sshkeys.getkeys()
+            []
+            sage: sshkeys.setkeys(["foo","bar"])
+            0
+            sage: sshkeys.getkeys()
+            ['foo', 'bar']
+
+        """
         return self._authenticated_server_proxy.sshkeys
 
-    def create_ticket(self, summary, description, type, component,
-                      attributes={}, notify=False):
+    def create_ticket(self, summary, description, attributes={}, notify=False):
         """
         Create a ticket on trac and return the new ticket number.
 
         EXAMPLES::
 
-            sage: SD = SageDev()
-            sage: SD.trac_create_ticket(
-            ... "Creating a trac ticket is not doctested",
-            ... "There seems to be no way to doctest the automated"
-            ... " creation of trac tickets in the SageDev class",
-            ... "defect", "scripts"
-            ... )
+            sage: from sagedev import SageDev, Config
+            sage: SageDev().trac.create_ticket("Summary","Description",{'type':'defect','component':'algebra'}) # not tested
+            14366
+
+            sage: SageDev(Config._doctest_config()).trac.create_ticket("Summary","Description",{'type':'defect','component':'algebra'})
+            14366
+
         """
-        tnum = self._authenticated_server_proxy.ticket.create(summary, description,
-                                  attributes, notify)
-        return tnum
+        return self._authenticated_server_proxy.ticket.create(summary, description, attributes, notify)
 
     def create_ticket_interactive(self):
         proceed = self._UI.confirm("create a new ticket")
