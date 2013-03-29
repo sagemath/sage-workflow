@@ -410,11 +410,6 @@ class GitInterface(object):
         self._validate_local_name(newname)
         self.execute("branch", oldname, newname, m=True)
 
-    def fetch_ticket(self, ticketnum, user=None, switch=False):
-        # fetches a branch from remote, including dependencies if
-        # necessary. Doesn't switch
-        raise NotImplementedError
-
     def fetch_project(self, group, branchname):
         raise NotImplementedError
 
