@@ -11,11 +11,9 @@ class DigestTransport(Transport):
     def __init__(self, realm, url, username=None, password=None, **kwds):
         Transport.__init__(self, **kwds)
 
+        authhandler = urllib2.HTTPDigestAuthHandler()
         if username and password:
-            authhandler = urllib2.HTTPDigestAuthHandler()
             authhandler.add_password(realm, url, username, password)
-        else:
-            raise NotImplementedError
 
         self.opener = urllib2.build_opener(authhandler)
 
@@ -52,7 +50,7 @@ class TracInterface(object):
             if server[-1] != '/': server += '/'
 
             transport = DigestTransport(realm, server)
-            self.__anonymous_server_proxy = ServerProxy.__init__(self, server + 'xmlrpc', transport=transport)
+            self.__anonymous_server_proxy = ServerProxy(server + 'xmlrpc', transport=transport)
         return self.__anonymous_server_proxy
 
     @property
@@ -88,7 +86,7 @@ class TracInterface(object):
                 return DoctestServerProxy()
             else:
                 transport = DigestTransport(realm, server, username, self._password)
-                self.__authenticated_server_proxy = ServerProxy.__init__(self, server + 'login/xmlrpc', transport=transport)
+                self.__authenticated_server_proxy = ServerProxy(server + 'login/xmlrpc', transport=transport)
 
         return self.__authenticated_server_proxy
 
@@ -138,7 +136,7 @@ class TracInterface(object):
             ... "defect", "scripts"
             ... )
         """
-        tnum = self.ticket.create(summary, description,
+        tnum = self._authenticated_server_proxy.ticket.create(summary, description,
                                   attributes, notify)
         return tnum
 
@@ -175,7 +173,7 @@ class TracInterface(object):
 
     def _get_attributes(self, ticketnum):
         ticketnum = int(ticketnum)
-        return self.ticket.get(ticketnum)[3]
+        return self._anonymous_server_proxy.ticket.get(ticketnum)[3]
 
     def dependencies(self, ticketnum, all=False, _seen=None):
         # returns the list of all ticket dependencies, sorted by ticket number
@@ -204,5 +202,5 @@ class TracInterface(object):
 
     def attachment_names(self, ticketnum):
         ticketnum = int(ticketnum)
-        attachments = self.ticket.listAttachments(ticketnum)
+        attachments = self._anonymous_server_proxy.ticket.listAttachments(ticketnum)
         return [a[0] for a in attachments]

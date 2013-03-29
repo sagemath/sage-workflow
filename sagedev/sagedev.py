@@ -1394,5 +1394,5 @@ class SageDev(object):
         with open(keyfile + '.pub', 'r') as F:
             pubkey = F.read().strip()
 
-        self._trac.sshkeys.addkey(pubkey)
+        self.trac.sshkeys.addkey(pubkey)
 
