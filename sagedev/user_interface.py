@@ -1,6 +1,9 @@
 from getpass import getpass
 
 class CmdLineInterface(object):
+    def __init__(self):
+        self._answer_stack = []
+
     def get_input(self, prompt, options=None, default=None, dryrun=False, strip=None):
         """
         Get input from the developer.
@@ -48,7 +51,11 @@ class CmdLineInterface(object):
         if dryrun:
             return prompt
         while True:
-            s = raw_input(prompt)
+            if not self._answer_stack:
+                s = raw_input(prompt)
+            else:
+                s = self._answer_stack.pop()
+                print "%s%s"%(prompt,s)
             if strip is not None and s.startswith(strip):
                 s = s[len(strip):]
             if options is None:
