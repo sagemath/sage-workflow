@@ -21,7 +21,7 @@ HG_USER_REGEX = re.compile(r"^# User (.*)$")
 HG_DATE_REGEX = re.compile(r"^# Date (\d+) (-?\d+)$")
 HG_NODE_REGEX = re.compile(r"^# Node ID ([0-9a-f]+)$")
 HG_PARENT_REGEX = re.compile(r"^# Parent +([0-9a-f]+)$")
-HG_DIFF_REGEX = re.compile(r"^diff -r [0-9a-f]+ -r [0-9a-f]+ (.*)$")
+HG_DIFF_REGEX = re.compile(r"^diff (?:-r [0-9a-f]+ ){1,2}(.*)$")
 PM_DIFF_REGEX = re.compile(r"^(?:(?:\+\+\+)|(?:---)) [ab]/([^ ]*)(?: .*)?$")
 
 # regular expressions to parse git patches -- at least those created by us
@@ -192,7 +192,7 @@ class Config(object):
 
             sage: c = Config._doctest_config()
             sage: list(c)
-            ['git']
+            ['git', 'trac']
 
         """
         return iter(self._config.sections())
@@ -965,6 +965,7 @@ class SageDev(object):
 
         - :meth:`download` -- download a branch from the server and
           merge it.
+
         """
         raise NotImplementedError
         if self._UI.confirm("Are you sure you want to revert to %s?"%(self.git.released_sage_ver() if release else "a plain development version")):
@@ -979,7 +980,7 @@ class SageDev(object):
     ##
     ## Auxilliary functions
     ##
-    
+
     def _fetch(self, branch, repository=None):
         """
         Fetches ``branch`` from the remote repository, returning the name of
@@ -992,8 +993,9 @@ class SageDev(object):
         - ``repo`` -- name of a remote repository
 
         OUTPUT:
-        
+
         The name of a newly created/updated local ref.
+
         """
         local_ref = "refs/remotes/trac/%s" % branch
         self.git.fetch(repository, "%s:%s" % (branch, local_ref))
@@ -1034,7 +1036,7 @@ class SageDev(object):
             sage: s._detect_patch_diff_format(io.open("data/trac_8703-trees-fh.patch"))
             'git'
             sage: s._detect_patch_diff_format(io.open("data/diff.patch"))
-            'git'
+            'hg'
 
         TESTS::
 
@@ -1046,6 +1048,7 @@ class SageDev(object):
             Traceback (most recent call last):
             ...
             ValueError: File appears to have mixed diff formats.
+
         """
         format = None
         regexs = { "hg" : HG_DIFF_REGEX, "git" : GIT_DIFF_REGEX }
@@ -1096,8 +1099,9 @@ class SageDev(object):
             'old'
             sage: s._detect_patch_path_format(["diff --git a/src/sage/rings/padics/FM_template.pxi b/src/sage/rings/padics/FM_template.pxi"])
             'new'
-
             sage: s._detect_patch_path_format(io.open("data/trac_8703-trees-fh.patch"))
+            'old'
+
         """
         lines = list(lines)
         if diff_format is None:
@@ -1199,6 +1203,7 @@ class SageDev(object):
             u'#8703: Enumerated sets and data structure for ordered and binary trees\n'
             sage: result[12]
             u'diff --git a/src/doc/en/reference/combinat/index.rst b/src/doc/en/reference/combinat/index.rst\n'
+
         """
         lines = list(lines)
         if diff_format is None:
@@ -1277,6 +1282,7 @@ class SageDev(object):
             'git'
             sage: s._detect_patch_header_format(list(io.open("data/trac_8703-trees-fh.patch")))
             'diff'
+
         """
         lines = list(lines)
         if not lines:
@@ -1338,12 +1344,10 @@ class SageDev(object):
 
         EXAMPLES::
 
-            sage: import io
-            sage: def chop(line): return line[:-1]
-            sage: hg_lines = map(chop, io.open("data/hg.patch"))
-            sage: hg_output_lines = map(chop, io.open("data/hg-output.patch"))
-            sage: git_lines = map(chop, io.open("data/git.patch"))
-            sage: git_output_lines = map(chop, io.open("data/git-output.patch"))
+            sage: hg_lines = open("data/hg.patch").read().splitlines()
+            sage: hg_output_lines = open("data/hg-output.patch").read().splitlines()
+            sage: git_lines = open("data/git.patch").read().splitlines()
+            sage: git_output_lines = open("data/git-output.patch").read().splitlines()
             sage: from sagedev import SageDev
             sage: s = SageDev()
             sage: s._rewrite_patch_header(git_lines, 'git') == git_lines
@@ -1356,12 +1360,13 @@ class SageDev(object):
             sage: s._rewrite_patch_header(hg_lines, 'git') == git_output_lines
             True
 
-            sage: s._rewrite_patch_header(map(chop, io.open("data/trac_8703-trees-fh.patch")), 'git')[:5]
+            sage: s._rewrite_patch_header(open("data/trac_8703-trees-fh.patch").read().splitlines(), 'git')[:5]
             ['From: "Unknown User" <unknown@sagemath.org>',
-            u'Subject: #8703: Enumerated sets and data structure for ordered and binary trees',
-            'Date: Fri, 29 Mar 2013 02:03:41 -0000',
+            'Subject: #8703: Enumerated sets and data structure for ordered and binary trees',
+            'Date: ...',
             '',
-            u'- The Class Abstract[Labelled]Tree allows for inheritance from different']
+            '- The Class Abstract[Labelled]Tree allows for inheritance from different']
+
         """
         lines = list(lines)
         if not lines:
@@ -1408,7 +1413,7 @@ class SageDev(object):
                 ret = []
                 ret.append('# HG changeset patch')
                 ret.append('# User %s'%(header["user"]))
-                ret.append('# Date %s 00000'%(time.mktime(email.utils.parsedate(header["date"])))) # this is not portable and the time zone is wrong
+                ret.append('# Date %s 00000'%int(time.mktime(email.utils.parsedate(header["date"])))) # this is not portable and the time zone is wrong
                 ret.append('# Node ID 0000000000000000000000000000000000000000')
                 ret.append('# Parent  0000000000000000000000000000000000000000')
                 ret.append(header["subject"])
@@ -1481,7 +1486,7 @@ class SageDev(object):
 
             sage: s = SageDev(Config._doctest_config())
             sage: t = s.trac; t
-            TracInterface()
+             <trac_interface.TracInterface at ...>
             sage: t is s.trac
             True
 
@@ -1522,6 +1527,8 @@ class SageDev(object):
             ...
             IOError: [Errno 2] No such file or directory: ...
             sage: s._upload_ssh_key(tempfile.NamedTemporaryFile().name, create_key_if_not_exists = True)
+            Generating ssh key....
+            Ssh key successfully generated
 
         """
         cfg = self._config
@@ -1545,7 +1552,7 @@ class SageDev(object):
         with open(keyfile + '.pub', 'r') as F:
             pubkey = F.read().strip()
 
-        self.trac.sshkeys.addkey(pubkey)
+        self.trac.sshkeys.setkeys(pubkey)
 
     def _create_ticket(self, ticket, branchname):
         """
