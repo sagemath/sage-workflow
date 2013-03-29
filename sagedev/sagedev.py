@@ -281,7 +281,33 @@ class SageDev(object):
 
         - :meth:`vanilla` -- Switch to a released version of Sage.
         """
-        raise NotImplementedError
+        if isinstance(ticket, basestring):
+            if branchname is not None:
+                raise ValueError("Cannot specify two branch names")
+        else:
+            ticket = int(ticket)
+        branch = self.git._ticket_to_branch(ticket)
+        if branch is None:
+            # ticket does not exist locally
+            if isinstance(ticket, basestring):
+                raise ValueError("Branch does not exist")
+            elif not offline:
+                if branchname is None:
+                    branchname = "t/%s"%(ticket)
+                # No branch associated to that ticket number
+                self._create_ticket(ticket, branchname)
+            else:
+                raise ValueError("You cannot download a ticket while offline")
+        else:
+            if branchname is None:
+                branchname = branch
+            else:
+                # User specified a branchname but there's already a branch for that ticket
+                # ticket must be an int
+                self.git._branch[ticket] = branchname
+            self.git.switch_branch(branchname)
+        if branch is not None and not offline:
+            self.remote_status(branchname)
 
     def create_ticket(self, branchname=None, remote_branch=None):
         """
@@ -400,9 +426,9 @@ class SageDev(object):
 
         - ``ticket`` -- an integer or ``None`` (default: ``None``).
 
-          If an integer, then switch to the local branch corresponding
-          to that ticket.  Then merge the branch associated to the
-          trac ticket ``ticket`` into the current branch.
+          If an integer and there is a local branch corresponding to
+          that ticket, switch to it.  Then merge the branch associated
+          to the trac ticket ``ticket`` into that branch.
 
           If ``ticket`` is ``None`` and this branch is associated to a
           ticket and is not following a non-user remote branch, then
@@ -430,19 +456,34 @@ class SageDev(object):
         - :meth:`import_patch` -- Import a patch into the current
           ticket.
         """
-        raise NotImplementedError
-        # pulls in changes from trac and rebases the current branch to
-        # them. ticketnum=None syncs unstable.
-        curticket = self.git.current_ticket()
-        if self._UI.confirm("Are you sure you want to save your changes and sync to the most recent development version of Sage?"):
-            self.git.save()
-            self.git.sync()
-        if curticket is not None and curticket.isdigit():
-            dependencies = self.trac.dependencies(curticket)
-            for dep in dependencies:
-                if self.git.needs_update(dep) and self._UI.confirm("Do you want to sync to the latest version of #%s"%(dep)):
-                    self.git.sync(dep)
+        if ticket is not None: ticket = int(ticket)
+        branch = self.git._ticket_to_branch(ticket)
+        if branch is None:
+            branch = self.git.current_branch()
+            if branch is None:
+                raise ValueError("Cannot download in detached head")
+        else:
+            self.git.switch_branch(branch)
+        remote_branch = self._remote[branch]
+        if remote_branch is None:
+            raise ValueError("No remote branch associated to current branch")
+        x = remote_branch.split('/')
+        if ticket is not None and x[0] == 'u' and x[1] == self.trac._username:
+            remote_branch = self._trac_branch(ticket)
+            if remote_branch is None:
+                raise ValueError("Trac ticket does not list a branch")
+        ref = self._fetch(remote_branch)
+        if force:
+            self.git.branch(branch, ref, f=True)
+        else:
+            self.merge(ref, create_dependency=False, download=False)
 
+
+        #if curticket is not None and curticket.isdigit():
+        #    dependencies = self.trac.dependencies(curticket)
+        #    for dep in dependencies:
+        #        if self.git.needs_update(dep) and self._UI.confirm("Do you want to sync to the latest version of #%s"%(dep)):
+        #            self.git.sync(dep)
 
     def remote_status(self, ticket=None):
         """
@@ -1473,3 +1514,18 @@ class SageDev(object):
 
         self.trac.sshkeys.addkey(pubkey)
 
+    def _create_ticket(self, ticket, branchname):
+        """
+        Branchname should not already exist.
+
+        Switch to the new branch after creation.
+        """
+        ref = self._fetch(self._trac_branch(ticket))
+        self.git.create_branch(branchname, ref)
+        self.git._branch[ticket] = branchname
+
+    def _trac_branch(ticket):
+        D = self.trac._get_attributes(ticket)
+        if 'branch' not in D: return None
+        branch = D['branch']
+        if branch: return branch
