@@ -440,3 +440,8 @@ class TracInterface(object):
         ticketnum = int(ticketnum)
         attachments = self._anonymous_server_proxy.ticket.listAttachments(ticketnum)
         return [a[0] for a in attachments]
+
+    def _set_branch(self, ticketnum, remote_branch, commit_id):
+        ticketnum = int(ticketnum)
+        tid, time0, time1, attributes = self._anonymous_server_proxy.ticket.get(ticketnum)
+        self._authenticated_server_proxy.ticket.update(tid, 'Set by SageDev: commit %s'%(commit_id), {'branch':remote_branch})
