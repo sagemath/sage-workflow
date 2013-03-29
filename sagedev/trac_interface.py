@@ -322,6 +322,30 @@ class TracInterface(object):
         """
         return self._authenticated_server_proxy.ticket.create(summary, description, attributes, notify)
 
+    def edit_ticket(self, ticketnum):
+        attributes = self._get_attributes(ticketnum)
+
+        summary = "No Summary"
+        if 'summary' in attributes:
+            summary = attributes['summary']
+        summary += "(can not be changed)"
+
+        description = "No Description"
+        if 'description' in attributes:
+            description = attributes['description']
+
+        while True:
+            try:
+                x = = self._edit_ticket_interactive(summary, description, attributes)
+                if x is None: return
+                summary, description, attributes = x
+                attributes['description'] = description
+                self._authenticated_server_proxy.ticket.update(ticketnum, "", attributes)
+            except StandardError:
+                self._UI.show("Ticket editing failed: %s"%e)
+                if self._UI.confirm("Do you want to try to fix your ticket file?", default_yes=True): continue
+                else: return None
+
     def _edit_ticket_interactive(self, summary, description, attributes):
         if os.environ.has_key('EDITOR'):
             editor = os.environ['EDITOR']
