@@ -234,9 +234,9 @@ class TracInterface(object):
                 if password != password2:
                     self._UI.show("Passwords do not agree.")
                 else: break
-            if self._UI.confirm("Do you want your password to be stored on your local system? (your password will be stored in plaintext in a file only readable by you)", defaultYes=False):
+            if self._UI.confirm("Do you want your password to be stored on your local system? (your password will be stored in plaintext in a file only readable by you)", default_yes=False):
                 self._config['password'] = password
-                self._config._write_confi()
+                self._config._write_config()
             return password
 
     @property
