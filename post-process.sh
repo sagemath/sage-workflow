@@ -75,32 +75,32 @@ apply_patch () {
     cat_workflow_file post-process_files/$1.patch | git am
 }
 
-apply_patch sage-env1
+#apply_patch sage-env1
 cat_workflow_file post-process_files/sage-build > "$SAGE_SCRIPTS_DIR"/sage-build
 chmod 755 "$SAGE_SCRIPTS_DIR"/sage-build
 git add "$SAGE_SCRIPTS_DIR"/sage-build
 git commit -m '(FIXUP) new sage-build script'
-apply_patch install1
-apply_patch prereq-install1
-apply_patch deps1
-apply_patch sage-spkg1
-apply_patch sage-spkg2
-apply_patch sage-starts1
-apply_patch csage1
-apply_patch sage1
-apply_patch docbuild1
-apply_patch sage_artifacts1
-apply_patch ntl1
-apply_patch singular1
-apply_patch sagenb1
-apply_patch hg1
-apply_patch gcc1
-apply_patch makefile1
+#apply_patch install1
+#apply_patch prereq-install1
+#apply_patch deps1
+#apply_patch sage-spkg1
+#apply_patch sage-spkg2
+#apply_patch sage-starts1
+#apply_patch csage1
+#apply_patch sage1
+#apply_patch docbuild1
+#apply_patch sage_artifacts1
+#apply_patch ntl1
+#apply_patch singular1
+#apply_patch sagenb1
+#apply_patch hg1
+#apply_patch gcc1
+#apply_patch makefile1
 #apply_patch whitespace1
-apply_patch devel_doctests1
-apply_patch makefile2
-apply_patch sage_data1
-apply_patch sage-envpy1
-apply_patch long_doctests1
-apply_patch setup1
-apply_patch gcc1
+#apply_patch devel_doctests1
+#apply_patch makefile2
+#apply_patch sage_data1
+#apply_patch sage-envpy1
+#apply_patch long_doctests1
+#apply_patch setup1
+#apply_patch gcc1
