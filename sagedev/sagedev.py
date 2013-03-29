@@ -1333,10 +1333,8 @@ class SageDev(object):
             True
 
         """
-        if 'trac' not in self._config:
-            self._config['trac'] = {}
         if self.__trac is None:
-            self.__trac = TracInterface(self._UI, self._config['trac'])
+            self.__trac = TracInterface(self)
         return self.__trac
 
     def __repr__(self):

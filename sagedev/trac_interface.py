@@ -31,9 +31,12 @@ class DigestTransport(Transport):
         return self.parse_response(response)
 
 class TracInterface(object):
-    def __init__(self, UI, config):
-        self._UI = UI
-        self._config = config
+    def __init__(self, sagedev):
+        self._sagedev = sagedev
+        self._UI = sagedev._UI
+        if 'trac' not in sagedev._config:
+            sagedev._config['trac'] = {}
+        self._config = sagedev._config['trac']
         # Caches for the analogous single-underscore properties
         self.__anonymous_server_proxy = None
         self.__authenticated_server_proxy = None
