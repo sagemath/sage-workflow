@@ -99,19 +99,22 @@ class GitInterface(object):
             raise ValueError("`%s` does not point to an existing directory."%self._dot_git)
 
         from sagedev import DOT_SAGE
-        ticketfile = os.path.join(DOT_SAGE, 'branch_to_ticket')
+        ticket_file = os.path.join(DOT_SAGE, 'branch_to_ticket')
         if 'ticketfile' in self._config:
-            ticketfile = self._config['ticketfile']
-        branchfile = os.path.join(DOT_SAGE, 'ticket_to_branch')
+            ticket_file = self._config['ticketfile']
+        branch_file = os.path.join(DOT_SAGE, 'ticket_to_branch')
         if 'branchfile' in self._config:
-            branchfile = self._config['brachfile']
+            branch_file = self._config['brachfile']
+        dependencies_file = os.path.join(DOT_SAGE, 'dependencies')
+        if 'dependenciesfile' in self._config:
+            dependencies_file = self._config['dependenciesfile']
 
-        self._ticket, self._branch = self._load_ticket_branches(ticketfile, branchfile)
+        self._load_dicts(ticket_file, branch_file, dependencies_file)
 
     def __repr__(self):
         return "GitInterface()"
 
-    def _load_ticket_branches(self, ticket_file, branch_file):
+    def _load_dicts(self, ticket_file, branch_file, dependencies_file):
         if os.path.exists(ticket_file):
             with open(ticket_file) as F:
                 s = F.read()
@@ -126,11 +129,19 @@ class GitInterface(object):
                 branch_dict = unpickle.load()
         else:
             branch_dict = {}
-        ticket_dict = SavingDict(ticket_file, **ticket_dict)
-        branch_dict = SavingDict(branch_file, **branch_dict)
-        ticket_dict.set_paired(branch_dict)
-        branch_dict.set_paired(ticket_dict)
-        return ticket_dict, branch_dict
+        if os.path.exists(dependencies_file):
+            with open(branch_file) as F:
+                s = F.read()
+                unpickler = cPickle.Unpickler(StringIO(s))
+                dependencies_dict = unpickle.load()
+        else:
+            dependencies_dict = {}
+        self._ticket = SavingDict(ticket_file, **ticket_dict)
+        self._branch = SavingDict(branch_file, **branch_dict)
+        self._ticket.set_paired(self._branch)
+        self._branch.set_paired(self._ticket)
+        self._dependencies = SavingDict(dependencies_file, **dependencies_dict)
+
 
     def released_sage_ver(self):
         # should return a string with the most recent released version
