@@ -920,11 +920,11 @@ class SageDev(object):
         """
         curbranch = self.git.current_branch()
         if ticket == "dependencies":
-            raise NotImplementedError
+            for d in self.git._dependencies[curbranch]:
+                self.merge(d, False, download, message)
+            return
         elif ticket is None:
             raise ValueError("You must specify a ticket to merge")
-        if create_dependency and curbranch:
-            self.
         ref = dep = None
         if download:
             remote_branch = self._remote_pull_branch(ticket)
@@ -937,7 +937,7 @@ class SageDev(object):
             ref = ticket
             if isinstance(ticket, int):
                 dep = ticket
-        if create_dependency and dep:
+        if create_dependency and dep and dep not in self.git._dependencies[curbranch]:
             self.git._dependencies[curbranch] += (dep,)
         if message is None:
             kwds = {}
@@ -1650,6 +1650,6 @@ class SageDev(object):
 
     def _dependencies_as_tickets(self, branch):
         dep = self.git._dependencies[branch]
-        dep = [self._ticket[d] for d in dep]
+        dep = [d if isinstance(d, int) else self._ticket[d] for d in dep]
         dep = [d for d in dep if d]
         return dep
