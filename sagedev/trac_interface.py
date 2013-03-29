@@ -144,7 +144,7 @@ class TracInterface(object):
         return tnum
 
     def create_ticket_interactive(self):
-        proceed = self.UI.confirm("create a new ticket")
+        proceed = self._UI.confirm("create a new ticket")
         if proceed:
             if os.environ.has_key('EDITOR'):
                 editor = os.environ['EDITOR']
@@ -162,7 +162,7 @@ class TracInterface(object):
                 parsed = self.parse(filename)
                 os.unlink(filename)
                 if any([a is None for a in parsed]):
-                    if not self.UI.confirm("Error in entering ticket data."
+                    if not self._UI.confirm("Error in entering ticket data."
                                            " Would you like to try again?"):
                         break
                 else:

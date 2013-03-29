@@ -125,7 +125,7 @@ class GitInterface(object):
         if state:
             state = state[0]
         if state == "am":
-            if interactive and not self.UI.confirm("Your repository is in an unclean state. It seems you are in the middle of a merge of some sort. To run this command you have to reset your respository to a clean state. Do you want me to reset your respository? (This will discard any changes which are not commited.)"):
+            if interactive and not self._UI.confirm("Your repository is in an unclean state. It seems you are in the middle of a merge of some sort. To run this command you have to reset your respository to a clean state. Do you want me to reset your respository? (This will discard any changes which are not commited.)"):
                 return False
 
             self.am("--abort")
@@ -137,7 +137,7 @@ class GitInterface(object):
         if not self.has_uncommitted_changes():
             return True
 
-        if interactive and not self.UI.confirm("You have uncommited changes in your working directory. To run this command you have to discard your changes. Do you want me to discard any changes which are not commited?"):
+        if interactive and not self._UI.confirm("You have uncommited changes in your working directory. To run this command you have to discard your changes. Do you want me to discard any changes which are not commited?"):
             return False
 
         self.reset("--hard")
@@ -207,16 +207,16 @@ class GitInterface(object):
         self.execute('add', "'{}'".format(F))
 
     def save(self):
-        diff = self.UI.confirm("Would you like to see a diff of the changes?",
+        diff = self._UI.confirm("Would you like to see a diff of the changes?",
                                default_yes=False)
         if diff:
             self.execute("diff")
         added = self.files_added()
         for F in added:
-            toadd = self.UI.confirm("Would you like to start tracking %s?"%F)
+            toadd = self._UI.confirm("Would you like to start tracking %s?"%F)
             if toadd:
                 self.add_file(F)
-        msg = self.UI.get_input("Please enter a commit message:")
+        msg = self._UI.get_input("Please enter a commit message:")
         self.commit_all(m=msg)
 
     def local_branches(self):
@@ -373,7 +373,7 @@ class GitInterface(object):
         elif self.ref_exists(location):
             self.execute("branch", branchname, location)
         else:
-            self.UI.show("Branch not created: %s does not exist"%location)
+            self._UI.show("Branch not created: %s does not exist"%location)
 
     def rename_branch(self, oldname, newname):
         self._validate_local_name(newname)
@@ -394,7 +394,7 @@ class GitInterface(object):
                 options = ["new branch", "stash"]
             else:
                 options = ["current branch", "new branch", "stash"]
-            dest = self.UI.get_input("Where do you want to commit your changes?", options)
+            dest = self._UI.get_input("Where do you want to commit your changes?", options)
             if dest == "stash":
                 self.stash()
             elif dest == "current branch":
@@ -428,7 +428,7 @@ class GitInterface(object):
         trashname = "trash/" + branchname
         oldtrash = self.branch_exists(trashname)
         if oldtrash:
-            self.UI.show("Overwriting %s in trash"(oldtrash))
+            self._UI.show("Overwriting %s in trash"(oldtrash))
         self.execute("branch", branchname, trashname, M=True)
         # Need to delete remote branch (and have a hook move it to /g/abandoned/ and update the trac symlink)
 
