@@ -422,6 +422,7 @@ class SageDev(object):
         - :meth:`download` -- Update a ticket with changes from the remote repository.
         """
         branch = self.git.current_branch()
+        if branch is None: raise ValueError("You cannot upload a detached head.  See switch_ticket")
         oldticket = self.git.current_ticket()
         if oldticket is None and ticket is None and remote_branch is None:
             self._UI.show("You don't have a ticket for this branch (%s)"%branch)
@@ -434,16 +435,19 @@ class SageDev(object):
             self.git._ticket[branch] = ticket
         if ticket:
             ref = self._fetch(ticket)
-            if not self.git.is_ancestor_of(ref, branch) and not Force:
-                if not self._UI.confirm("Changes not compatible with remote branch; consider downlaoding first first.  Are you sure you want to continue?"%(ticket, oldticket), False):
+            if not self.git.is_ancestor_of(ref, branch) and not force:
+                if not self._UI.confirm("Changes not compatible with remote branch; consider downloading first.  Are you sure you want to continue?"%(ticket, oldticket), False):
                     return
         remote_branch = remote_branch or self.git._local_to_remote_name(branch)
         self.git.push(repository, "%s:%s" % (branch, remote_branch))
         if ticket:
             commit_id = self.git.branch_exists(branch)
             self.trac._set_branch(ticket, remote_branch, commit_id)
+            trac_deps = self.trac.dependencies(ticket)
+            git_deps = self._dependencies_as_tickets(branch)
+            raise NotImplementedError
 
-    def download(self, ticket=None, force=False):
+    def download(self, ticket=None, branchname=None, force=False):
         """
         Download the changes made to a remote branch into a given
         ticket or the current branch.
@@ -461,6 +465,9 @@ class SageDev(object):
           also merge in the trac ticket branch. If this branch is
           following a non-user remote branch, then merge that branch
           instead.
+
+        - ``branchname`` -- a string or ``None``, only used if there
+          is no local branch already associated to ``ticket``.
 
         - ``force`` -- a boolean (default: ``False``), if ``False``,
           try to merge the remote branch into this branch; if
@@ -493,6 +500,10 @@ class SageDev(object):
             if branch is not None:
                 self.git.switch_branch(branch)
         if branch is None:
+            if branchname is None:
+                branch = 't/%s'%(ticket)
+            else:
+                branch = branchname
             remote_branch = self._trac_branch(ticket)
         else:
             remote_branch = self._remote_pull_branch(branch)
@@ -501,8 +512,21 @@ class SageDev(object):
         ref = self._fetch(remote_branch)
         if force:
             self.git.branch(branch, ref, f=True)
+            overwrite_deps = True
         else:
+            overwrite_deps = self.git.is_ancestor_of(branch, ref)
             self.merge(ref, create_dependency=False, download=False)
+        if ticket is not None:
+            trac_deps = self.trac.dependencies(ticket)
+            git_deps = self._dependencies_as_tickets(branch)
+            if overwrite_deps:
+                self.git._dependencies[ticket] = trac_deps
+            else:
+                deps = trac_deps
+                for d in git_deps:
+                    if d not in deps:
+                        deps.append(d)
+                self.git._dependencies[ticket] = tuple(deps)
 
     def remote_status(self, ticket=None, quiet=False):
         """
@@ -818,9 +842,7 @@ class SageDev(object):
         if branchname is None:
             if _seen is not None: return
             raise ValueError("You must specify a valid ticket")
-        dep = self.git._dependencies[branchname]
-        dep = [self._ticket[d] for d in dep]
-        dep = [d for d in dep if d]
+        dep = self._dependencies_as_tickets(branchname)
         if not all:
             self._UI.show("Ticket %s depends on %s"%(self._print(ticket), ", ".join([self._print(d) for d in dep])))
         else:
@@ -1610,3 +1632,9 @@ class SageDev(object):
         if ticket in self.git._ticket:
             return "#%s"%(self.git._ticket[ticket])
         return str(ticket)
+
+    def _dependencies_as_tickets(self, branch):
+        dep = self.git._dependencies[branch]
+        dep = [self._ticket[d] for d in dep]
+        dep = [d for d in dep if d]
+        return dep
