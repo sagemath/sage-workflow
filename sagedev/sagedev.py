@@ -65,6 +65,7 @@ class Config(object):
         """
         self._config = configparser.ConfigParser()
         self._devrc = devrc
+        self._read_config()
 
     def __repr__(self):
         """
@@ -99,6 +100,8 @@ class Config(object):
         dot_git = tempfile.mkdtemp()
         ret['git'] = {}
         ret['git']['dot_git'] = dot_git
+        ret['trac'] = {}
+        ret['trac']['username'] = 'doctest'
         atexit.register(lambda: shutil.rmtree(dot_git))
         return ret
 
@@ -916,6 +919,28 @@ class SageDev(object):
     ##
     ## Auxilliary functions
     ##
+    
+    def _fetch(self, branch, repo=None):
+        """
+        Fetches ``branch`` from the remote repository, returning the name of
+        the newly-updated local ref.
+
+        INPUT:
+
+        - ``branch`` -- name of a remote branch
+
+        - ``repo`` -- name of a remote repository
+
+        OUTPUT:
+        
+        The name of a newly created/updated local ref.
+        """
+        local_ref = "refs/remotes/trac/%s" % branch
+        args = ("%s:%s" % (branch, local_ref)),
+        if repo is not None:
+            args = (repo,) + args
+        self.git.fetch(*args)
+        return local_ref
 
     def _get_tmp_dir(self):
         if self.tmp_dir is None:
@@ -935,12 +960,21 @@ class SageDev(object):
 
         Either ``git`` (for ``diff --git`` lines) or ``hg`` (for ``diff -r`` lines).
 
+        .. NOTE::
+
+            Most Sage developpers have configured mercurial to export
+            patches in git format.
+
         EXAMPLES::
 
+            sage: from sagedev import SageDev
+            sage: import io
             sage: s = SageDev()
             sage: s._detect_patch_diff_format(["diff -r 1492e39aff50 -r 5803166c5b11 sage/schemes/elliptic_curves/ell_rational_field.py"])
             'hg'
             sage: s._detect_patch_diff_format(["diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi"])
+            'git'
+            sage: s._detect_patch_diff_format(io.open("data/trac_8703-trees-fh.patch"))
             'git'
 
         TESTS::
@@ -953,7 +987,6 @@ class SageDev(object):
             Traceback (most recent call last):
             ...
             ValueError: File appears to have mixed diff formats.
-
         """
         format = None
         regexs = { "hg" : HG_DIFF_REGEX, "git" : GIT_DIFF_REGEX }
@@ -977,7 +1010,7 @@ class SageDev(object):
 
         INPUT:
 
-        - ``lines`` -- a list of strings
+        - ``lines`` -- a list (or iterable) of strings
 
         - ``diff_format`` -- ``'hg'``,``'git'``, or ``None`` (default:
           ``None``), the format of the ``diff`` lines in the patch. If
@@ -991,6 +1024,8 @@ class SageDev(object):
 
         EXAMPLES::
 
+            sage: from sagedev import SageDev
+            sage: import io
             sage: s = SageDev()
             sage: s._detect_patch_path_format(["diff -r 1492e39aff50 -r 5803166c5b11 sage/schemes/elliptic_curves/ell_rational_field.py"])
             'old'
@@ -1003,7 +1038,9 @@ class SageDev(object):
             sage: s._detect_patch_path_format(["diff --git a/src/sage/rings/padics/FM_template.pxi b/src/sage/rings/padics/FM_template.pxi"])
             'new'
 
+            sage: s._detect_patch_path_format(io.open("data/trac_8703-trees-fh.patch"))
         """
+        lines = list(lines)
         if diff_format is None:
             diff_format = self._detect_patch_diff_format(lines)
 
@@ -1041,7 +1078,7 @@ class SageDev(object):
 
         INPUT:
 
-        - ``lines`` -- a list of strings
+        - ``lines`` -- a list or iterable of strings
 
         - ``to_format`` -- ``'old'`` or ``'new'``
 
@@ -1061,7 +1098,8 @@ class SageDev(object):
 
         Paths in the old format::
 
-
+            sage: from sagedev import SageDev
+            sage: import io
             sage: s = SageDev()
             sage: s._rewrite_patch_diff_paths(['diff -r 1492e39aff50 -r 5803166c5b11 sage/schemes/elliptic_curves/ell_rational_field.py'], to_format="old")
             ['diff -r 1492e39aff50 -r 5803166c5b11 sage/schemes/elliptic_curves/ell_rational_field.py']
@@ -1095,7 +1133,15 @@ class SageDev(object):
             ['--- a/src/sage/rings/padics/pow_computer_ext.pxd',
              '+++ b/src/sage/rings/padics/pow_computer_ext.pxd']
 
+            sage: result = s._rewrite_patch_diff_paths(io.open("data/trac_8703-trees-fh.patch"), to_format="new", diff_format="git")
+            sage: len(result)
+            2980
+            sage: result[0]
+            u'#8703: Enumerated sets and data structure for ordered and binary trees\n'
+            sage: result[12]
+            u'diff --git a/src/doc/en/reference/combinat/index.rst b/src/doc/en/reference/combinat/index.rst\n'
         """
+        lines = list(lines)
         if diff_format is None:
             diff_format = self._detect_patch_diff_format(lines)
 
@@ -1151,7 +1197,7 @@ class SageDev(object):
 
         INPUT:
 
-        - ``lines`` -- a list of strings
+        - ``lines`` -- a list (or iterable) of strings
 
         OUTPUT:
 
@@ -1161,6 +1207,8 @@ class SageDev(object):
 
         EXAMPLES::
 
+            sage: from sagedev import SageDev
+            sage: import io
             sage: s = SageDev()
             sage: s._detect_patch_header_format(['# HG changeset patch','# Parent 05fca316b08fe56c8eec85151d9a6dde6f435d46'])
             'hg'
@@ -1168,8 +1216,10 @@ class SageDev(object):
             'hg-export'
             sage: s._detect_patch_header_format(['From: foo@bar'])
             'git'
-
+            sage: s._detect_patch_header_format(list(io.open("data/trac_8703-trees-fh.patch")))
+            'diff'
         """
+        lines = list(lines)
         if not lines:
             raise ValueError("patch is empty")
 
@@ -1180,10 +1230,8 @@ class SageDev(object):
                 return "hg"
         elif GIT_FROM_REGEX.match(lines[0]):
             return "git"
-        elif lines[0].startswith("diff -"):
-            return "diff"
-
-        raise NotImplementedError("Failed to determine patch header format.")
+        return "diff"
+        #raise NotImplementedError("Failed to determine patch header format.")
 
     def _detect_patch_modified_files(self, lines, diff_format = None):
         if diff_format is None:
@@ -1217,7 +1265,7 @@ class SageDev(object):
         - ``to_format`` -- one of ``'hg'``, ``'hg-export'``, ``'diff'``,
           ``'git'``, the format of the resulting patch file.
 
-        - ``from_format`` -- one of ``None``, ``'hg'``, ``'diff'``, ``'git'``
+        - ``from_format`` -- one of ``None``, ``'hg'``, ``'hg-export'``, ``'diff'``, ``'git'``
           (default: ``None``), the format of the patch file.  The format is
           determined automatically if ``format`` is ``None``.
 
@@ -1225,38 +1273,38 @@ class SageDev(object):
 
         A list of lines, in the format specified by ``to_format``.
 
+        Some sample patch files are in data/, in hg and git
+        format. Since the translation is not perfect, the resulting
+        file is also put there for comparison.
+
         EXAMPLES::
 
+            sage: import io
+            sage: def chop(line): return line[:-1]
+            sage: hg_lines = map(chop, io.open("data/hg.patch"))
+            sage: hg_output_lines = map(chop, io.open("data/hg-output.patch"))
+            sage: git_lines = map(chop, io.open("data/git.patch"))
+            sage: git_output_lines = map(chop, io.open("data/git-output.patch"))
+            sage: from sagedev import SageDev
             sage: s = SageDev()
-            sage: lines = r'''# HG changeset patch
-            ....: # User David Roe <roed@math.harvard.edu>
-            ....: # Date 1330837723 28800
-            ....: # Node ID 264dcd0442d217ff8762bcc068fbb6fc12cf5367
-            ....: # Parent  05fca316b08fe56c8eec85151d9a6dde6f435d46
-            ....: #12555: fixed modulus templates
-            ....:
-            ....: diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi'''.splitlines()
-            sage: s._rewrite_patch_header(lines, 'hg-export') == lines
+            sage: s._rewrite_patch_header(git_lines, 'git') == git_lines
             True
-            sage: lines = s._rewrite_patch_header(lines, 'git'); lines
-            ['From: David Roe <roed@math.harvard.edu>',
-             'Subject: #12555: fixed modulus templates',
-             'Date: Sun, 04 Mar 2012 05:08:43 -0000',
-             '',
-             'diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi']
-            sage: s._rewrite_patch_header(lines, 'git') == lines
+            sage: s._rewrite_patch_header(hg_lines, 'hg-export') == hg_lines
             True
-            sage: s._rewrite_patch_header(lines, 'hg-export')
-            ['# HG changeset',
-             '# User David Roe <roed@math.harvard.edu>',
-             '# Date 1330834123.0 00000',
-             '# Node ID 0000000000000000000000000000000000000000',
-             '# Parent  0000000000000000000000000000000000000000',
-             '#12555: fixed modulus templates',
-             '',
-             'diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi']
 
+            sage: s._rewrite_patch_header(git_lines, 'hg-export') == hg_output_lines
+            True
+            sage: s._rewrite_patch_header(hg_lines, 'git') == git_output_lines
+            True
+
+            sage: s._rewrite_patch_header(map(chop, io.open("data/trac_8703-trees-fh.patch")), 'git')[:5]
+            ['From: "Unknown User" <unknown@sagemath.org>',
+            u'Subject: #8703: Enumerated sets and data structure for ordered and binary trees',
+            'Date: Fri, 29 Mar 2013 02:03:41 -0000',
+            '',
+            u'- The Class Abstract[Labelled]Tree allows for inheritance from different']
         """
+        lines = list(lines)
         if not lines:
             raise ValueError("empty patch file")
 
@@ -1266,67 +1314,72 @@ class SageDev(object):
         if from_format == to_format:
             return lines
 
-        def parse_header(lines, regexs):
-            if len(lines) < len(regexs):
-                raise ValueError("patch files must have at least %s lines"%len(regexs))
-
-            for i,regex in enumerate(regexs):
-                if not regex.match(lines[i]):
+        def parse_header(lines, regexs, mandatory=False):
+            header = {}
+            i = 0
+            for (key, regex) in regexs:
+                if i > len(lines):
+                    if mandatory:
+                        raise ValueError("Malformed patch. Missing line for regular expression `%s`."%(regex.pattern))
+                    else:
+                        return
+                match = regex.match(lines[i])
+                if match is not None:
+                    if len(match.groups()) > 0:
+                        header[key] = match.groups()[0]
+                    i += 1
+                elif mandatory:
                     raise ValueError("Malformed patch. Line `%s` does not match regular expression `%s`."%(lines[i],regex.pattern))
 
             message = []
-            for i in range(len(regexs),len(lines)):
-                if not lines[i].startswith("diff -"):
+            for i in range(i,len(lines)):
+                if lines[i].startswith("diff -"):
+                    break
+                else:
                     message.append(lines[i])
-                else: break
 
-            return message, lines[i:]
+            header["message"] = message
+            return header, lines[i:]
 
         if from_format == "git":
-            message, diff = parse_header(lines, (GIT_FROM_REGEX, GIT_SUBJECT_REGEX, GIT_DATE_REGEX))
+            header, diff = parse_header(lines, (("user", GIT_FROM_REGEX), ("subject", GIT_SUBJECT_REGEX), ("date", GIT_DATE_REGEX)),
+                                        mandatory=True)
 
             if to_format == "hg-export":
                 ret = []
-                ret.append('# HG changeset')
-                ret.append('# User %s'%GIT_FROM_REGEX.match(lines[0]).groups()[0])
-                ret.append('# Date %s 00000'%time.mktime(email.utils.parsedate(GIT_DATE_REGEX.match(lines[2]).groups()[0]))) # this is not portable and the time zone is wrong
+                ret.append('# HG changeset patch')
+                ret.append('# User %s'%(header["user"]))
+                ret.append('# Date %s 00000'%(time.mktime(email.utils.parsedate(header["date"])))) # this is not portable and the time zone is wrong
                 ret.append('# Node ID 0000000000000000000000000000000000000000')
                 ret.append('# Parent  0000000000000000000000000000000000000000')
-                ret.append(GIT_SUBJECT_REGEX.match(lines[1]).groups()[0])
-                ret.extend(message)
+                ret.append(header["subject"])
+                ret.extend(header["message"])
                 ret.extend(diff)
                 return ret
             else:
                 raise NotImplementedError(to_format)
-        elif from_format == "diff":
-            ret = []
-            ret.append('From: "Unknown User" <unknown@sagemath.org>')
-            ret.append('Subject: No Subject. Modified: %s'%(", ".join(self._detect_patch_modified_files(lines))))
-            ret.append('Date: %s'%email.utils.formatdate(time.time()))
-            ret.extend(lines)
-            return self._rewrite_patch_header(ret, to_format=to_format, from_format="git", diff_format=diff_format)
-        elif from_format == "hg":
-            message, diff = parse_header(lines, (HG_HEADER_REGEX, HG_PARENT_REGEX))
+        elif from_format in ["hg", "diff", "hg-export"]:
+            header, diff = parse_header(lines,
+                                        (("hg_header", HG_HEADER_REGEX),
+                                         ("user", HG_USER_REGEX),
+                                         ("date", HG_DATE_REGEX),
+                                         ("node", HG_NODE_REGEX),
+                                         ("parent", HG_PARENT_REGEX)))
+            user    = header.get("user", '"Unknown User" <unknown@sagemath.org>')
+            date    = email.utils.formatdate(int(header.get("date", time.time())))
+            message = header.get("message", [])
             if message:
                 subject = message[0]
                 message = message[1:]
             else:
                 subject = 'No Subject. Modified: %s'%(", ".join(self._detect_patch_modified_files(lines)))
-
             ret = []
-            ret.append('From: "Unknown User" <unknown@sagemath.org>')
+            ret.append('From: %s'%user)
             ret.append('Subject: %s'%subject)
-            ret.append('Date: %s'%email.utils.formatdate(time.time()))
-            ret.extend(message)
-            ret.extend(diff)
-            return self._rewrite_patch_header(ret, to_format=to_format, from_format="git", diff_format=diff_format)
-        elif from_format == "hg-export":
-            message, diff = parse_header(lines, (HG_HEADER_REGEX, HG_USER_REGEX, HG_DATE_REGEX, HG_NODE_REGEX, HG_PARENT_REGEX))
-            ret = []
-            ret.append('From: %s'%HG_USER_REGEX.match(lines[1]).groups()[0])
-            ret.append('Subject: %s'%("No Subject" if not message else message[0]))
-            ret.append('Date: %s'%email.utils.formatdate(int(HG_DATE_REGEX.match(lines[2]).groups()[0])))
-            ret.extend(message[1:])
+            ret.append('Date: %s'%date)
+            ret.append('')
+            if message and message != ['']: # avoid a double empty line
+                ret.extend(message)
             ret.extend(diff)
             return self._rewrite_patch_header(ret, to_format=to_format, from_format="git", diff_format=diff_format)
         else:
