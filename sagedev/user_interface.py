@@ -87,7 +87,12 @@ class CmdLineInterface(object):
         return ok == "yes"
 
     def get_password(self, prompt):
-        return getpass(prompt)
+        if not self._answer_stack:
+            return getpass(prompt)
+        else:
+            ret = self._answer_stack.pop()
+            print prompt
+            return ret
 
     def show(self, message):
         print message

@@ -174,6 +174,26 @@ class TracInterface(object):
 
     @property
     def _username(self):
+        """
+        A lazy property to get the username on trac.
+
+        EXAMPLES::
+
+            sage: from sagedev import SageDev, Config
+            sage: import tempfile
+            sage: devrc = tempfile.NamedTemporaryFile().name
+            sage: s = SageDev(Config(devrc))
+            sage: s._UI._answer_stack = ["user"]
+            sage: s.trac._username
+            Please enter your trac username: user
+            'user'
+            sage: s.trac._username
+            'user'
+            sage: s = SageDev(Config(devrc))
+            sage: s.trac._username
+            'user'
+
+        """
         if 'username' not in self._config:
             self._config['username'] = self._UI.get_input("Please enter your trac username: ")
             self._config._write_config()
@@ -181,6 +201,30 @@ class TracInterface(object):
 
     @property
     def _password(self):
+        """
+        A lazy property to get the username of trac.
+
+        EXAMPLES::
+
+            sage: import tempfile
+            sage: from sagedev import SageDev, Config
+            sage: s = SageDev(Config(tempfile.NamedTemporaryFile().name))
+            sage: s._UI._answer_stack = [ "", "pass", "pass" ]
+            sage: s.trac._password
+            Please enter your trac password:
+            Please confirm your trac password:
+            Do you want your password to be stored on your local system? (your password will be stored in plaintext in a file only readable by you) [yes/No]
+            'pass'
+            sage: s._UI._answer_stack = [ "yes", "passwd", "passwd" ]
+            sage: s.trac._password
+            Please enter your trac password:
+            Please confirm your trac password:
+            Do you want your password to be stored on your local system? (your password will be stored in plaintext in a file only readable by you) [yes/No] yes
+            'passwd'
+            sage: s.trac._password
+            'passwd'
+
+        """
         if 'password' in self._config:
             return self._config['password']
         else:
