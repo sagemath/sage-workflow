@@ -501,7 +501,27 @@ class TracInterface(object):
                         else: return None
         assert(False)
 
-    def add_dependency(self, new_ticket, old_ticket):
+    def set_dependencies(self, ticket, dependencies):
+        """
+        Overwrites the dependencies for the given ticket.
+
+        INPUT:
+
+        - ``ticket`` -- an int
+
+        - ``dependencies`` -- a list of ints
+        """
+        ticket = int(ticket)
+        if len(dependencies) == 0:
+            dep = ''
+        else:
+            dep = '#' + ', #'.join([str(d) for d in dependencies])
+        tid, time0, time1, attributes = self._anonymous_server_proxy.ticket.get(ticket)
+        olddep = attributes.get('dependencies', '')
+        if dep != olddep:
+            self._authenticated_server_proxy.ticket.update(tid, 'Set by SageDev: dependencies changed from %s to %s'%(olddep, dep), {'dependencies':dep})
+            self._UI.show("Dependencies updated")
+
         # makes the trac ticket for new_ticket depend on the old_ticket
         raise NotImplementedError
 

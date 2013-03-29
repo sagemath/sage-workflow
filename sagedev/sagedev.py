@@ -447,10 +447,8 @@ class SageDev(object):
         if ticket:
             commit_id = self.git.branch_exists(branch)
             self.trac._set_branch(ticket, remote_branch, commit_id)
-            trac_deps = self.trac.dependencies(ticket)
             git_deps = self._dependencies_as_tickets(branch)
-            
-            raise NotImplementedError
+            self.trac.set_dependencies(ticket, git_deps)
 
     def download(self, ticket=None, branchname=None, force=False):
         """
