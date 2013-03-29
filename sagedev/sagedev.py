@@ -439,12 +439,17 @@ class SageDev(object):
                 if not self._UI.confirm("Changes not compatible with remote branch; consider downloading first.  Are you sure you want to continue?"%(ticket, oldticket), False):
                     return
         remote_branch = remote_branch or self.git._local_to_remote_name(branch)
-        self.git.push(repository, "%s:%s" % (branch, remote_branch))
+        ref = self._fetch(remote_branch)
+        if force or self.git.is_ancestor_of(ref, branch):
+            self.git.push(repository, "%s:%s" % (branch, remote_branch))
+        else:
+            raise ValueError("The remote branch has changed; upload failed.  Consider downloading the changes.")
         if ticket:
             commit_id = self.git.branch_exists(branch)
             self.trac._set_branch(ticket, remote_branch, commit_id)
             trac_deps = self.trac.dependencies(ticket)
             git_deps = self._dependencies_as_tickets(branch)
+            
             raise NotImplementedError
 
     def download(self, ticket=None, branchname=None, force=False):
