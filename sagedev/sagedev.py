@@ -439,13 +439,16 @@ class SageDev(object):
                 if not self._UI.confirm("Changes not compatible with remote branch; consider downloading first.  Are you sure you want to continue?"%(ticket, oldticket), False):
                     return
         remote_branch = remote_branch or self.git._local_to_remote_name(branch)
-        self.git.push(repository, "%s:%s" % (branch, remote_branch))
+        ref = self._fetch(remote_branch)
+        if force or self.git.is_ancestor_of(ref, branch):
+            self.git.push(repository, "%s:%s" % (branch, remote_branch))
+        else:
+            raise ValueError("The remote branch has changed; upload failed.  Consider downloading the changes.")
         if ticket:
             commit_id = self.git.branch_exists(branch)
             self.trac._set_branch(ticket, remote_branch, commit_id)
-            trac_deps = self.trac.dependencies(ticket)
             git_deps = self._dependencies_as_tickets(branch)
-            raise NotImplementedError
+            self.trac.set_dependencies(ticket, git_deps)
 
     def download(self, ticket=None, branchname=None, force=False):
         """
@@ -710,11 +713,17 @@ class SageDev(object):
         - :meth:`local_tickets` -- list local tickets (you may want to
           commit your changes to a branch other than the current one).
         """
-        raise NotImplementedError
-        if vs_dependencies:
-            self.git.execute("diff", self.dependency_join())
+        if base == "commit":
+            base = None
+        if base == "dependencies":
+            branch = self.git.current_branch()
+            try:
+                self.gather(self.trac.dependencies())
+                self.git.diff("%s..%s"%(HEAD,branch))
+            finally:
+                self.git.checkout(branch)
         else:
-            self.git.execute("diff")
+            self.git.execute("diff", base)
 
     def prune_closed_tickets(self):
         """
@@ -747,7 +756,6 @@ class SageDev(object):
         - :meth:`local_tickets` -- list local tickets (by default only
           showing the non-abandoned ones).
         """
-        raise NotImplementedError
         if self._UI.confirm("Are you sure you want to delete your work on #%s?"%(ticketnum), default_yes=False):
             self.git.abandon(ticketnum)
 
