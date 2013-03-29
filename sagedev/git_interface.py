@@ -474,7 +474,7 @@ def git_cmd_wrapper(git_cmd):
     return f
 
 for git_cmd in ["add","am","apply","bisect","branch","checkout",
-               "clone","commit","diff","fetch",
+                "clean", "clone","commit","diff","fetch",
                "grep","init","log","merge",
                "mv","pull","push","rebase",
                "reset","rm","show","stash",

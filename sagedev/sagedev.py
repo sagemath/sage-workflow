@@ -541,7 +541,7 @@ class SageDev(object):
 
     def import_patch(self, patchname=None, url=None, local_file=None, diff_format=None, header_format=None, path_format=None):
         """
-        Import a patch into the current ticket
+        Import a patch into the branch for the current ticket.
 
         If ``local_file`` is specified, apply the file it points to.
 
@@ -1020,6 +1020,8 @@ class SageDev(object):
             sage: s._detect_patch_diff_format(["diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi"])
             'git'
             sage: s._detect_patch_diff_format(io.open("data/trac_8703-trees-fh.patch"))
+            'git'
+            sage: s._detect_patch_diff_format(io.open("data/diff.patch"))
             'git'
 
         TESTS::
