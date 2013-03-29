@@ -876,7 +876,7 @@ class SageDev(object):
         current_ticket = self.current_ticket()
         if ticket == "dependencies":
             raise NotImplementedError
-        if instanceof(ticket, int):
+        if isinstance(ticket, int):
             if create_dependency and current_ticket:
                 self.trac.create_dependency(current_ticket, ticket)
             if download:
