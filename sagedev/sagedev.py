@@ -687,11 +687,17 @@ class SageDev(object):
         - :meth:`local_tickets` -- list local tickets (you may want to
           commit your changes to a branch other than the current one).
         """
-        raise NotImplementedError
-        if vs_dependencies:
-            self.git.execute("diff", self.dependency_join())
+        if base == "commit":
+            base = None
+        if base == "dependencies":
+            branch = self.git.current_branch()
+            try:
+                self.gather(self.trac.dependencies())
+                self.git.diff("%s..%s"%(HEAD,branch))
+            finally:
+                self.git.checkout(branch)
         else:
-            self.git.execute("diff")
+            self.git.execute("diff", base)
 
     def prune_closed_tickets(self):
         """
@@ -724,7 +730,6 @@ class SageDev(object):
         - :meth:`local_tickets` -- list local tickets (by default only
           showing the non-abandoned ones).
         """
-        raise NotImplementedError
         if self._UI.confirm("Are you sure you want to delete your work on #%s?"%(ticketnum), default_yes=False):
             self.git.abandon(ticketnum)
 
