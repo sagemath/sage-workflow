@@ -1,9 +1,15 @@
 import os, tempfile
 from xmlrpclib import Transport, ServerProxy
 import urllib2
+import re
+import subprocess
 
 REALM = 'sage.math.washington.edu'
 TRAC_SERVER_URI = 'https://trac.tangentspace.org/sage_trac'
+
+SUMMARY_REGEX = re.compile("^Summary: (.*)$")
+FIELD_REGEX = re.compile("^([A-Za-z ]+):(.*)$")
+ALLOWED_FIELDS = {"type":"Type", "priority":"Priority", "component":"Component", "cc":"Cc", "report upstream":"Report Upstream", "authors":"Authors", "dependencies":"Dependencies", "owned by":"Owned by", "milestone":"Milestone", "keywords":"Keywords", "work issues":"Work issues", "reviewers":"Reviewers", "merged in":"Merged in", "stopgaps":"Stopgaps"}
 
 class DigestTransport(object, Transport):
     """
@@ -316,32 +322,184 @@ class TracInterface(object):
         """
         return self._authenticated_server_proxy.ticket.create(summary, description, attributes, notify)
 
-    def create_ticket_interactive(self):
-        proceed = self._UI.confirm("create a new ticket")
-        if proceed:
-            if os.environ.has_key('EDITOR'):
-                editor = os.environ['EDITOR']
-            else:
-                editor = 'nano'
+    def edit_ticket(self, ticketnum):
+        attributes = self._get_attributes(ticketnum)
+
+        summary = "No Summary"
+        if 'summary' in attributes:
+            summary = attributes['summary']
+        summary += "(can not be changed)"
+
+        description = "No Description"
+        if 'description' in attributes:
+            description = attributes['description']
+
+        while True:
+            try:
+                x = self._edit_ticket_interactive(summary, description, attributes)
+                if x is None: return
+                summary, description, attributes = x
+                attributes['description'] = description
+                self._authenticated_server_proxy.ticket.update(ticketnum, "", attributes)
+            except StandardError:
+                self._UI.show("Ticket editing failed: %s"%e)
+                if self._UI.confirm("Do you want to try to fix your ticket file?", default_yes=True): continue
+                else: return None
+
+    def _edit_ticket_interactive(self, summary, description, attributes):
+        if os.environ.has_key('EDITOR'):
+            editor = os.environ['EDITOR']
+        else:
+            editor = 'nano'
+        F = tempfile.NamedTemporaryFile(delete = False)
+        try:
+            filename = F.name
+            F.close()
+            F = open(filename,"w")
+            msg = "\n".join( [ "Summary: %s"%summary, "%s"%description ] + [ "%s: %s"%(ALLOWED_FIELDS[k.lower()],v) for k,v in attributes.items() if k.lower() in ALLOWED_FIELDS] + ["""\
+# Lines starting with `#` are ignored.
+# Lines starting with `Field: ` correspond to fields of
+# the trac ticket, and can be followed by text on the same line.
+# They will be assigned to the corresponding field on the trac
+# ticket.
+#
+# Lines not following this format will be put into the ticket
+# description. Trac markup is supported.
+#
+# An empty file aborts ticket creation.\n"""])
+            F.write(msg)
+            F.close()
+
             while True:
-                F = tempfile.NamedTemporaryFile(delete=False)
-                filename = F.name
-                F.write("Summary (one line): \n")
-                F.write("Description (multiple lines, trac markup allowed):"
-                        " \n\n\n\n")
-                F.write("Type (defect/enhancement): \n")
-                F.write("Component: \n")
-                F.close()
-                parsed = self.parse(filename)
-                os.unlink(filename)
-                if any([a is None for a in parsed]):
-                    if not self._UI.confirm("Error in entering ticket data."
-                                           " Would you like to try again?"):
-                        break
-                else:
-                    summary, description, ticket_type, component = parsed
-                    return self.create_ticket(summary, description, ticket_type,
-                                              component)
+                try:
+                    error = None
+                    i = None
+
+                    if os.system("%s %s"%(editor,filename)):
+                        error = "editor exited with non-zero exit code"
+                    else:
+                        lines = list(open(filename).read().splitlines())
+                        if all([l.startswith('#') for l in lines]): return None
+
+                        summary = None
+                        fields = {}
+                        description = []
+                        for i,line in enumerate(lines):
+                            if line.startswith('#'): continue
+                            m = SUMMARY_REGEX.match(line)
+                            if m:
+                                if summary is None:
+                                    summary = m.groups()[0].strip()
+                                    continue
+                                else:
+                                    error = "only one `Summary: ` line allowed but multiple specified."
+                                    break
+                            m = FIELD_REGEX.match(line)
+                            if m and not line.startswith("sage: "):
+                                field = m.groups()[0]
+                                if field.lower() not in ALLOWED_FIELDS:
+                                    error = "field `%s` not supported."%field
+                                    break
+                                elif field.lower() in fields:
+                                    error = "only one value for field `%s` allowed but multiple specified."
+                                    break
+                                else:
+                                    fields[field.lower()] = m.groups()[1].strip()
+                                    continue
+
+                            description.append(line)
+                        else: # no syntax errors in file
+                            i = None
+                            if not summary:
+                                error = "no valid `Summary` found."
+                            else:
+                                if not any([d for d in description]):
+                                    error = "no description found."
+                                else:
+                                    return summary, "\n".join(description), fields
+
+                    assert(error)
+
+                except StandardError as e:
+                    error = str(e)
+
+                assert(error)
+                if i != None: self._UI.show("An error occured in line %s: %s"%(i+1,error))
+                else: self._UI.show("An error occured: %s"%(error))
+                if self._UI.confirm("Do you want to try to fix your ticket file?", default_yes=True): continue
+                else: return None
+
+        finally:
+            os.unlink(F.name)
+
+        assert(False)
+
+    def create_ticket_interactive(self):
+        """
+        Interactive version of :meth:`create_ticket`.
+
+        EXAMPLE::
+
+            sage: from sagedev import SageDev, Config
+            sage: s = SageDev(Config._doctest_config())
+            sage: import os
+            sage: os.environ['EDITOR'] = 'cat'
+            sage: s._UI._answer_stack = ["no", "yes"]
+            sage: s.trac.create_ticket_interactive()
+            Do you want to create a new ticket? [Yes/no] yes
+            Summary:
+            <BLANKLINE>
+            <BLANKLINE>
+            Priority: major
+            Keywords:
+            Type: defect
+            # Lines starting with `#` are ignored.
+            # Lines starting with `Field: ` correspond to fields of
+            # the trac ticket, and can be followed by text on the same line.
+            # They will be assigned to the corresponding field on the trac
+            # ticket.
+            #
+            # Lines not following this format will be put into the ticket
+            # description. Trac markup is supported.
+            #
+            # An empty file aborts ticket creation.
+            An error occured: no valid `Summary` found.
+            Do you want to try to fix your ticket file? [Yes/no] no
+            sage: os.environ['EDITOR'] = 'echo "Summary: Foo" >'
+            sage: s._UI._answer_stack = ["no","yes"]
+            sage: s.trac.create_ticket_interactive()
+            Do you want to create a new ticket? [Yes/no] yes
+            An error occured: no description found.
+            Do you want to try to fix your ticket file? [Yes/no] no
+            sage: os.environ['EDITOR'] = 'echo "Summary: Foo\nFoo\nFoo: Foo" >'
+            sage: s._UI._answer_stack = ["no","yes"]
+            sage: s.trac.create_ticket_interactive()
+            Do you want to create a new ticket? [Yes/no] yes
+            An error occured in line 3: field `Foo` not supported.
+            Do you want to try to fix your ticket file? [Yes/no] no
+            sage: os.environ['EDITOR'] = 'echo "Summary: Foo\nFoo\nCc: Foo" >'
+            sage: s._UI._answer_stack = ["yes"]
+            sage: s.trac.create_ticket_interactive()
+            Do you want to create a new ticket? [Yes/no] yes
+            Created ticket #14366.
+            14366
+
+        """
+        if self._UI.confirm("Do you want to create a new ticket?"):
+            summary, description, attributes = "","\n",{"Type":"defect","Priority":"major","Keywords":""}
+            while True:
+                try:
+                    ret = self._edit_ticket_interactive(summary, description, attributes)
+                    if not ret: return None
+                    summary, description, attributes = ret
+                    ticket = self.create_ticket(summary, description, attributes)
+                    self._UI.show("Created ticket #%s."%ticket)
+                    return ticket
+                except StandardError as e:
+                        self._UI.show("Ticket creation failed: %s"%e)
+                        if self._UI.confirm("Do you want to try to fix your ticket file?", default_yes=True): continue
+                        else: return None
+        assert(False)
 
     def add_dependency(self, new_ticket, old_ticket):
         # makes the trac ticket for new_ticket depend on the old_ticket
