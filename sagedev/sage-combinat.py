@@ -55,10 +55,14 @@ def import_patch(name, ticket_number=None, append=False, depends=[]):
     print "== Importing patch %s "%name + "="*max(60-len(name), 0)
     if not ticket_number:
         match = re.match(".*?(\d\d\d\d+)",name)
-        if not match:
-            raise ValueError("Please specify the ticket number")
-        ticket = match.groups()[0]
-    branch = "t/%s"%ticket
+        if match:
+            ticket_number = match.groups()[0]
+        else:
+            ticket_number = None
+    if ticket_number:
+        branch = "t/%s"%ticket_number
+    else:
+        branch = "p/%s"%name
     s = sagedev.SageDev()
     if not append:
         s.git.checkout("master")
@@ -69,8 +73,13 @@ def import_patch(name, ticket_number=None, append=False, depends=[]):
         assert s.git.branch_exists(branch)
         s.git.checkout(branch)
         for dependency in depends:
-            print dependency
-            s.git.merge("t/%s"%dependency)
+            print "* Applying dependency: %s"%dependency
+            if isinstance(dependency, (int,Integer)):
+                dependency = "t/%s"%dependency
+            else:
+                dependency = "p/%s"%dependency
+            s.git.merge(dependency)
+    print "* Applying patch %s"%name
     s.import_patch(local_file=patch_dir+name)
 
 def destroy_all_branches():
@@ -83,7 +92,7 @@ def destroy_all_branches():
 
 def git_reset():
     s = sagedev.SageDev()
-    branches = s.git.local_branches()
+    s.git.am("--abort")
     s.git.checkout("master")
     s.git.clean("-f", "-d")
 
@@ -95,9 +104,9 @@ def import_sage_combinat():
         sage: cd /opt/sage-git
         sage: import_sage_combinat()
     """
-    git = sagedev.SageDev().git
     destroy_all_branches()
-    git.clean("-f")
+    git_reset()
+    #git.clean("-f")
     import_patch("trac9107_nesting_nested_classes.patch")
     import_patch("trac_2023-dynkin_graphs-ts.patch")
     # Applies on second thought
@@ -133,7 +142,7 @@ def import_sage_combinat():
     import_patch("trac_14143-alcove-path-al.patch", depends=[14252])
     import_patch("trac_14192-infinity_crystal-bs.patch", depends=[14252,14143]) # Trivial textual dependencies
     import_patch("trac_10170-bell_number_improvements-ts.patch")
-    #import_patch("dynamics-iet-tutorial.patch", )                 # Does not have a ticket number
+    import_patch("dynamics-iet-tutorial.patch") # causes problem?
     import_patch("trac_10193-graded_enumerated_sets-vd_no_more_nt.patch")
     import_patch("trac_10193-review-nb.patch", append=True)
     import_patch("trac_10193-more-vd.patch", append=True)
@@ -149,108 +158,108 @@ def import_sage_combinat():
 
     import_patch("trac_13580-map_reduce-old-fh.patch")        # Does not apply yet (end-of-file whitespace)
     import_patch("trac_13433-lazy_power_serie_gen_fix-fh.patch")
-    #import_patch("finite_set_map-isomorphic_cartesian_product-nt.patch")
+    import_patch("finite_set_map-isomorphic_cartesian_product-nt.patch")
     import_patch("trac_12848-posets-order_ideal_complement_generators_fix-nt.patch")
-    #import_patch("trac_12920-is_test_methods-nt.patch") # Needs rebase upon #14284
-    #import_patch("doc_underscore-fh.patch")
+    import_patch("trac_12920-is_test_methods-nt.patch") # Needs rebase upon #14284
+    import_patch("doc_underscore-fh.patch")
     import_patch("trac_8703-trees-fh.patch", depends=[8392])     # in permutations.py
     import_patch("trac_13987_mary_trees-vp.patch", depends=[8703])
     import_patch("trac_11407-list_clone_improve-fh.patch", depends=[8703])
-    #import_patch("mutator-fh.patch")
+    import_patch("mutator-fh.patch", depends=[11407])
     import_patch("trac_9280-graded-algebras-example-fs.patch")
-    #import_patch("coercion_graph-nt.patch") # No ticket
-    #import_patch("finiteenumset_random_improve-fh.patch")
+    import_patch("coercion_graph-nt.patch") # No ticket
+    import_patch("finiteenumset_random_improve-fh.patch")
     import_patch("trac_12250-ktableaux-as.patch")
-    #import_patch("missing-doc-includes-nt.patch")
-    #import_patch("dyck_word_to_binary_tree-fh.patch")
+    import_patch("missing-doc-includes-nt.patch")
+    import_patch("dyck_word_to_binary_tree-fh.patch")
     import_patch("trac_10963-more_functorial_constructions-nt.patch", depends=[10193,12895,9280])
     import_patch("trac_14102-nonsymmetric-macdonald.patch", depends=[4327,14143,10963])
-    #import_patch("ncsf-qsym-new-bases-fs.patch")
-    #import_patch("crystal_isomorphism-ts.patch")
-    #import_patch("hall_littlewood_yt-ts.patch")
+    import_patch("ncsf-qsym-new-bases-fs.patch")
+    import_patch("crystal_isomorphism-ts.patch")
+    import_patch("hall_littlewood_yt-ts.patch", depends=[14141]) # Trivial dependency in sage.combinat.all
     import_patch("trac_11285-decompose_vecspace-ts.patch")
     import_patch("12630_quivers.patch")
     import_patch("12630_quivers_review-fs.patch")
-    #import_patch("qpa_interface-fs.patch")
-    #import_patch("dynamic-fh.patch")
-    #import_patch("element_compare_consistency-fh.patch")
-    #import_patch("trees_symmetry_factor-fh.patch")
+    import_patch("qpa_interface-fs.patch")
+    import_patch("dynamic-fh.patch")
+    import_patch("element_compare_consistency-fh.patch")
+    import_patch("trees_symmetry_factor-fh.patch", depends=[8703])
     import_patch("trac_10950-hash_matrices-nt.patch")
     import_patch("trac_13232-plot_latex-nt.patch")
-    #import_patch("kschur-as.patch")
+    import_patch("kschur-as.patch")
     import_patch("trac_8678-module_morphisms-nt.patch", depends=[10963])
     import_patch("trac_13317-species_unique_representation.patch")
     import_patch("trac_10227-species_fixes-mh.patch", depends=[13317])
-    #import_patch("categories-tutorial.patch")
+    import_patch("categories-tutorial.patch")
     import_patch("trac_11111-finite_dimensional_modules-nt.patch", depends=[10963,8678]) # still causing problem
     import_patch("trac_8822-family_constructor-fh.patch")
     import_patch("trac_6484-ranker-improvements-nt.patch")
-    #import_patch("selector-fh.patch")
+    import_patch("selector-fh.patch")
     import_patch("trac_11529-rooted_trees-fh.patch", depends=[8703,13987]) # causing problem
-    #import_patch("shape_tree-fc.patch")
-    #import_patch("shuffle_overlap_generic-fh.patch")
-    #import_patch("operads-fh.patch")
-    #import_patch("operads_more-fc.patch")
-    #import_patch("mupad-interface-improve-fh.patch")
-    #import_patch("combinat-quickref-jb.patch")
-    #import_patch("partition_k_boundary_speedup-fh.patch")
-    #import_patch("partition_leg_length_speedup-fh.patch")
-    #import_patch("kshape-om.patch")
-    #import_patch("bintrees_leaf_paths-fh.patch")
+    import_patch("shape_tree-fc.patch", depends=[11529])
+    import_patch("shuffle_overlap_generic-fh.patch")
+    import_patch("operads-fh.patch", depends=[8703])
+    import_patch("operads_more-fc.patch",depends=[11529, "operads-fh.patch"])
+    import_patch("mupad-interface-improve-fh.patch")
+    import_patch("combinat-quickref-jb.patch")
+    import_patch("partition_k_boundary_speedup-fh.patch")
+    import_patch("partition_leg_length_speedup-fh.patch")
+    import_patch("kshape-om.patch")
+    import_patch("bintrees_leaf_paths-fh.patch", depends=[8703])
     import_patch("trac_11109-stable-grothendieck-polynomials-nt.patch", depends=[10963]) # really depends on it?
-    #import_patch("add_cache-nt.patch")
-    #import_patch("games_dao-nt.patch")
-    #import_patch("finite-subquotients-nt.patch")
-    #import_patch("finite_set_map_mul-nt.patch")
-    #import_patch("automatic_monoid-nt.patch")
-    #import_patch("discrete_function-nt.patch")
-    #import_patch("discrete_function_exper-fh.patch")
-    #import_patch("finite_semigroup-nt.patch")
-    #import_patch("finite_semigroup-subcategory-methods-nt.patch")
-    #import_patch("digraphs-as-automatons-nt.patch")
-    #import_patch("category-symmetric_groups-nt.patch")
-    #import_patch("ndpf_mult_side-fh.patch")
-    #import_patch("graph-latex-nt.patch")
-    #import_patch("weyl_characters-nt.patch")
-    #import_patch("test_len_object-fh.patch")
-    #import_patch("invariant_ring_permutation_group-nb.patch")
-    #import_patch("permutation_inverse-vd.patch")
-    #import_patch("conjugacy_class_iterator-vd.patch")
-    #import_patch("wang_tile_set-tm.patch")
+    import_patch("add_cache-nt.patch", depends=[10963])
+    import_patch("games_dao-nt.patch")
+    import_patch("finite-subquotients-nt.patch", depends=[10963])
+    import_patch("finite_set_map_mul-nt.patch")
+    import_patch("automatic_monoid-nt.patch", depends=[10963]) # Trivial dependency in sage.combinat.all
+    import_patch("discrete_function-nt.patch", depends=["automatic_monoid-nt.patch"])
+    import_patch("discrete_function_exper-fh.patch", depends=["discrete_function-nt.patch"])
+    import_patch("finite_semigroup-nt.patch", depends=[10963])
+    import_patch("finite_semigroup-subcategory-methods-nt.patch", depends=["finite_semigroup-nt.patch"])
+    import_patch("digraphs-as-automatons-nt.patch")
+    import_patch("category-symmetric_groups-nt.patch")
+    import_patch("ndpf_mult_side-fh.patch", depends=["finite_semigroup-nt.patch"])
+    import_patch("graph-latex-nt.patch")
+    import_patch("weyl_characters-nt.patch")
+    import_patch("test_len_object-fh.patch")
+    import_patch("invariant_ring_permutation_group-nb.patch")
+    import_patch("permutation_inverse-vd.patch")
+    import_patch("conjugacy_class_iterator-vd.patch")
+    import_patch("wang_tile_set-tm.patch")
     import_patch("trac_9439-hyperbolic_geometry-vd.patch")
     import_patch("trac_9557-fundamental_domains-vd.patch", depends=[9439])
     import_patch("trac_9806-constellations-vd.patch", depends=[9557])
     import_patch("trac_9806-constellations-doc-patch-fc.patch", append=True)
-    #import_patch("permutation_groups_stabilizer_chains-rm.patch")
+    import_patch("permutation_groups_stabilizer_chains-rm.patch")
     import_patch("trac_7983_tableau_fixes-jb.patch")
-    #import_patch("refactor_sf-jb.patch")
-    #import_patch("trac_8581_multivariate_schubert_step_1-nb.patch")  # depends trivially on invariant_ring_permutation_group-nb.patch
-    #import_patch("trac_6629_abstract_ring_of_multivariate_polynomials_with_several_bases_vp.patch")
-    #import_patch("trac_12460_polynomial_module_on_sym-nb-vp.patch")
-    #import_patch("sage-demos-and-tutorials-nt.patch")
-    #import_patch("graphs_paths_and_cycles_enumeration-abm.patch")
-    #import_patch("descents_composition_of_empty_permutation_jyt.patch")
-    #import_patch("exterior_algebra-vd.patch")
-    #import_patch("nested_lists_jb.patch")
-    #import_patch("trac_7980-multiple-realizations-extra_do_not_merge-nt.patch")
-    #import_patch("hopf_algebra_of_supercharacters-fs.patch")
-    #import_patch("permutations_descent_values-fh.patch")
-    #import_patch("sf_principal_specialization-mr.patch")
+    import_patch("refactor_sf-jb.patch")
+    import_patch("trac_8581_multivariate_schubert_step_1-nb.patch", depends=["invariant_ring_permutation_group-nb.patch"])  # trivial dependency in setup.py
+    import_patch("trac_6629_abstract_ring_of_multivariate_polynomials_with_several_bases_vp.patch", depends=["trac_8581_multivariate_schubert_step_1-nb.patch"])
+    import_patch("trac_12460_polynomial_module_on_sym-nb-vp.patch", depends=["trac_6629_abstract_ring_of_multivariate_polynomials_with_several_bases_vp.patch"])
+    # roughly got up to there ...
+    import_patch("sage-demos-and-tutorials-nt.patch", depends=[10963,"combinat-quickref-jb.patch"])
+    import_patch("descents_composition_of_empty_permutation_jyt.patch")
+    import_patch("exterior_algebra-vd.patch")
+    import_patch("nested_lists_jb.patch")
+    import_patch("trac_7980-multiple-realizations-extra_do_not_merge-nt.patch")
+    import_patch("hopf_algebra_of_supercharacters-fs.patch")
+    import_patch("permutations_descent_values-fh.patch")
+    import_patch("sf_principal_specialization-mr.patch")
     import_patch("trac_9123-schur-algebra-and-gln-characters-ht.patch")
     import_patch("trac_11386_bracelet_class-dr.patch")
     import_patch("trac_11571_catalan_objects-nm.patch")
-    #import_patch("catalan_quasi_symmetric-fc.patch")
-    #import_patch("catalan_quasi_symmetric-rebase-cs.patch")
-    #import_patch("tableaux-combinatorics-am.patch")
-    #import_patch("cartesian_product_improvements-nt.patch")
-    #import_patch("extended_affine_weyl_groups_sd40.patch")
-    #import_patch("affine_iwahori_hecke_algebras.patch")
-    #import_patch("q_tree_factorial-fc.patch")
+    import_patch("catalan_quasi_symmetric-fc.patch")
+    import_patch("catalan_quasi_symmetric-rebase-cs.patch")
+    import_patch("tableaux-combinatorics-am.patch")
+    import_patch("cartesian_product_improvements-nt.patch")
+    import_patch("extended_affine_weyl_groups_sd40.patch")
+    import_patch("affine_iwahori_hecke_algebras.patch")
+    import_patch("q_tree_factorial-fc.patch")
     import_patch("trac_12916_completion_by_cuts-fc.patch")
-    #import_patch("algebras_over_operads-fc.patch")
-    #import_patch("shuffle-operads-fc.patch")
-    #import_patch("trac_Kleshchev-partitions-am.patch")
-    #import_patch("hgignore_eclipse_project-EliX-jbp.patch")
+    import_patch("algebras_over_operads-fc.patch", depends=["operads_more-fc.patch"])
+    import_patch("shuffle-operads-fc.patch",depends=["shuffle-operads-fc.patch"])
+    import_patch("trac_Kleshchev-partitions-am.patch")
+    import_patch("hgignore_eclipse_project-EliX-jbp.patch")
     import_patch("trac_13935_coercion_of_coproduct_of_Hopf_algebra-EliX-jbp.patch")
     import_patch("trac_13793-some-hopf-algebra-f-w-pqsym-EliX-jbp.patch", depends=[11571,13935]) # Trivial dependency upon #11571 in setup.py Trivial dependency on invariant_ring_permutation_group-nb.patch in doc/en/reference/combinat/index.rst
     import_patch("trac_14104--html_display-am.patch")
