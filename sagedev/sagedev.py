@@ -392,8 +392,9 @@ class SageDev(object):
                 kwds['interactive'] = True
             else:
                 kwds['all'] = True
-            if message is not None:
-                kwds['m'] = message
+            if message is None:
+                message = self._UI.get_input("Please enter a commit message: ")
+            kwds['m'] = message
             self.git.commit(**kwds)
         else:
             self._UI.show("If you want to commit these changes to another ticket use the switch_ticket() method")
@@ -773,7 +774,7 @@ class SageDev(object):
             self.merge(ticket, create_dependency=create_dependencies,
                        download=download, message="Gathering %s into branch %s" % (ticket, branchname))
 
-    def show_dependencies(self, ticket=None, all=False): # all = recursive
+    def show_dependencies(self, ticket=None, all=False, _seen=None): # all = recursive
         """
         Show the dependencies of the given ticket.
 
@@ -786,7 +787,8 @@ class SageDev(object):
 
         - ``all`` -- boolean (default ``True``), whether to
           recursively list all tickets on which this ticket depends
-          (in depth-first order).
+          (in depth-first order), only including tickets that have a
+          local branch.
 
         .. NOTE::
 
@@ -796,6 +798,9 @@ class SageDev(object):
 
         .. SEEALSO::
 
+        - :meth:`TracInterface.dependencies` -- Query Trac to find
+          dependencies.
+
         - :meth:`remote_status` -- will show the status of tickets
           with respect to the remote server.
 
@@ -804,10 +809,27 @@ class SageDev(object):
         - :meth:`diff` -- Show the changes in this branch over the
           dependencies.
         """
-        raise NotImplementedError
-        if ticketnum is None:
-            ticketnum = self.current_ticket(error=True)
-        self._UI.show("Ticket #%s depends on #%s"%(ticketnum, ", ".join(["#%s"%(a) for a in self.trac.dependencies(ticketnum, all)])))
+        if _seen is None:
+            seen = []
+        elif ticket in _seen:
+            return
+        else:
+            seen = _seen
+            seen.append(ticket)
+        branchname = self.git._ticket_to_branch(ticket)
+        if branchname is None:
+            if _seen is not None: return
+            raise ValueError("You must specify a valid ticket")
+        dep = self.git._dependencies[branchname]
+        dep = [self._ticket[d] for d in dep]
+        dep = [d for d in dep if d]
+        if not all:
+            self._UI.show("Ticket %s depends on %s"%(self._print(ticket), ", ".join([self._print(d) for d in dep])))
+        else:
+            for d in dep:
+                self.show_dependencies(d, True, seen)
+        if _seen is None:
+            self._UI.show("Ticket %s depends on %s"%(self._print(ticket), ", ".join([self._print(d) for d in seen])))
 
     def merge(self, ticket="master", create_dependency=True, download=False, message=None):
         """
@@ -868,24 +890,32 @@ class SageDev(object):
         - :meth:`gather` -- creates a new branch to merge into rather
           than merging into the current branch.
         """
-        current_ticket = self.current_ticket()
+        curbranch = self.git.current_branch()
         if ticket == "dependencies":
             raise NotImplementedError
-        if instanceof(ticket, int):
-            if create_dependency and current_ticket:
-                self.trac.create_dependency(current_ticket, ticket)
-            if download:
-                ref = self._fetch(self._track_branch(ticket))
-            else:
-                ref = self.git._branch[ticket]
-                if ref is None:
-                    raise ValueError("no branch for ticket #%s" % ticket)
-        else:
-            # a branch, tag, etc.
+        elif ticket is None:
+            raise ValueError("You must specify a ticket to merge")
+        if create_dependency and curbranch:
+            self.
+        ref = dep = None
+        if download:
+            remote_branch = self._remote_pull_branch(ticket)
+            if remote_branch is not None:
+                ref = self._fetch(remote_branch)
+                dep = ticket
+        if ref is None:
+            dep = ref = self.git._ticket_to_branch(ticket)
+        if ref is None:
             ref = ticket
+            if isinstance(ticket, int):
+                dep = ticket
+        if create_dependency and dep:
+            self.git._dependencies[curbranch] += (dep,)
         if message is None:
-            message = get_input("Please enter a commit message:")
-        self.git.merge(ref, '-m', message)
+            kwds = {}
+        else:
+            kwds = {'m':message}
+        self.git.merge(ref, **kwds)
 
     def local_tickets(self, abandoned=False, quiet=False):
         """
@@ -1574,3 +1604,11 @@ class SageDev(object):
         if userspace and ticket is not None:
             remote_branch = self._trac_branch(ticket)
         return remote_branch
+
+    def _print_ticket(self, ticket):
+        if isinstance(ticket, int):
+            return "#%s"%(ticket)
+        ticket = self.git._ticket_to_branch(ticket)
+        if ticket in self.git._ticket:
+            return "#%s"%(self.git._ticket[ticket])
+        return str(ticket)
