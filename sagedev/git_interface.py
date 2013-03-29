@@ -10,7 +10,15 @@ import os
 class SavingDict(dict):
     def __init__(self, filename, **kwds):
         self._filename = filename
+        self._paired = None
         dict.__init__(self, **kwds)
+
+    def set_paired(self, other):
+        """
+        Set another dictionary to be updated with the reverse of this one.
+        """
+        if not isinstance(other, SavingDict): raise ValueError
+        self._paired = other
 
     def __setitem__(self, key, value):
         dict.__setitem__(self, key, value)
@@ -18,9 +26,22 @@ class SavingDict(dict):
         s = cPickle.dumps(self, protocol=2)
         with open(tmpfile, 'wb') as F:
             F.write(s)
-        # This move is atomic (the files are on the same filesystem)
+        if self._paired is not None:
+            dict.__setitem__(self._paired, value, key)
+            tmpfile2 = self._paired._filename + '%016x'%(random.randrange(256**8))
+            s = cPickle.dumps(self._paired, protocol=2)
+            with open(tmpfile2, 'wb') as F:
+                F.write(s)
+        # These moves are atomic (the files are on the same filesystem)
+            os.rename(tmpfile2, self._paired._filename)
         os.rename(tmpfile, self._filename)
         os.unlink(tmpfile)
+
+    def __getitem__(self, key):
+        try:
+            return dict.__getitem__(self, key)
+        except KeyError:
+            return None
 
 class authenticated(object):
     def __init__(self, func):
@@ -105,7 +126,11 @@ class GitInterface(object):
                 branch_dict = unpickle.load()
         else:
             branch_dict = {}
-        return SavingDict(ticket_file, **ticket_dict), SavingDict(branch_file, **branch_dict)
+        ticket_dict = SavingDict(ticket_file, **ticket_dict)
+        branch_dict = SavingDict(branch_file, **branch_dict)
+        ticket_dict.set_paired(branch_dict)
+        branch_dict.set_paired(ticket_dict)
+        return ticket_dict, branch_dict
 
     def released_sage_ver(self):
         # should return a string with the most recent released version
