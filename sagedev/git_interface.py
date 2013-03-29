@@ -187,7 +187,7 @@ class GitInterface(object):
             else:
                 s += k + " " + self._clean_str(v)
         if args:
-            s += " " + " ".join([self._clean_str(a) for a in args])
+            s += " " + " ".join([self._clean_str(a) for a in args if a is not None])
         if dryrun:
             return s
         else:

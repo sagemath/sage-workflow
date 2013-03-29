@@ -377,7 +377,7 @@ class SageDev(object):
         else:
             self._UI.show("If you want to commit these changes to another ticket use the start() method")
 
-    def upload(self, ticket=None, remote_branch=None, force=False):
+    def upload(self, ticket=None, remote_branch=None, force=False, repository=None):
         """
         Upload the current branch to the sage repository.
 
@@ -399,23 +399,27 @@ class SageDev(object):
 
         - :meth:`download` -- Update a ticket with changes from the remote repository.
         """
-        raise NotImplementedError
+        branch = self.git.current_branch()
         oldticket = self.git.current_ticket()
-        if ticketnum is None or ticketnum == oldticket:
-            oldticket = None
-            ticketnum = self.git.current_ticket()
-            if not self._UI.confirm("Are you sure you want to upload your changes to ticket #%s?"%(ticketnum)):
+        if oldticket is None and ticket is None and remote_branch is None:
+            self._UI.show("You don't have a ticket for this branch (%s)"%branch)
+            return
+        elif ticket is None:
+            ticket = oldticket
+        elif oldticket != ticket:
+            if not self._UI.confirm("Are you sure you want to upload your changes to ticket #%s instead of #%s?"%(ticket, oldticket), False):
                 return
-        elif not self.exists(ticketnum):
-            self._UI.show("You don't have a branch for ticket %s"%(ticketnum))
-            return
-        elif not self._UI.confirm("Are you sure you want to upload your changes to ticket #%s?"%(ticketnum)):
-            return
-        else:
-            self.start(ticketnum)
-        self.git.upload()
-        if oldticket is not None:
-            self.git.switch(oldticket)
+            self.git._ticket[branch] = ticket
+        if ticket:
+            ref = self._fetch(ticket)
+            if not self.git.is_ancestor_of(ref, branch) and not Force:
+                if not self._UI.confirm("Changes not compatible with remote branch; consider downlaoding first first.  Are you sure you want to continue?"%(ticket, oldticket), False):
+                    return
+        remote_branch = remote_branch or self.git._local_to_remote_name(branch)
+        self.git.push(repository, "%s:%s" % (branch, remote_branch)
+        if ticket:
+            commit_id = self.git.branch_exists(branch)
+            self.trac._set_branch(ticket, remote_branch, commit_id)
 
     def download(self, ticket=None, force=False):
         """
@@ -773,7 +777,7 @@ class SageDev(object):
         raise NotImplementedError
         if ticketnum is None:
             ticketnum = self.current_ticket(error=True)
-        self._UI.show("Ticket %s depends on %s"%(ticketnum, ", ".join(["#%s"%(a) for a in self.trac.dependencies(ticketnum, all)])))
+        self._UI.show("Ticket #%s depends on #%s"%(ticketnum, ", ".join(["#%s"%(a) for a in self.trac.dependencies(ticketnum, all)])))
 
     def merge(self, ticket="master", create_dependency=True, download=False, message=None):
         """
@@ -845,7 +849,7 @@ class SageDev(object):
             else:
                 ref = self.git._branch[ticket]
                 if ref is None:
-                    raise ValueError("no branch for ticket %s" % ticket)
+                    raise ValueError("no branch for ticket #%s" % ticket)
         else:
             # a branch, tag, etc.
             ref = ticket
@@ -946,7 +950,7 @@ class SageDev(object):
     ## Auxilliary functions
     ##
     
-    def _fetch(self, branch, repo=None):
+    def _fetch(self, branch, repository=None):
         """
         Fetches ``branch`` from the remote repository, returning the name of
         the newly-updated local ref.
@@ -962,10 +966,7 @@ class SageDev(object):
         The name of a newly created/updated local ref.
         """
         local_ref = "refs/remotes/trac/%s" % branch
-        args = ("%s:%s" % (branch, local_ref)),
-        if repo is not None:
-            args = (repo,) + args
-        self.git.fetch(*args)
+        self.git.fetch(repository, "%s:%s" % (branch, local_ref)
         return local_ref
 
     def _get_tmp_dir(self):
