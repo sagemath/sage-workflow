@@ -65,6 +65,7 @@ class Config(object):
         """
         self._config = configparser.ConfigParser()
         self._devrc = devrc
+        self._read_config()
 
     def __repr__(self):
         """
