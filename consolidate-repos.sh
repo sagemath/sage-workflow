@@ -106,13 +106,10 @@ process-spkg () {
 
             hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/13031/trac13031-cythonize-simple.patch
             hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/13031/trac13031-cythonize-version.patch
-            hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/13031/13031-doctest-fix.patch
+            hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/13031/13031-doctest-fix-rebased.patch
             hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/13031/13031-flush.patch
 
             hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/14316/trac14316.patch
-
-            hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/14331/trac14331.patch
-            hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/14331/trac14331_missed.patch
         ;;
         sage_scripts)
             REPO=$SAGE_SCRIPTS_DIR

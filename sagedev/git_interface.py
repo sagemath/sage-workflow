@@ -136,7 +136,7 @@ class GitInterface(object):
         self._branch = SavingDict(branch_file, **branch_dict)
         self._ticket.set_paired(self._branch)
         self._branch.set_paired(self._ticket)
-        self._dependencies = SavingDict(dependencies_file, list, **dependencies_dict)
+        self._dependencies = SavingDict(dependencies_file, tuple, **dependencies_dict)
         self._remote = SavingDict(remote_branches_file, **remote_branches_dict)
 
     def released_sage_ver(self):

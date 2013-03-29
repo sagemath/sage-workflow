@@ -21,7 +21,7 @@ HG_USER_REGEX = re.compile(r"^# User (.*)$")
 HG_DATE_REGEX = re.compile(r"^# Date (\d+) (-?\d+)$")
 HG_NODE_REGEX = re.compile(r"^# Node ID ([0-9a-f]+)$")
 HG_PARENT_REGEX = re.compile(r"^# Parent +([0-9a-f]+)$")
-HG_DIFF_REGEX = re.compile(r"^diff -r [0-9a-f]+ -r [0-9a-f]+ (.*)$")
+HG_DIFF_REGEX = re.compile(r"^diff (?:-r [0-9a-f]+ ){1,2}(.*)$")
 PM_DIFF_REGEX = re.compile(r"^(?:(?:\+\+\+)|(?:---)) [ab]/([^ ]*)(?: .*)?$")
 
 # regular expressions to parse git patches -- at least those created by us
@@ -192,7 +192,7 @@ class Config(object):
 
             sage: c = Config._doctest_config()
             sage: list(c)
-            ['git']
+            ['git', 'trac']
 
         """
         return iter(self._config.sections())
@@ -392,8 +392,9 @@ class SageDev(object):
                 kwds['interactive'] = True
             else:
                 kwds['all'] = True
-            if message is not None:
-                kwds['m'] = message
+            if message is None:
+                message = self._UI.get_input("Please enter a commit message: ")
+            kwds['m'] = message
             self.git.commit(**kwds)
         else:
             self._UI.show("If you want to commit these changes to another ticket use the switch_ticket() method")
@@ -421,6 +422,7 @@ class SageDev(object):
         - :meth:`download` -- Update a ticket with changes from the remote repository.
         """
         branch = self.git.current_branch()
+        if branch is None: raise ValueError("You cannot upload a detached head.  See switch_ticket")
         oldticket = self.git.current_ticket()
         if oldticket is None and ticket is None and remote_branch is None:
             self._UI.show("You don't have a ticket for this branch (%s)"%branch)
@@ -433,16 +435,22 @@ class SageDev(object):
             self.git._ticket[branch] = ticket
         if ticket:
             ref = self._fetch(ticket)
-            if not self.git.is_ancestor_of(ref, branch) and not Force:
-                if not self._UI.confirm("Changes not compatible with remote branch; consider downlaoding first first.  Are you sure you want to continue?"%(ticket, oldticket), False):
+            if not self.git.is_ancestor_of(ref, branch) and not force:
+                if not self._UI.confirm("Changes not compatible with remote branch; consider downloading first.  Are you sure you want to continue?"%(ticket, oldticket), False):
                     return
         remote_branch = remote_branch or self.git._local_to_remote_name(branch)
-        self.git.push(repository, "%s:%s" % (branch, remote_branch))
+        ref = self._fetch(remote_branch)
+        if force or self.git.is_ancestor_of(ref, branch):
+            self.git.push(repository, "%s:%s" % (branch, remote_branch))
+        else:
+            raise ValueError("The remote branch has changed; upload failed.  Consider downloading the changes.")
         if ticket:
             commit_id = self.git.branch_exists(branch)
             self.trac._set_branch(ticket, remote_branch, commit_id)
+            git_deps = self._dependencies_as_tickets(branch)
+            self.trac.set_dependencies(ticket, git_deps)
 
-    def download(self, ticket=None, force=False):
+    def download(self, ticket=None, branchname=None, force=False):
         """
         Download the changes made to a remote branch into a given
         ticket or the current branch.
@@ -460,6 +468,9 @@ class SageDev(object):
           also merge in the trac ticket branch. If this branch is
           following a non-user remote branch, then merge that branch
           instead.
+
+        - ``branchname`` -- a string or ``None``, only used if there
+          is no local branch already associated to ``ticket``.
 
         - ``force`` -- a boolean (default: ``False``), if ``False``,
           try to merge the remote branch into this branch; if
@@ -481,29 +492,44 @@ class SageDev(object):
         - :meth:`import_patch` -- Import a patch into the current
           ticket.
         """
-        if ticket is not None: ticket = int(ticket)
-        branch = self.git._ticket_to_branch(ticket)
-        if branch is None:
+        if ticket is None:
             branch = self.git.current_branch()
             if branch is None:
                 raise ValueError("Cannot download in detached head")
+            ticket = self.git._ticket[branch]
         else:
-            self.git.switch_branch(branch)
-        remote_branch = self._remote_pull_branch(branch)
+            ticket = int(ticket)
+            branch = self.git._ticket_to_branch(ticket)
+            if branch is not None:
+                self.git.switch_branch(branch)
+        if branch is None:
+            if branchname is None:
+                branch = 't/%s'%(ticket)
+            else:
+                branch = branchname
+            remote_branch = self._trac_branch(ticket)
+        else:
+            remote_branch = self._remote_pull_branch(branch)
         if remote_branch is None:
             raise ValueError("No remote branch associated to current branch")
         ref = self._fetch(remote_branch)
         if force:
             self.git.branch(branch, ref, f=True)
+            overwrite_deps = True
         else:
+            overwrite_deps = self.git.is_ancestor_of(branch, ref)
             self.merge(ref, create_dependency=False, download=False)
-
-
-        #if curticket is not None and curticket.isdigit():
-        #    dependencies = self.trac.dependencies(curticket)
-        #    for dep in dependencies:
-        #        if self.git.needs_update(dep) and self._UI.confirm("Do you want to sync to the latest version of #%s"%(dep)):
-        #            self.git.sync(dep)
+        if ticket is not None:
+            trac_deps = self.trac.dependencies(ticket)
+            git_deps = self._dependencies_as_tickets(branch)
+            if overwrite_deps:
+                self.git._dependencies[ticket] = trac_deps
+            else:
+                deps = trac_deps
+                for d in git_deps:
+                    if d not in deps:
+                        deps.append(d)
+                self.git._dependencies[ticket] = tuple(deps)
 
     def remote_status(self, ticket=None, quiet=False):
         """
@@ -778,7 +804,7 @@ class SageDev(object):
             self.merge(ticket, create_dependency=create_dependencies,
                        download=download, message="Gathering %s into branch %s" % (ticket, branchname))
 
-    def show_dependencies(self, ticket=None, all=False): # all = recursive
+    def show_dependencies(self, ticket=None, all=False, _seen=None): # all = recursive
         """
         Show the dependencies of the given ticket.
 
@@ -791,7 +817,8 @@ class SageDev(object):
 
         - ``all`` -- boolean (default ``True``), whether to
           recursively list all tickets on which this ticket depends
-          (in depth-first order).
+          (in depth-first order), only including tickets that have a
+          local branch.
 
         .. NOTE::
 
@@ -801,6 +828,9 @@ class SageDev(object):
 
         .. SEEALSO::
 
+        - :meth:`TracInterface.dependencies` -- Query Trac to find
+          dependencies.
+
         - :meth:`remote_status` -- will show the status of tickets
           with respect to the remote server.
 
@@ -809,10 +839,25 @@ class SageDev(object):
         - :meth:`diff` -- Show the changes in this branch over the
           dependencies.
         """
-        raise NotImplementedError
-        if ticketnum is None:
-            ticketnum = self.current_ticket(error=True)
-        self._UI.show("Ticket #%s depends on #%s"%(ticketnum, ", ".join(["#%s"%(a) for a in self.trac.dependencies(ticketnum, all)])))
+        if _seen is None:
+            seen = []
+        elif ticket in _seen:
+            return
+        else:
+            seen = _seen
+            seen.append(ticket)
+        branchname = self.git._ticket_to_branch(ticket)
+        if branchname is None:
+            if _seen is not None: return
+            raise ValueError("You must specify a valid ticket")
+        dep = self._dependencies_as_tickets(branchname)
+        if not all:
+            self._UI.show("Ticket %s depends on %s"%(self._print(ticket), ", ".join([self._print(d) for d in dep])))
+        else:
+            for d in dep:
+                self.show_dependencies(d, True, seen)
+        if _seen is None:
+            self._UI.show("Ticket %s depends on %s"%(self._print(ticket), ", ".join([self._print(d) for d in seen])))
 
     def merge(self, ticket="master", create_dependency=True, download=False, message=None):
         """
@@ -873,24 +918,32 @@ class SageDev(object):
         - :meth:`gather` -- creates a new branch to merge into rather
           than merging into the current branch.
         """
-        current_ticket = self.current_ticket()
+        curbranch = self.git.current_branch()
         if ticket == "dependencies":
             raise NotImplementedError
-        if isinstance(ticket, int):
-            if create_dependency and current_ticket:
-                self.trac.create_dependency(current_ticket, ticket)
-            if download:
-                ref = self._fetch(self._track_branch(ticket))
-            else:
-                ref = self.git._branch[ticket]
-                if ref is None:
-                    raise ValueError("no branch for ticket #%s" % ticket)
-        else:
-            # a branch, tag, etc.
+        elif ticket is None:
+            raise ValueError("You must specify a ticket to merge")
+        if create_dependency and curbranch:
+            self.
+        ref = dep = None
+        if download:
+            remote_branch = self._remote_pull_branch(ticket)
+            if remote_branch is not None:
+                ref = self._fetch(remote_branch)
+                dep = ticket
+        if ref is None:
+            dep = ref = self.git._ticket_to_branch(ticket)
+        if ref is None:
             ref = ticket
+            if isinstance(ticket, int):
+                dep = ticket
+        if create_dependency and dep:
+            self.git._dependencies[curbranch] += (dep,)
         if message is None:
-            message = get_input("Please enter a commit message:")
-        self.git.merge(ref, '-m', message)
+            kwds = {}
+        else:
+            kwds = {'m':message}
+        self.git.merge(ref, **kwds)
 
     def local_tickets(self, abandoned=False, quiet=False):
         """
@@ -970,6 +1023,7 @@ class SageDev(object):
 
         - :meth:`download` -- download a branch from the server and
           merge it.
+
         """
         raise NotImplementedError
         if self._UI.confirm("Are you sure you want to revert to %s?"%(self.git.released_sage_ver() if release else "a plain development version")):
@@ -984,7 +1038,7 @@ class SageDev(object):
     ##
     ## Auxilliary functions
     ##
-    
+
     def _fetch(self, branch, repository=None):
         """
         Fetches ``branch`` from the remote repository, returning the name of
@@ -997,8 +1051,9 @@ class SageDev(object):
         - ``repo`` -- name of a remote repository
 
         OUTPUT:
-        
+
         The name of a newly created/updated local ref.
+
         """
         local_ref = "refs/remotes/trac/%s" % branch
         self.git.fetch(repository, "%s:%s" % (branch, local_ref))
@@ -1039,7 +1094,7 @@ class SageDev(object):
             sage: s._detect_patch_diff_format(io.open("data/trac_8703-trees-fh.patch"))
             'git'
             sage: s._detect_patch_diff_format(io.open("data/diff.patch"))
-            'git'
+            'hg'
 
         TESTS::
 
@@ -1051,6 +1106,7 @@ class SageDev(object):
             Traceback (most recent call last):
             ...
             ValueError: File appears to have mixed diff formats.
+
         """
         format = None
         regexs = { "hg" : HG_DIFF_REGEX, "git" : GIT_DIFF_REGEX }
@@ -1101,8 +1157,9 @@ class SageDev(object):
             'old'
             sage: s._detect_patch_path_format(["diff --git a/src/sage/rings/padics/FM_template.pxi b/src/sage/rings/padics/FM_template.pxi"])
             'new'
-
             sage: s._detect_patch_path_format(io.open("data/trac_8703-trees-fh.patch"))
+            'old'
+
         """
         lines = list(lines)
         if diff_format is None:
@@ -1204,6 +1261,7 @@ class SageDev(object):
             u'#8703: Enumerated sets and data structure for ordered and binary trees\n'
             sage: result[12]
             u'diff --git a/src/doc/en/reference/combinat/index.rst b/src/doc/en/reference/combinat/index.rst\n'
+
         """
         lines = list(lines)
         if diff_format is None:
@@ -1282,6 +1340,7 @@ class SageDev(object):
             'git'
             sage: s._detect_patch_header_format(list(io.open("data/trac_8703-trees-fh.patch")))
             'diff'
+
         """
         lines = list(lines)
         if not lines:
@@ -1343,12 +1402,10 @@ class SageDev(object):
 
         EXAMPLES::
 
-            sage: import io
-            sage: def chop(line): return line[:-1]
-            sage: hg_lines = map(chop, io.open("data/hg.patch"))
-            sage: hg_output_lines = map(chop, io.open("data/hg-output.patch"))
-            sage: git_lines = map(chop, io.open("data/git.patch"))
-            sage: git_output_lines = map(chop, io.open("data/git-output.patch"))
+            sage: hg_lines = open("data/hg.patch").read().splitlines()
+            sage: hg_output_lines = open("data/hg-output.patch").read().splitlines()
+            sage: git_lines = open("data/git.patch").read().splitlines()
+            sage: git_output_lines = open("data/git-output.patch").read().splitlines()
             sage: from sagedev import SageDev
             sage: s = SageDev()
             sage: s._rewrite_patch_header(git_lines, 'git') == git_lines
@@ -1361,12 +1418,13 @@ class SageDev(object):
             sage: s._rewrite_patch_header(hg_lines, 'git') == git_output_lines
             True
 
-            sage: s._rewrite_patch_header(map(chop, io.open("data/trac_8703-trees-fh.patch")), 'git')[:5]
+            sage: s._rewrite_patch_header(open("data/trac_8703-trees-fh.patch").read().splitlines(), 'git')[:5]
             ['From: "Unknown User" <unknown@sagemath.org>',
-            u'Subject: #8703: Enumerated sets and data structure for ordered and binary trees',
-            'Date: Fri, 29 Mar 2013 02:03:41 -0000',
+            'Subject: #8703: Enumerated sets and data structure for ordered and binary trees',
+            'Date: ...',
             '',
-            u'- The Class Abstract[Labelled]Tree allows for inheritance from different']
+            '- The Class Abstract[Labelled]Tree allows for inheritance from different']
+
         """
         lines = list(lines)
         if not lines:
@@ -1413,7 +1471,7 @@ class SageDev(object):
                 ret = []
                 ret.append('# HG changeset patch')
                 ret.append('# User %s'%(header["user"]))
-                ret.append('# Date %s 00000'%(time.mktime(email.utils.parsedate(header["date"])))) # this is not portable and the time zone is wrong
+                ret.append('# Date %s 00000'%int(time.mktime(email.utils.parsedate(header["date"])))) # this is not portable and the time zone is wrong
                 ret.append('# Node ID 0000000000000000000000000000000000000000')
                 ret.append('# Parent  0000000000000000000000000000000000000000')
                 ret.append(header["subject"])
@@ -1486,7 +1544,7 @@ class SageDev(object):
 
             sage: s = SageDev(Config._doctest_config())
             sage: t = s.trac; t
-            TracInterface()
+             <trac_interface.TracInterface at ...>
             sage: t is s.trac
             True
 
@@ -1527,6 +1585,8 @@ class SageDev(object):
             ...
             IOError: [Errno 2] No such file or directory: ...
             sage: s._upload_ssh_key(tempfile.NamedTemporaryFile().name, create_key_if_not_exists = True)
+            Generating ssh key....
+            Ssh key successfully generated
 
         """
         cfg = self._config
@@ -1550,7 +1610,7 @@ class SageDev(object):
         with open(keyfile + '.pub', 'r') as F:
             pubkey = F.read().strip()
 
-        self.trac.sshkeys.addkey(pubkey)
+        self.trac.sshkeys.setkeys(pubkey)
 
     def _create_ticket(self, ticket, branchname):
         """
@@ -1579,3 +1639,17 @@ class SageDev(object):
         if userspace and ticket is not None:
             remote_branch = self._trac_branch(ticket)
         return remote_branch
+
+    def _print_ticket(self, ticket):
+        if isinstance(ticket, int):
+            return "#%s"%(ticket)
+        ticket = self.git._ticket_to_branch(ticket)
+        if ticket in self.git._ticket:
+            return "#%s"%(self.git._ticket[ticket])
+        return str(ticket)
+
+    def _dependencies_as_tickets(self, branch):
+        dep = self.git._dependencies[branch]
+        dep = [self._ticket[d] for d in dep]
+        dep = [d for d in dep if d]
+        return dep
