@@ -167,8 +167,13 @@ process-spkg () {
     $WORKFLOW_DIR/git-filter-branch -f -d "$TMPDIR/filter-branch/$SPKG" --prune-empty --index-filter '' $TAGS_SWITCH master
     popd > /dev/null
 
+    if [ -n "$TAGS_SWITCH" ]; then
+        TAGS_SWITCH=''
+    else
+        TAGS_SWITCH='-n'
+    fi
     # pull it into the consolidated repo
-    git fetch -n "$TMPDIR"/spkg-git/$PKGNAME master:$BRANCH &&
+    git fetch $TAGS_SWITCH "$TMPDIR"/spkg-git/$PKGNAME master:$BRANCH &&
         rm -rf "$TMPDIR"/spkg-git/$PKGNAME
 
     # save the package version for later
