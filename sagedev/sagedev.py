@@ -1099,9 +1099,9 @@ class SageDev(object):
             'hg'
             sage: s._detect_patch_diff_format(["diff --git a/sage/rings/padics/FM_template.pxi b/sage/rings/padics/FM_template.pxi"])
             'git'
-            sage: s._detect_patch_diff_format(io.open("data/trac_8703-trees-fh.patch"))
+            sage: s._detect_patch_diff_format(open("data/trac_8703-trees-fh.patch").read().splitlines())
             'git'
-            sage: s._detect_patch_diff_format(io.open("data/diff.patch"))
+            sage: s._detect_patch_diff_format(open("data/diff.patch").read().splitlines())
             'hg'
 
         TESTS::
@@ -1165,7 +1165,7 @@ class SageDev(object):
             'old'
             sage: s._detect_patch_path_format(["diff --git a/src/sage/rings/padics/FM_template.pxi b/src/sage/rings/padics/FM_template.pxi"])
             'new'
-            sage: s._detect_patch_path_format(io.open("data/trac_8703-trees-fh.patch"))
+            sage: s._detect_patch_path_format(open("data/trac_8703-trees-fh.patch").read().splitlines())
             'old'
 
         """
@@ -1262,13 +1262,13 @@ class SageDev(object):
             ['--- a/src/sage/rings/padics/pow_computer_ext.pxd',
              '+++ b/src/sage/rings/padics/pow_computer_ext.pxd']
 
-            sage: result = s._rewrite_patch_diff_paths(io.open("data/trac_8703-trees-fh.patch"), to_format="new", diff_format="git")
+            sage: result = s._rewrite_patch_diff_paths(open("data/trac_8703-trees-fh.patch").read().splitlines(), to_format="new", diff_format="git")
             sage: len(result)
             2980
             sage: result[0]
-            u'#8703: Enumerated sets and data structure for ordered and binary trees\n'
+            '#8703: Enumerated sets and data structure for ordered and binary trees'
             sage: result[12]
-            u'diff --git a/src/doc/en/reference/combinat/index.rst b/src/doc/en/reference/combinat/index.rst\n'
+            'diff --git a/src/doc/en/reference/combinat/index.rst b/src/doc/en/reference/combinat/index.rst'
 
         """
         lines = list(lines)
@@ -1346,9 +1346,9 @@ class SageDev(object):
             'hg-export'
             sage: s._detect_patch_header_format(['From: foo@bar'])
             'git'
-            sage: s._detect_patch_header_format(list(io.open("data/trac_8703-trees-fh.patch")))
+            sage: s._detect_patch_header_format(list(open("data/trac_8703-trees-fh.patch").read().splitlines()))
             'diff'
-            sage: s._detect_patch_header_format(list(io.open("data/diff.patch")))
+            sage: s._detect_patch_header_format(list(open("data/diff.patch").read().splitlines()))
             'diff'
 
         """
