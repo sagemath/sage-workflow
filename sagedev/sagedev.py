@@ -430,13 +430,13 @@ class SageDev(object):
         elif ticket is None:
             ticket = oldticket
         elif oldticket != ticket:
-            if not self._UI.confirm("Are you sure you want to upload your changes to ticket #%s instead of #%s?"%(ticket, oldticket), False):
+            if not self._UI.confirm("Are you sure you want to upload your changes to ticket %s instead of %s?"%(self._print(ticket), self._print(oldticket)), False):
                 return
             self.git._ticket[branch] = ticket
         if ticket:
             ref = self._fetch(ticket)
             if not self.git.is_ancestor_of(ref, branch) and not force:
-                if not self._UI.confirm("Changes not compatible with remote branch; consider downloading first.  Are you sure you want to continue?"%(ticket, oldticket), False):
+                if not self._UI.confirm("Changes not compatible with remote branch; consider downloading first.  Are you sure you want to continue?", False):
                     return
         remote_branch = remote_branch or self.git._local_to_remote_name(branch)
         if repository is None:
@@ -1630,13 +1630,13 @@ class SageDev(object):
 
     def _remote_pull_branch(self, ticket):
         branchname = self.git._ticket_to_branch(ticket)
-        remote_branch = self._remote[branchname]
+        remote_branch = self.git._remote[branchname]
         if remote_branch is None:
             userspace = True
         else:
             x = remote_branch.split('/')
             userspace = (x[0] == 'u' and x[1] == self.trac._username)
-        if userspace and ticket is not None:
+        if userspace and isinstance(ticket, int):
             remote_branch = self._trac_branch(ticket)
         return remote_branch
 

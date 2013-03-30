@@ -7,15 +7,18 @@ from cStringIO import StringIO
 import random
 import os
 
-class SavingDict(dict):
-    def __init__(self, filename, default=None, **kwds):
+def return_none():
+    return None
+
+class SavingDict(object):
+    def __init__(self, filename, values, default=None):
         self._filename = filename
         self._paired = None
         if default is None:
-            self._default = lambda:None
+            self._default = return_none
         else:
             self._default = default
-        dict.__init__(self, **kwds)
+        self._dict = values
 
     def set_paired(self, other):
         """
@@ -26,28 +29,33 @@ class SavingDict(dict):
 
     def __setitem__(self, key, value):
         current = self[key]
-        dict.__setitem__(self, key, value)
+        self._dict[key] = value
         tmpfile = self._filename + '%016x'%(random.randrange(256**8))
-        s = cPickle.dumps(self, protocol=2)
+        s = cPickle.dumps(self._dict, protocol=2)
         with open(tmpfile, 'wb') as F:
             F.write(s)
         if self._paired is not None:
-            dict.__setitem__(self._paired, current, None)
-            dict.__setitem__(self._paired, value, key)
+            del self._paired._dict[current]
+            self._paired._dict[value] = key
             tmpfile2 = self._paired._filename + '%016x'%(random.randrange(256**8))
-            s = cPickle.dumps(self._paired, protocol=2)
+            s = cPickle.dumps(self._paired._dict, protocol=2)
             with open(tmpfile2, 'wb') as F:
                 F.write(s)
         # These moves are atomic (the files are on the same filesystem)
             os.rename(tmpfile2, self._paired._filename)
         os.rename(tmpfile, self._filename)
-        os.unlink(tmpfile)
 
     def __getitem__(self, key):
         try:
-            return dict.__getitem__(self, key)
+            return self._dict[key]
         except KeyError:
             return self._default()
+
+    def __contains__(self, key):
+        return key in self._dict
+
+    def __len__(self):
+        return len(self._dict)
 
 class authenticated(object):
     def __init__(self, func):
@@ -129,7 +137,7 @@ class GitInterface(object):
             with open(filename) as F:
                 s = F.read()
                 unpickler = cPickle.Unpickler(StringIO(s))
-                return unpickle.load()
+                return unpickler.load()
         else:
             return {}
 
@@ -138,12 +146,12 @@ class GitInterface(object):
         branch_dict = self._load_dict_from_file(branch_file)
         dependencies_dict = self._load_dict_from_file(dependencies_file)
         remote_branches_dict = self._load_dict_from_file(remote_branches_file)
-        self._ticket = SavingDict(ticket_file, **ticket_dict)
-        self._branch = SavingDict(branch_file, **branch_dict)
+        self._ticket = SavingDict(ticket_file, ticket_dict)
+        self._branch = SavingDict(branch_file, branch_dict)
         self._ticket.set_paired(self._branch)
         self._branch.set_paired(self._ticket)
-        self._dependencies = SavingDict(dependencies_file, tuple, **dependencies_dict)
-        self._remote = SavingDict(remote_branches_file, **remote_branches_dict)
+        self._dependencies = SavingDict(dependencies_file, dependencies_dict, tuple)
+        self._remote = SavingDict(remote_branches_file, remote_branches_dict)
 
     def released_sage_ver(self):
         # should return a string with the most recent released version
@@ -316,9 +324,9 @@ class GitInterface(object):
         padics/feature -> g/padics/feature
         localname -> u/roed/localname
         """
-        self._validate_local_name(branchname)
+        x = branchname.split('/')
+        self._validate_local_name(x)
         if '/' in branchname:
-            x = branchname.split('/')
             group = x[0]
             if group != 't':
                 return 'g/' + group + '/' + branchname
@@ -470,6 +478,7 @@ class GitInterface(object):
             if success == 0:
                 self.execute_silent("stash", "drop")
             else:
+                self.execute_silent("reset", hard=True)
                 self._UI.show("Changes did not apply cleanly to the new branch.  They are now in your stash")
 
     def move_uncommited_changes(self, branchname):
