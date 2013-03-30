@@ -295,7 +295,14 @@ class SageDev(object):
                 if branchname is None:
                     branchname = "t/%s"%(ticket)
                 # No branch associated to that ticket number
-                self._create_ticket(ticket, branchname)
+                tracbranch = self._trac_branch(ticket)
+                if tracbranch is None:
+                    # There is not yet a branch on trac for this ticket.
+                    ref = "master"
+                else:
+                    ref = self._fetch(tracbranch)
+                self.git.create_branch(branchname, ref)
+                self.git._branch[ticket] = branchname
             else:
                 raise ValueError("You cannot download a ticket while offline")
         else:
@@ -1614,21 +1621,6 @@ class SageDev(object):
 
         self.trac.sshkeys.setkeys(pubkey)
 
-    def _create_ticket(self, ticket, branchname):
-        """
-        Branchname should not already exist.
-
-        Switch to the new branch after creation.
-        """
-        tracbranch = self._trac_branch(ticket)
-        if tracbranch is None:
-            # There is not yet a branch on trac for this ticket.
-            ref = "master"
-        else:
-            ref = self._fetch(tracbranch)
-        self.git.create_branch(branchname, ref)
-        self.git._branch[ticket] = branchname
-
     def _trac_branch(self, ticket):
         D = self.trac._get_attributes(ticket)
         if 'branch' not in D: return None
@@ -1660,3 +1652,31 @@ class SageDev(object):
         dep = [d if isinstance(d, int) else self._ticket[d] for d in dep]
         dep = [d for d in dep if d]
         return dep
+
+    def _save_uncommitted_changes(self):
+        """
+        Returns True if changes should be unstashed
+        """
+        curbranch = self.git.current_branch()
+        if curbranch is None:
+            options = ["new branch", "stash"]
+        else:
+            options = ["current branch", "new branch", "stash"]
+        dest = self._UI.get_input("Where do you want to commit your changes?", options)
+        if dest == "stash":
+            self.git.stash()
+        elif dest == "new branch":
+            success = self.git.execute_silent("stash")
+            if success != 0:
+                raise RuntimeError("Failed to stash changes")
+            return True
+        elif dest == "current branch":
+            self.commit()
+
+    def _unstash_changes(self):
+        success = self.git.execute_silent("stash", "apply")
+        if success == 0:
+            self.git.execute_silent("stash", "drop")
+        else:
+            self.git.execute_silent("reset", hard=True)
+            self._UI.show("Changes did not apply cleanly to the new branch.  They are now in your stash")

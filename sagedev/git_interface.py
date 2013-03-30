@@ -238,7 +238,6 @@ class GitInterface(object):
     def read_output(self, cmd, *args, **kwds):
         return self._run_git('stdout', cmd, args, kwds)
 
-
     def is_ancestor_of(self, a, b):
         revs = self.read_output('rev-list', '{}..{}'.format(b, a)).splitlines()
         return len(revs) == 0
@@ -440,6 +439,9 @@ class GitInterface(object):
             raise ValueError("Bad branchname")
         if self.branch_exists(branchname):
             raise ValueError("Branch already exists")
+        move = None
+        if self.has_uncommitted_changes():
+            move = self._sagedev._save_uncommitted_changes()
         if location is None:
             self.branch(branchname)
         else:
@@ -448,6 +450,8 @@ class GitInterface(object):
             remote_branch = self._local_to_remote_name(branchname)
         if remote_branch:
             self._remote[branchname] = remote_branch
+        if move:
+            self._sagedev._unstash_changes()
 
     def rename_branch(self, oldname, newname):
         self._validate_local_name(newname)
@@ -457,22 +461,9 @@ class GitInterface(object):
         raise NotImplementedError
 
     def switch_branch(self, branchname, detached = False):
-        dest = None
+        dest = move = None
         if self.has_uncommitted_changes():
-            curbranch = self.current_branch()
-            if curbranch is None:
-                options = ["new branch", "stash"]
-            else:
-                options = ["current branch", "new branch", "stash"]
-            dest = self._UI.get_input("Where do you want to commit your changes?", options)
-            if dest == "stash":
-                self.stash()
-            elif dest == "new branch":
-                success = self.execute_silent("stash")
-                if success != 0:
-                    raise RuntimeError("Failed to stash changes")
-            elif dest == "current branch":
-                self._sagedev.commit()
+            move = self._sagedev._save_uncommitted_changes()
         if detached:
             self.checkout(branchname, detach=True)
         else:
@@ -484,17 +475,8 @@ class GitInterface(object):
                 success = self.execute_silent("checkout", branchname)
                 if success != 0:
                     raise RuntimeError("Failed to switch to new branch")
-        if dest == "new branch":
-            success = self.execute_silent("stash", "apply")
-            if success == 0:
-                self.execute_silent("stash", "drop")
-            else:
-                self.execute_silent("reset", hard=True)
-                self._UI.show("Changes did not apply cleanly to the new branch.  They are now in your stash")
-
-    def move_uncommited_changes(self, branchname):
-        # create temp branch, commit changes, rebase, fast-forward....
-        raise NotImplementedError
+        if move:
+            self._sagedev._unstash_changes()
 
     def vanilla(self, release=False):
         # switch to unstable branch in the past (release=False) or a
