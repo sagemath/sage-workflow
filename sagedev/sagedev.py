@@ -242,6 +242,7 @@ class SageDev(object):
 
         self.__git = None
         self.__trac = None
+        self.tmp_dir=None
 
     ##
     ## Public interface
