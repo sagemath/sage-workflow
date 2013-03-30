@@ -356,7 +356,9 @@ class TracInterface(object):
             filename = F.name
             F.close()
             F = open(filename,"w")
-            msg = "\n".join( [ "Summary: %s"%summary, "%s"%description ] + [ "%s: %s"%(ALLOWED_FIELDS[k.lower()],v) for k,v in attributes.items() if k.lower() in ALLOWED_FIELDS] + ["""\
+            if description is None or not description.strip():
+                description = "\n[Description]\n"
+            msg = "\n".join( [ "Summary: %s"%summary, "%s"%description ] + [ "%s: %s"%(ALLOWED_FIELDS[k.lower()],v) for k,v in attributes.items() if k.lower() in ALLOWED_FIELDS] + ["""
 # Lines starting with `#` are ignored.
 # Lines starting with `Field: ` correspond to fields of
 # the trac ticket, and can be followed by text on the same line.
@@ -407,7 +409,8 @@ class TracInterface(object):
                                     fields[field.lower()] = m.groups()[1].strip()
                                     continue
 
-                            description.append(line)
+                            if line != "[Description]":
+                                description.append(line)
                         else: # no syntax errors in file
                             i = None
                             if not summary:
