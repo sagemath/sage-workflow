@@ -35,7 +35,8 @@ class SavingDict(object):
         with open(tmpfile, 'wb') as F:
             F.write(s)
         if self._paired is not None:
-            del self._paired._dict[current]
+            if current != self._default():
+                del self._paired._dict[current]
             self._paired._dict[value] = key
             tmpfile2 = self._paired._filename + '%016x'%(random.randrange(256**8))
             s = cPickle.dumps(self._paired._dict, protocol=2)
@@ -192,7 +193,15 @@ class GitInterface(object):
 
     def _clean_str(self, s):
         # for now, no error checking
-        return "'" + str(s) + "'"
+        s = str(s)
+        if " " in s:
+            if "'" not in s:
+                return "'" + s + "'"
+            elif '"' not in s:
+                return '"' + s + '"'
+            else:
+                raise RuntimeError("Quotes are too complicated")
+        return s
 
     def _run_git(self, output_type, cmd, args, kwds):
         s = self._gitcmd + " " + cmd
@@ -215,6 +224,8 @@ class GitInterface(object):
         else:
             if output_type == 'retval':
                 return call(s, shell=True)
+            elif output_type == 'retquiet':
+                return call(s, shell=True, stdout=open(os.devnull, 'w'))
             elif output_type == 'stdout':
                 return check_output(s, shell=True)
 
@@ -222,7 +233,7 @@ class GitInterface(object):
         return self._run_git('retval', cmd, args, kwds)
 
     def execute_silent(self, cmd, *args, **kwds):
-        return self._run_git('retval', cmd, args + ('>/dev/null',), kwds)
+        return self._run_git('retquiet', cmd, args, kwds)
 
     def read_output(self, cmd, *args, **kwds):
         return self._run_git('stdout', cmd, args, kwds)
@@ -330,7 +341,7 @@ class GitInterface(object):
             group = x[0]
             if group != 't':
                 return 'g/' + group + '/' + branchname
-        return 'u/' + self._sagedev._trac._username + '/' + branchname
+        return 'u/' + self._sagedev.trac._username + '/' + branchname
 
     def _validate_remote_name(self, x):
         if len(x) == 0: raise ValueError("Empty list")
@@ -352,9 +363,9 @@ class GitInterface(object):
         else:
             raise ValueError("Unrecognized remote branch format")
 
-    def _validate_atomic_name(self, name):
+    def _validate_atomic_name(self, name, groupname=False):
         if '/' in name: raise ValueError("No slashes allowed in atomic name")
-        if name in ["t", "u", "g", "me", "ticket", "trash"]:
+        if not groupname and name in ["t", "u", "g", "abandoned"]:
             raise ValueError("Invalid atomic name")
 
     def _validate_local_name(self, x):
@@ -365,10 +376,10 @@ class GitInterface(object):
             if len(x) > 2: raise ValueError("Too many slashes in branch name")
             if not x[1].isdigit(): raise ValueError("Ticket branch not numeric")
         elif x[0] == 'u':
-            if x[1] != self._sagedev._trac._username: raise ValueError("Local name should not include username")
+            if x[1] != self._sagedev.trac._username: raise ValueError("Local name should not include username")
             self._validate_remote_name(x)
         elif len(x) == 2:
-            self._validate_atomic_name(x[0])
+            self._validate_atomic_name(x[0], groupname=True)
             self._validate_atomic_name(x[1])
         else:
             raise ValueError("Too many slashes in branch name")
@@ -387,7 +398,7 @@ class GitInterface(object):
         if x[0] == 'ticket':
             return '/'.join(x)
         elif x[0] == 'u':
-            if x[1] == self._sagedev._trac._username:
+            if x[1] == self._sagedev.trac._username:
                 if x[2] == 't':
                     return 'me/%s'%(x[3])
                 return x[2]
@@ -434,7 +445,7 @@ class GitInterface(object):
         else:
             self.checkout(location, b = branchname)
         if remote_branch is True:
-            remote_branch = self._local_to_remote(branchname)
+            remote_branch = self._local_to_remote_name(branchname)
         if remote_branch:
             self._remote[branchname] = remote_branch
 

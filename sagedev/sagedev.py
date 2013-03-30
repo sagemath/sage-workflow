@@ -1620,7 +1620,12 @@ class SageDev(object):
 
         Switch to the new branch after creation.
         """
-        ref = self._fetch(self._trac_branch(ticket))
+        tracbranch = self._trac_branch(ticket)
+        if tracbranch is None:
+            # There is not yet a branch on trac for this ticket.
+            ref = "master"
+        else:
+            ref = self._fetch(tracbranch)
         self.git.create_branch(branchname, ref)
         self.git._branch[ticket] = branchname
 
