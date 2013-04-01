@@ -65,21 +65,22 @@ mkdir -p "$TMPDIR" && cd "$TMPDIR" && rm -rf *
 git init "$TMPDIR"/sage-repo && cd "$TMPDIR"/sage-repo
 
 # move the base tarballs into $SAGE_TARBALLS
+rm -rf "$OUTDIR"
 mkdir -p "$OUTDIR"/$SAGE_TARBALLS
-mkdir "$TMPDIR"/spkg
+mkdir -p "$TMPDIR"/spkg
 cp "$SAGEDIR"/spkg/base/*.tar* "$OUTDIR"/$SAGE_TARBALLS
 
 # get the SPKG repos converted to git and pull them into the consolidated repo
 # also tarball the src/ directories of the SPKGs and put them into a $SAGE_TARBALLS/ directory
-rm -f "$OUTDIR"/detracked-files.txt
-mkdir "$TMPDIR"/spkg-git
+mkdir -p "$TMPDIR"/spkg-git
 
 process-spkg () {
     # figure out what the spkg is
     SPKGPATH=$1
     SPKG="${SPKGPATH#$SAGEDIR/spkg/*/}"
-    PKGNAME=$(sed -e 's/\([^-]*\)-[0-9].*.spkg$/\1/' <<< "$SPKG")
-    PKGVER=$(sed -e 's/^-\(.*\)\.spkg$/\1/' <<< "${SPKG#"$PKGNAME"}")
+    SPKG="${SPKG%.spkg}"
+    PKGNAME=$(sed -e 's/\([^-_]*\)[-_][0-9].*$/\1/' <<< "$SPKG")
+    PKGVER=$(sed -e 's/^[-_]\+\(.*\)$/\1/' -e 's/[-_]/\./g' <<< "${SPKG#"$PKGNAME"}")
     PKGVER_UPSTREAM=$(sed -e 's/\.p[0-9][0-9]*$//' <<<"$PKGVER")
     echo
     echo "*** Found SPKG: $PKGNAME version $PKGVER"
@@ -88,7 +89,13 @@ process-spkg () {
     # determine eventual subtree of the spkg's repo
     # tarball the src/ directory and put it into our $SAGE_TARBALLS/ directory
     # apply any WIP mecurial patches
-    pushd "$TMPDIR"/spkg/$PKGNAME-$PKGVER > /dev/null
+    pushd "$TMPDIR"/spkg/$SPKG > /dev/null
+    if [ ! -d .hg ]; then
+        popd > /dev/null
+        rm -rf "$TMPDIR"/spkg/$SPKG
+        echo "$SPKG" >> "$OUTDIR"/failed-spkgs.txt
+        return 0
+    fi
     
     TAGS_SWITCH=''
     case $PKGNAME in
@@ -129,7 +136,7 @@ process-spkg () {
             REPO=$SAGE_PKGS/$PKGNAME
             BRANCH=packages/$PKGNAME
 
-            rm .hgignore # hg add doesn't really add things if the file is supposed to be ignored
+            rm -f .hgignore # hg add doesn't really add things if the file is supposed to be ignored
             case "$PKGNAME" in
                 # some packages need a bit of special processing
                 mpfr)
@@ -148,8 +155,9 @@ process-spkg () {
                 ;;
             esac
 
-            mv -T "$TMPDIR"/spkg/$PKGNAME-$PKGVER/src "$TMPDIR"/spkg/$PKGNAME-$PKGVER/$PKGNAME-$PKGVER_UPSTREAM
-            tar c -jf "$OUTDIR"/$SAGE_TARBALLS/$PKGNAME-$PKGVER_UPSTREAM.tar.bz2 -C "$TMPDIR"/spkg/$PKGNAME-$PKGVER/ $PKGNAME-$PKGVER_UPSTREAM
+            mv -T "$TMPDIR"/spkg/$SPKG/src "$TMPDIR"/spkg/$SPKG/$PKGNAME-$PKGVER_UPSTREAM
+            tar c -jf "$OUTDIR"/$SAGE_TARBALLS/$PKGNAME-$PKGVER_UPSTREAM.tar.bz2 -C "$TMPDIR"/spkg/$SPKG/ $PKGNAME-$PKGVER_UPSTREAM
+            rm -rf "$TMPDIR"/spkg/$SPKG/$PKGNAME-$PKGVER_UPSTREAM
         ;;
     esac
     popd > /dev/null
@@ -157,8 +165,8 @@ process-spkg () {
     # convert the SPKG's hg repo to git
     git init --bare "$TMPDIR"/spkg-git/$PKGNAME
     pushd "$TMPDIR"/spkg-git/$PKGNAME > /dev/null
-    $WORKFLOW_DIR/fast-export/hg-fast-export.sh -r "$TMPDIR"/spkg/$PKGNAME-$PKGVER -M master
-    rm -rf "$TMPDIR"/spkg/$PKGNAME-$PKGVER
+    $WORKFLOW_DIR/fast-export/hg-fast-export.sh -r "$TMPDIR"/spkg/$SPKG -M master
+    rm -rf "$TMPDIR"/spkg/$SPKG
 
     # rewrite paths
     # hacked into git-filter-branch so that we can use a bash array across
@@ -192,7 +200,7 @@ fi
 
 # Humongous octomerge
 # Put together a directory listing for the repo to commit in the merge
-BRANCHES=$(git branch)
+BRANCHES=$(git branch | sed 's+^\**\s*++')
 DEVOBJS=""
 PKGOBJS=""
 # Collect directory entries from the various branches
@@ -332,5 +340,4 @@ cd "$OUTDIR"
 git checkout master .
 
 # Clean up $TMPDIR
-cd "$OUTDIR"
 [[ -z $MADETMP ]] || rm -rf "$TMPDIR"
