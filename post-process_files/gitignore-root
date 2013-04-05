@@ -3,4 +3,3 @@
 /.BUILDSTART
 /logs
 *.pyc
-/__SAGE_ARTIFACTS__
