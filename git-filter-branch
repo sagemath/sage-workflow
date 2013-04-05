@@ -359,18 +359,24 @@ while read commit parents; do
                 sed "s+\tspkg/bin+\t$SAGE_SCRIPTS_DIR+" |
                     sed "s+\tspkg+\t$SAGE_BUILD+"
             elif [ "$REPO" == "$SAGE_EXTDIR" ]; then
-                sed "s+\t+&$REPO/+" |
+                sed -e "s+\t+&$REPO/+" -e '/~$/d' |
                     sed "s+$REPO/sage/ext/mac-app+$SAGE_MACAPP+"
+            elif [ "$REPO" == "$SAGE_SRC" ]; then
+                sed "/\(\.tar\|\(~\|\.zip\|\.spkg\)\$\)/d" |
+                    sed "s+\t+&$REPO/+"
             else
-                sed "s+\t+&$REPO/+"
+                sed "/\(\tsrc\|\.tar\|\(~\|\.zip\|\.spkg\)\$\)/d" |
+                    sed "s+\t+&$REPO/+"
             fi
             } |
                 GIT_INDEX_FILE=$GIT_INDEX_FILE.new git update-index --index-info &&
-                    mv $GIT_INDEX_FILE.new $GIT_INDEX_FILE
-
-    if [ "$REPO" != "." ]; then
-        git rm -rf --cached --ignore-unmatch $REPO/src/ >> $OUTDIR/detracked-files.txt
-    fi
+                    {
+                    if [ -f $GIT_INDEX_FILE.new ]; then
+                        mv $GIT_INDEX_FILE.new $GIT_INDEX_FILE
+                    else
+                        rm $GIT_INDEX_FILE
+                    fi
+                    }
 
 	git cat-file commit "$commit" >../commit ||
 		die "Cannot read commit $commit"
