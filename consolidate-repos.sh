@@ -93,7 +93,7 @@ process-spkg () {
     if [ ! -d .hg ]; then
         popd > /dev/null
         rm -rf "$TMPDIR"/spkg/$SPKG
-        echo "$SPKG" >> "$OUTDIR"/failed-spkgs.txt
+        echo "${SPKGPATH#$SAGEDIR/spkg/}" >> "$OUTDIR"/failed-spkgs.txt
         return 0
     fi
     
@@ -155,8 +155,18 @@ process-spkg () {
                 ;;
             esac
 
+            if tar --test-label < "$SPKGPATH" 2>/dev/null; then
+                TAROPTS=
+                TAREXT=.tar
+            elif gzip -t "$SPKGPATH" 2>/dev/null; then
+                TAROPTS=z
+                TAREXT=.tar.gz
+            else # assume everything else is bzip2
+                TAROPTS=j
+                TAREXT=.tar.bz2
+            fi
             mv -T "$TMPDIR"/spkg/$SPKG/src "$TMPDIR"/spkg/$SPKG/$PKGNAME-$PKGVER_UPSTREAM
-            tar c -jf "$OUTDIR"/$SAGE_TARBALLS/$PKGNAME-$PKGVER_UPSTREAM.tar.bz2 -C "$TMPDIR"/spkg/$SPKG/ $PKGNAME-$PKGVER_UPSTREAM
+            tar c -${TAROPTS}f "$OUTDIR"/$SAGE_TARBALLS/$PKGNAME-${PKGVER_UPSTREAM}${TAREXT} -C "$TMPDIR"/spkg/$SPKG/ $PKGNAME-$PKGVER_UPSTREAM
             rm -rf "$TMPDIR"/spkg/$SPKG/$PKGNAME-$PKGVER_UPSTREAM
         ;;
     esac
