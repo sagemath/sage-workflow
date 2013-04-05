@@ -33,7 +33,15 @@ for file in $(cat <<FILES
   $SAGE_SRC/pull
   $SAGE_SRC/sage/misc/hg.py
   $SAGE_SCRIPTS_DIR/sage-sage
+  $SAGE_SCRIPTS_DIR/sage-spkg-install
   $SAGE_SCRIPTS_DIR/sage-clone
+  $SAGE_SCRIPTS_DIR/sage-make_devel_packages
+  $SAGE_SCRIPTS_DIR/json_bundle.py
+  $SAGE_SCRIPTS_DIR/text-expand
+  $SAGE_SCRIPTS_DIR/text-collapse
+  $SAGE_SCRIPTS_DIR/sage-update
+  $SAGE_SCRIPTS_DIR/sage-update-build
+  $SAGE_SCRIPTS_DIR/sage-apply-ticket
   $SAGE_BUILD/root-spkg-install
   $SAGE_BUILD/gen_html
   $SAGE_BUILD/standard
