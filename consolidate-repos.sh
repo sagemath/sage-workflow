@@ -102,38 +102,15 @@ process-spkg () {
         sage_root)
             REPO=.
             BRANCH=base
-
-            # apply WIP mecurial patches
-            hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/14226/trac14226_root.patch
-            hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/14226/14226_root_review.patch
-
-            hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/14328/14328_makefile_doctest_opts.patch
-
-            hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/14377/trac_14377-root.patch
         ;;
         sage)
             REPO=$SAGE_SRC
             BRANCH=library
             TAGS_SWITCH='--tag-name-filter cat'
-
-            # apply WIP mecurial patches
-            hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/14226/trac14226_library.patch
-
-            hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/14377/trac_14377-sagelib.patch
-
-            hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/13031/trac13031-cythonize-simple.patch
-            hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/13031/trac13031-cythonize-version.patch
-            hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/13031/13031-doctest-fix-rebased.patch
-            hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/13031/13031-flush.patch
         ;;
         sage_scripts)
             REPO=$SAGE_SCRIPTS_DIR
             BRANCH=devel/bin
-
-            # apply WIP mecurial patches
-            hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/14226/trac14226_scripts.patch
-
-            hg import http://trac.sagemath.org/sage_trac/raw-attachment/ticket/14328/trac_14328-scripts.patch
         ;;
         extcode)
             REPO=$SAGE_EXTDIR
