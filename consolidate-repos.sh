@@ -123,6 +123,9 @@ process-spkg () {
             rm -f .hgignore # hg add doesn't really add things if the file is supposed to be ignored
             case "$PKGNAME" in
                 # some packages need a bit of special processing
+                atlas)
+                    mv lapack-*.tar src
+                ;;
                 mpfr)
                     hg add patches/upstream
                     hg commit -m 'mpfr: add upstream patches to the repository'
