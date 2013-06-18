@@ -589,7 +589,41 @@ class SageDev(object):
             return ahead, behind
         else:
             print ticket or "     ", branch, "ahead", ahead, "behind", behind
-        
+
+    def export_patch(self, output_dir=None, header_format="git", path_format="new", commits=1):
+        """
+        Export the latest ``commits`` commits as patch files.
+
+        INPUT:
+
+        - ``output_dir`` -- a string or ``None`` (default: ``None``), the patch
+          files are written to this directory; if ``None``, then a temporary
+          directory will be created for the patch files
+
+        - ``header_format`` -- ``'hg-export'`` (mercurial export header),
+          ``'hg'`` (mercurial header), ``'git'`` (git mailbox header), or
+          ``'diff'`` (no header) (default: ``'git'``)
+
+        - ``path_format`` -- ``'new'`` (new repository layout) or ``'old'``
+          (old repository layout)
+
+        - ``commits`` -- an integer (default: ``1``)
+
+        """
+        for commit in range(commits):
+            fp = self.git.format_patch("--output-directory",self._get_tmp_dir(),"--no-stat","--numbered-files","--keep-subject","--no-signature","HEAD~%s..HEAD~%s"%(commit+1,commit))
+            if fp:
+                raise RuntimeError("git format-patch failed")
+
+            local_file = os.path.join(self._get_tmp_dir(),"1")
+            lines = open(local_file).read().splitlines()
+            lines = self._rewrite_patch(lines[1:], to_header_format=header_format, to_path_format=path_format, from_diff_format="git", from_header_format="git", from_path_format="new")
+            if output_dir is None:
+                output_dir = self._get_tmp_dir()
+
+            local_file = os.path.join(output_dir,"%04d.patch"%(commit+1))
+            open(local_file,'w').write("\n".join(lines))
+            print "Wrote patch to %s"%local_file
 
     def import_patch(self, patchname=None, url=None, local_file=None, diff_format=None, header_format=None, path_format=None):
         """
