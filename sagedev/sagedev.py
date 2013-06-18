@@ -60,7 +60,7 @@ class Config(object):
         EXAMPLES::
 
             sage: type(Config._doctest_config())
-            __main__.Config
+            <class '__main__.Config'>
 
         """
         self._config = configparser.ConfigParser()
@@ -234,7 +234,7 @@ class SageDev(object):
         TESTS::
 
             sage: type(SageDev(Config._doctest_config()))
-            __main__.SageDev
+            <class '__main__.SageDev'>
 
         """
         self._config = config
@@ -1087,8 +1087,8 @@ class SageDev(object):
 
         .. NOTE::
 
-            Most Sage developpers have configured mercurial to export
-            patches in git format.
+            Most Sage developers have configured mercurial to export patches in
+            git format.
 
         EXAMPLES::
 
