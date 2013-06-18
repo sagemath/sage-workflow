@@ -1430,8 +1430,8 @@ class SageDev(object):
 
             sage: s._rewrite_patch_header(open("data/trac_8703-trees-fh.patch").read().splitlines(), 'git')[:5]
             ['From: "Unknown User" <unknown@sagemath.org>',
-            'Subject: #8703: Enumerated sets and data structure for ordered and binary trees',
             'Date: ...',
+            'Subject: #8703: Enumerated sets and data structure for ordered and binary trees',
             '',
             '- The Class Abstract[Labelled]Tree allows for inheritance from different']
 
@@ -1474,7 +1474,7 @@ class SageDev(object):
             return header, lines[i:]
 
         if from_format == "git":
-            header, diff = parse_header(lines, (("user", GIT_FROM_REGEX), ("subject", GIT_SUBJECT_REGEX), ("date", GIT_DATE_REGEX)),
+            header, diff = parse_header(lines, (("user", GIT_FROM_REGEX), ("date", GIT_DATE_REGEX), ("subject", GIT_SUBJECT_REGEX)),
                                         mandatory=True)
 
             if to_format == "hg-export":
@@ -1507,8 +1507,8 @@ class SageDev(object):
                 subject = 'No Subject. Modified: %s'%(", ".join(self._detect_patch_modified_files(lines)))
             ret = []
             ret.append('From: %s'%user)
-            ret.append('Subject: %s'%subject)
             ret.append('Date: %s'%date)
+            ret.append('Subject: %s'%subject)
             ret.append('')
             if message and message != ['']: # avoid a double empty line
                 ret.extend(message)
