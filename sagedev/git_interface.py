@@ -505,11 +505,11 @@ class GitInterface(object):
 
 def git_cmd_wrapper(git_cmd):
     def f(self, *args, **kwds):
-        return self.execute(git_cmd, *args, **kwds)
+        return self.execute(git_cmd.replace("_","-"), *args, **kwds)
     return f
 
 for git_cmd in ["add","am","apply","bisect","branch","checkout",
-                "clean", "clone","commit","diff","fetch",
+                "clean", "clone","commit","diff","fetch","format_patch",
                "grep","init","log","merge",
                "mv","pull","push","rebase",
                "reset","rm","show","stash",
