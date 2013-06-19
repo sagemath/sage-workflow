@@ -120,28 +120,6 @@ process-spkg () {
             REPO=$SAGE_PKGS/$PKGNAME
             BRANCH=packages/$PKGNAME
 
-            rm -f .hgignore # hg add doesn't really add things if the file is supposed to be ignored
-            case "$PKGNAME" in
-                # some packages need a bit of special processing
-                atlas)
-                    mv lapack-*.tar src
-                ;;
-                mpfr)
-                    hg add patches/upstream
-                    hg commit -m 'mpfr: add upstream patches to the repository'
-                ;;
-                cliquer)
-                    hg add patches
-                    hg commit -m 'cliquer: add patches to the repository'
-                ;;
-                ntl)
-                    mv libtool src
-                ;;
-                singular)
-                    mv shared src
-                ;;
-            esac
-
             if tar --test-label < "$SPKGPATH" 2>/dev/null; then
                 TAROPTS=
                 TAREXT=.tar
@@ -314,6 +292,7 @@ for BRANCH in $BRANCHES ; do
     git branch -d $BRANCH || die "The octomerge failed; $BRANCH is still unmerged!"
 done
 
+git checkout -b build_system
 # Commit package-version.txt files to track package \.p[0-9]+ versions
 # (i.e. local revisions)
 for BRANCH in $BRANCHES ; do
@@ -334,7 +313,7 @@ git gc --aggressive --prune=0
 # installation scripts so that Sage can start building
 mv "$TMPDIR"/sage-repo/.git "$OUTDIR"
 cd "$OUTDIR"
-git checkout master .
+git checkout build_system .
 
 # Clean up $TMPDIR
 [[ -z $MADETMP ]] || rm -rf "$TMPDIR"
