@@ -438,7 +438,7 @@ class SageDev(object):
         elif ticket is None:
             ticket = oldticket
         elif oldticket != ticket:
-            if not self._UI.confirm("Are you sure you want to upload your changes to ticket %s instead of %s?"%(self._print(ticket), self._print(oldticket)), False):
+            if not self._UI.confirm("Are you sure you want to upload your changes to ticket %s instead of %s?"%(ticket, oldticket), False):
                 return
             self.git._ticket[branch] = ticket
         if ticket:
@@ -896,12 +896,12 @@ class SageDev(object):
             raise ValueError("You must specify a valid ticket")
         dep = self._dependencies_as_tickets(branchname)
         if not all:
-            self._UI.show("Ticket %s depends on %s"%(self._print(ticket), ", ".join([self._print(d) for d in dep])))
+            self._UI.show("Ticket %s depends on %s"%(ticket, ", ".join([d for d in dep])))
         else:
             for d in dep:
                 self.show_dependencies(d, True, seen)
         if _seen is None:
-            self._UI.show("Ticket %s depends on %s"%(self._print(ticket), ", ".join([self._print(d) for d in seen])))
+            self._UI.show("Ticket %s depends on %s"%(ticket, ", ".join([d for d in seen])))
 
     def merge(self, ticket="master", create_dependency=True, download=False, message=None):
         """
