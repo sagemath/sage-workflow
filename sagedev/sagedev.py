@@ -883,6 +883,10 @@ class SageDev(object):
         - :meth:`diff` -- Show the changes in this branch over the
           dependencies.
         """
+        if ticket is None:
+            ticket = self.current_ticket()
+            if ticket is None:
+                raise ValueError("not currently working on any ticket")
         if _seen is None:
             seen = []
         elif ticket in _seen:
