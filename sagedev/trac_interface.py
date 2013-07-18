@@ -5,7 +5,7 @@ import re
 import subprocess
 
 REALM = 'sage.math.washington.edu'
-TRAC_SERVER_URI = 'https://trac.tangentspace.org/sage_trac'
+TRAC_SERVER_URI = 'https://trac.sagemath.org'
 
 SUMMARY_REGEX = re.compile("^Summary: (.*)$")
 FIELD_REGEX = re.compile("^([A-Za-z ]+):(.*)$")
