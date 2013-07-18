@@ -11,12 +11,14 @@ def str_to_value(s):
     """
     Returns s as a boolean or int if possible, otherwise returns s itself.
     """
-    if s.lower() in ('true', 'false'):
-        return s.lower() == 'true'
-    try:
-        return int(s)
-    except ValueError:
-        return s
+    if isinstance(s,str):
+        if s.lower() in ('true', 'false'):
+            return s.lower() == 'true'
+        try:
+            return int(s)
+        except ValueError:
+            pass
+    return s
 
 def unbound_args(func):
     """
