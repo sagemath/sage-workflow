@@ -106,11 +106,14 @@ def commands():
     for name, method in exposed_methods(dev):
         print '    ', name.ljust(20), method.__doc__.strip().split('\n')[0]
 
-def help(command):
+def help():
     ""
+    if len(parsed.args) == 0:
+        parser.print_help()
+        sys.exit(1)
     method = getattr(dev, parsed.args[0], None)
     if method is None:
-        print "Unknown command: '%s'" % parsed.args[0]
+        print "Unknown command: '%s'" % method
         sys.exit(1)
     else:
         args_parser(method).print_help()
@@ -120,16 +123,16 @@ if __name__ == '__main__':
     dev = SageDev()
     dev.help = help
     dev.commands = commands
-    parser = argparse.ArgumentParser(prog='sage dev', epilog="For a list of valid commands, run 'sage dev commands'.")
+    import sys
+    parser = argparse.ArgumentParser(epilog="For a list of valid commands, run '%s commands'."%(sys.argv[0]))
     parser.add_argument('command', nargs='?')
     parser.add_argument('args', nargs=argparse.REMAINDER)
     parsed = parser.parse_args()
     if parsed.command is None:
-        print """
-Usage: sage dev command ...
-        
-For a list of valid commands, run 'sage dev commands'.
-        """.strip()
+        parser.print_help()
+        sys.exit(1)
+    elif parsed.command == "help":
+        help()
         sys.exit(1)
     elif hasattr(dev, parsed.command):
         method = getattr(dev, parsed.command)
