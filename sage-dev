@@ -49,19 +49,18 @@ def args_parser(func):
     if argspec.keywords:
         parser.add_argument(argspec.keywords, nargs=argparse.REMAINDER)
     return parser
-    
 
 def parse(func, arg_values):
     """
     Use the signature of ``func`` to parse the list of arguments ``arg_values``
     into prepositional and keyword arguments.
-    
+
     Arguments are parsed in the same order they appear in the function,
     with optional arguments becoming (optional) flags.  Vararg and kwds
     are also handled.
-        
+
     EXAMPLES::
-        
+
         sage: parse(lambda a, b, c='default': None, ['1','2'])
         ([1, 2, 'default'], {})
         sage: parse(lambda a, b, c='default': None, ['1','2','--c=3'])
