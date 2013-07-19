@@ -46,25 +46,8 @@ locations whenever you run ``sage -b``.
 sagedev.py
 ----------
 
-This is a Python module which implements development tools for Sage.
-It provides an interface to our `Trac server`_, an interface to git,
-and an interface to gathering input from the user, all of which come
-together to form ``sage dev``.
-
-Functionality includes:
-
-- **start**: Start or continue working on a given ticket.
-
-- **save**: Add/commit changes.
-
-- **upload**: Show your latest changes on the trac ticket.
-
-- **sync**: Merge changes from the latest Sage or from the latest work
-  on another given ticket into your current code.
-
-- ...?
-
-.. _Trac server: http://trac.sagemath.org/sage_trac/
+There used to be a sagedev development tool in this repository. Work on this
+has been moved to http://trac.sagemath.org/ticket/14482.
 
 
 issue_export.py
